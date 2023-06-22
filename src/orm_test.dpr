@@ -10,64 +10,33 @@ uses
   ZConnection,
   Entity in 'Entity.pas',
   EntityManager in 'EntityManager.pas',
-  SysDay in 'SysDay.pas',
-  DayManager in 'DayManager.pas',
   ChBankalar in 'ChBankalar.pas',
-  ChBankaManager in 'ChBankaManager.pas',
-  ChBankaSubesiManager in 'ChBankaSubesiManager.pas';
+  SysGunler in 'SysGunler.pas',
+  EntityAttributes in 'EntityAttributes.pas';
 
 var
   LConn: TZConnection;
-(*
-  LDayMan: TDayManager;
-  LDay: TSysDay;
-  LDays: TList<TSysDay>;
-*)
-  LBankaMan: TChBankaManager;
-  LBanka, LBanka2: TChBanka;
-  LBankalar: TList<TChBanka>;
-
-  LBankaSubeMan: TChBankaSubesiManager;
-//  LBankaSube: TChBankaSubesi;
-  LBankaSubeleri: TList<TChBankaSubesi>;
+  LMan: TEntityManager2;
+  LBanka: TChBanka;
+  LBankaSube: TChBankaSubesi;
 begin
   try
     LConn := TZConnection.Create(nil);
     LConn.Protocol := 'postgresql-9';
-    LConn.Database := 'mydb';
+    LConn.Database := 'ths_erp';
     LConn.HostName := 'localhost';
     LConn.User := 'postgres';
     LConn.Password := 'qwe';
     LConn.Connect;
-(*
-    LDayMan := TDayManager.Create(LConn);
-    LDay := LDayMan.GetById(27);
 
-//    LDay.DayName := 'TestXXXXXxxxxx';
-//    LDayMan.Update(LDay);
+    LMan := TEntityManager2.Create(LConn);
+    LBanka := LMan.GetById(TChBanka, 2) as TChBanka;
 
-    LDayMan.Delete(27);
+//    LBankaSube := LMan.GetById(TChBankaSubesi, 1) as TChBankaSubesi;
 
-    LDays := LDayMan.GetList('');
-    LDayMan.DestoryList(LDays);
-*)
-    LBankaMan := TChBankaManager.Create(LConn);
-    LBanka := LBankaMan.GetById(1);
-    LBanka2 := LBanka.Clone<TChBanka>;
-    LBanka.Clear;
-    FreeAndNil(LBanka);
-//    LBankalar := LBankaMan.GetList('');
-//    LBankaMan.DestoryList(LBankalar);
+    Writeln('end of process');
 
-//    LBankaSubeMan := TChBankaSubesiManager.Create(LConn);
-(*    LBankaSube := LBankaSubeMan.GetById(1);
-    LBankaSubeMan.DisableLazzyLoading;
-    LBankaSubeleri := LBankaSubeMan.GetList('');
-    LBankaSubeMan.DestoryList(LBankaSubeleri);
-*)
-//    LBankaSubeleri := LBankaSubeMan.LogicalGet('');
-//    LBankaSubeMan.DestoryList(LBankaSubeleri);
-    Writeln('aaaa');
+    FreeAndNil(LBankaSube);
   except
     on E: Exception do
       Writeln(E.ClassName, ': ', E.Message);
