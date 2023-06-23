@@ -47,7 +47,7 @@ type
     [Column('swift_kodu', [], 16, 0, 0)]
     property SwiftKodu: string read FSwiftKodu write FSwiftKodu;
 
-    [OneToOne('BankaID', 'ID')]
+    [OneToMany('BankaID', 'ID')]
     property BankaSubeleri: TArray<TChBankaSubesi> read FBankaSubeleri write FBankaSubeleri;
 
     constructor Create; override;

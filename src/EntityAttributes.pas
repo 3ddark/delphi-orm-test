@@ -82,6 +82,12 @@ type
     property ValuePropertyName: string read FValuePropertyName write FValuePropertyName;
   end;
 
+  EagerLoad = class (TCustomAttribute)
+  end;
+
+  LazzyLoad = class (TCustomAttribute)
+  end;
+
 implementation
 
 uses

@@ -18,7 +18,7 @@ var
   LConn: TZConnection;
   LMan: TEntityManager2;
   LBanka: TChBanka;
-  LBankaSube: TChBankaSubesi;
+//  LBankaSube: TChBankaSubesi;
 begin
   try
     LConn := TZConnection.Create(nil);
@@ -30,13 +30,13 @@ begin
     LConn.Connect;
 
     LMan := TEntityManager2.Create(LConn);
-    LBanka := LMan.GetById(TChBanka, 2) as TChBanka;
+    LBanka := LMan.GetById(TChBanka, 1) as TChBanka;
+    Writeln('end of process');
+    FreeAndNil(LBanka);
 
 //    LBankaSube := LMan.GetById(TChBankaSubesi, 1) as TChBankaSubesi;
-
-    Writeln('end of process');
-
-    FreeAndNil(LBankaSube);
+//    Writeln('end of process');
+//    FreeAndNil(LBankaSube);
   except
     on E: Exception do
       Writeln(E.ClassName, ': ', E.Message);

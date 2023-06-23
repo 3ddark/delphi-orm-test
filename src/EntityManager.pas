@@ -17,11 +17,9 @@ type
 
     function GetTableName(AClass: TClass): string;
   public
-    property LazzyLoading: Boolean read FLazzyLoading;
-
     function GetById(AClass: TClass; AID: Int64; ALock: Boolean = False): TObject;
-    function GetList<T>(const AIDs: TArray<Int64>; ALock: Boolean = False): TList<T>; reintroduce; overload;
-    function GetList<T>(const AFilter: string = ''; ALock: Boolean = False): TList<T>; reintroduce; overload;
+    function GetList(AClass: TClass; const AIDs: TArray<Int64>; ALock: Boolean = False): TArray<TObject>; reintroduce; overload;
+    function GetList(AClass: TClass; const AFilter: string = ''; ALock: Boolean = False): TArray<TObject>; reintroduce; overload;
     procedure Add(AModel: TEntity);
     procedure AddBatch<T>(AModels: TArray<T>);
     procedure Update(AModel: TEntity);
@@ -42,9 +40,6 @@ type
     procedure LogicalDelete<T>(const AIDs: TArray<Int64>; AWithCommit: Boolean = False);
 
     constructor Create(AConnection: TZAbstractConnection);
-
-    function DisableLazzyLoading: Boolean;
-    function EnableLazzyLoading: Boolean;
   end;
 
 implementation
@@ -58,7 +53,7 @@ var
 
   ACtx: TRttiContext;
   AType: TRttiType;
-  AProp, APropID : TRttiProperty;
+  AProp : TRttiProperty;
   LAttr : TCustomAttribute;
 
   LColName : string;
@@ -69,6 +64,7 @@ var
 begin
   ACtx := TRttiContext.Create;
   LCmd := TZQuery.Create(nil);
+  AProp := nil;
   try
     AType := ACtx.GetType(AModel);
     LTableName := Self.GetTableName(AModel.ClassType);
@@ -81,9 +77,6 @@ begin
     begin
       if AProp.Visibility in [mvPublished, mvPublic] then
       begin
-        if AProp.Name = 'id' then
-          APropID := AProp;
-
         for LAttr in AProp.GetAttributes do
         begin
           if LAttr is Column then
@@ -131,7 +124,7 @@ begin
     LCmd.Connection := Connection;
     LCmd.SQL.Text := Trim('INSERT INTO ' + LTableName + '(' + LeftStr(LColNames, Length(LColNames)-1) + ') VALUES (' + LeftStr(LColValues, Length(LColValues)-1) + ') RETURNING id;');
     LCmd.Prepare;
-    if LCmd.Prepared then
+    if LCmd.Prepared and (AProp <> nil) then
     begin
       LCmd.Open;
       AProp.SetValue(LPointer, TValue.From(LCmd.Fields.Fields[0].AsLargeInt));
@@ -149,24 +142,37 @@ var
   ACtx: TRttiContext;
   AType: TRttiType;
   AMethod: TRttiMethod;
-  AProp, AProp2: TRttiProperty;
+
+  AProp: TRttiProperty;
+  APropFilter: TRttiProperty;
+  APropValue: TRttiProperty;
   AProps: TArray<TRttiProperty>;
+
   AParam: TRttiParameter;
   AValue: TValue;
   AValues: TArray<TValue>;
   LAttr: TCustomAttribute;
+  LAttr2: TCustomAttribute;
 
   AModel: TObject;
+  AModelArr: TArray<TObject>;
 
   LColName: string;
   LTableName: string;
   LColNames: string;
   LColID: string;
   LPointer: Pointer;
+  LPointerArr: Pointer;
 
   AField: TField;
   IsList: Boolean;
   LTmpArr: TArray<string>;
+
+  LPackage: TRttiPackage;
+
+  LFilter: string;
+  LFilterValue: string;
+  n1: Integer;
 begin
   if AId = 0 then Exit;
 
@@ -211,10 +217,12 @@ begin
             else
               LColNames := LColNames + LColName + ',';
           end
-          else
-          if ((AProp.PropertyType.TypeKind = tkClass) or (AProp.PropertyType.TypeKind = tkDynArray))
-          and ((LAttr is OneToOne) or (LAttr is OneToMany))
-          then
+          else if (AProp.PropertyType.TypeKind = tkClass) and (LAttr is OneToOne) then
+          begin
+            SetLength(AProps, Length(AProps)+1);
+            AProps[Length(AProps)-1] := AProp;
+          end
+          else if (AProp.PropertyType.TypeKind = tkDynArray) and (LAttr is OneToMany) then
           begin
             SetLength(AProps, Length(AProps)+1);
             AProps[Length(AProps)-1] := AProp;
@@ -307,30 +315,63 @@ begin
       end;
     end;
 
+    LAttr := nil;
     for AProp in AProps do
     begin
-      AValue := AProp.GetValue(LPointer);
-      AModel := AValue.AsObject;
-
       for LAttr in AProp.GetAttributes do
+      begin
         if (LAttr is OneToOne) then
         begin
-          AProp2 := AType.GetProperty((LAttr as OneToOne).ValuePropertyName);
-          LColID := AProp2.GetValue(LPointer).AsVariant;
+          APropValue := AType.GetProperty((LAttr as OneToOne).ValuePropertyName);
+          LFilterValue := APropValue.GetValue(LPointer).AsVariant;
+          Break;
         end
         else if (LAttr is OneToMany) then
         begin
-          AProp2 := AType.GetProperty((LAttr as OneToOne).ValuePropertyName);
-          LColID := AProp2.GetValue(LPointer).AsVariant;
+          APropValue := AType.GetProperty((LAttr as OneToMany).ValuePropertyName);
+          LFilterValue := APropValue.GetValue(LPointer).AsVariant;
+          Break;
         end;
+      end;
 
-      if (AProp.PropertyType.TypeKind = tkDynArray) then
-      begin
-        AModel := Self.GetById(AModel.ClassType, LColID.ToInt64, ALock);
-      end
-      else
-        AModel := Self.GetById(AModel.ClassType, LColID.ToInt64, ALock);
-      AProp.SetValue(LPointer, AModel);
+        if (AProp.PropertyType.TypeKind = tkDynArray) then
+        begin
+          AValue := AProp.GetValue(LPointer);
+
+          LPackage := ACtx.GetPackages[0];
+          LTmpArr := AProp.PropertyType.QualifiedName.Split(['<']);
+          AType := LPackage.FindType(LTmpArr[Length(LTmpArr)-1].Replace('>', ''));
+          Writeln(AType.Name);
+          Writeln(AType.AsInstance.MetaclassType.ClassName);
+
+          for APropFilter in AType.GetProperties do
+            if (APropFilter.Name = (LAttr as OneToMany).FilterPropertyName) then
+              for LAttr2 in APropFilter.GetAttributes do
+                if (LAttr2 is Column) then
+                begin
+                  LFilter := ' AND ' + (LAttr2 as Column).Name + '=' + QuotedStr(LFilterValue);
+                  Break;
+                end;
+
+          AModelArr := Self.GetList(AType.AsInstance.MetaclassType, LFilter, ALock);
+
+          SetLength(AValues, 0);
+          for AModel in AModelArr do
+          begin
+            SetLength(AValues, Length(AValues)+1);
+            AValues[Length(AValues)-1] := TValue.From(AModel);
+          end;
+          Move(AModelArr, LPointerArr, SizeOf(Pointer));
+
+          AProp.SetValue(LPointer, TValue.FromArray(AProp.PropertyType.Handle, AValues));
+        end
+        else
+        begin
+          AValue := AProp.GetValue(LPointer);
+          AModel := AValue.AsObject;
+          AModel := Self.GetById(AModel.ClassType, LFilterValue.ToInt64, ALock);
+          AProp.SetValue(LPointer, AModel);
+        end;
     end;
 
   finally
@@ -339,14 +380,262 @@ begin
   end;
 end;
 
-function TEntityManager2.GetList<T>(const AFilter: string; ALock: Boolean): TList<T>;
+function TEntityManager2.GetList(AClass: TClass; const AFilter: string; ALock: Boolean): TArray<TObject>;
+var
+  LCmd: TZQuery;
+
+  ACtx: TRttiContext;
+  AType: TRttiType;
+  AMethod: TRttiMethod;
+
+  AProp: TRttiProperty;
+  APropFilter: TRttiProperty;
+  APropValue: TRttiProperty;
+  AProps: TArray<TRttiProperty>;
+
+  AParam: TRttiParameter;
+  AValue: TValue;
+  AValues: TArray<TValue>;
+  LAttr: TCustomAttribute;
+  LAttr2: TCustomAttribute;
+
+  AModel: TObject;
+  AModelArr: TArray<TObject>;
+
+  LColName: string;
+  LTableName: string;
+  LColNames: string;
+  LColID: string;
+  LPointer: Pointer;
+
+  AField: TField;
+  IsList: Boolean;
+  LTmpArr: TArray<string>;
+
+  LPackage: TRttiPackage;
+
+  LFilter: string;
+  LFilterValue: string;
 begin
-//
+  LTableName := Self.GetTableName(AClass);
+
+  if LTableName = '' then Exit;
+
+  ACtx := TRttiContext.Create;
+  LCmd := TZQuery.Create(nil);
+  try
+    AType := ACtx.GetType(AClass);
+
+
+
+
+
+    LColNames := '';
+    SetLength(AProps, 0);
+    for AProp in AType.GetProperties do
+    begin
+      if AProp.IsReadable and AProp.IsWritable and (AProp.Visibility in [mvPublished, mvPublic]) then
+      begin
+        for LAttr in AProp.GetAttributes do
+        begin
+          if LAttr is Column then
+          begin
+            LColName := Column(LAttr).Name;
+            if LColName = '' then
+              raise Exception.Create('Column Attribute must be declared.' + sLineBreak + 'If it is not used use "NotMapped" attribute!!!');
+            if LColName = 'id' then
+              LColID := LColName
+            else
+              LColNames := LColNames + LColName + ',';
+          end
+          else if (AProp.PropertyType.TypeKind = tkClass) and (LAttr is OneToOne) then
+          begin
+            SetLength(AProps, Length(AProps)+1);
+            AProps[Length(AProps)-1] := AProp;
+          end
+          else if (AProp.PropertyType.TypeKind = tkDynArray) and (LAttr is OneToMany) then
+          begin
+            SetLength(AProps, Length(AProps)+1);
+            AProps[Length(AProps)-1] := AProp;
+          end;
+        end;
+      end;
+    end;
+
+    if LColNames = '' then
+      raise Exception.Create('field_name not found for SQL sorugusu için field_name bilgilerine ulaþýlamadý!!!');
+
+    LColNames := LColID + ',' + LColNames;
+
+    LCmd.Connection := Connection;
+    LCmd.SQL.Text := Trim('SELECT ' + LeftStr(LColNames, Length(LColNames)-1) + ' FROM ' + LTableName + ' WHERE 1=1 ' + AFilter);
+    LCmd.Prepare;
+    if LCmd.Prepared then
+    begin
+      LCmd.Open;
+      LCmd.First;
+      while not LCmd.Eof do
+      begin
+
+        AModel := nil;
+        for AMethod in AType.GetMethods do
+        begin
+          if Assigned(AMethod) and AMethod.IsConstructor and AType.IsInstance then
+          begin
+            for AParam in AMethod.GetParameters do
+            begin
+              SetLength(AValues, Length(AValues)+1);
+              AValues[Length(AValues)-1] := AParam;
+            end;
+            AModel := TEntity(AMethod.Invoke(AType.AsInstance.MetaclassType, []).AsObject);
+            Move(AModel, LPointer, SizeOf(Pointer));
+            break;
+          end;
+        end;
+
+        if AModel = nil then
+          Break;
+
+        for AProp in AType.GetProperties do
+          if AProp.IsReadable and AProp.IsWritable and (AProp.Visibility in [mvPublic, mvPublished]) then
+          begin
+            for LAttr in AProp.GetAttributes do
+              if (LAttr is Column) then
+                for AField in LCmd.Fields do
+                  if Column(LAttr).Name = AField.FieldName then
+                  begin
+                    case AField.DataType of
+                      ftUnknown: ;
+                      ftString        : AProp.SetValue(LPointer, TValue.From(AField.AsString));
+                      ftSmallint      : AProp.SetValue(LPointer, TValue.From(AField.AsInteger));
+                      ftInteger       : AProp.SetValue(LPointer, TValue.From(AField.AsInteger));
+                      ftWord          : AProp.SetValue(LPointer, TValue.From(AField.AsInteger));
+                      ftBoolean: ;
+                      ftFloat: ;
+                      ftCurrency: ;
+                      ftBCD: ;
+                      ftDate: ;
+                      ftTime: ;
+                      ftDateTime: ;
+                      ftBytes: ;
+                      ftVarBytes: ;
+                      ftAutoInc: ;
+                      ftBlob: ;
+                      ftMemo          : AProp.SetValue(LPointer, TValue.From(AField.AsString));
+                      ftGraphic: ;
+                      ftFmtMemo       : AProp.SetValue(LPointer, TValue.From(AField.AsString));
+                      ftParadoxOle: ;
+                      ftDBaseOle: ;
+                      ftTypedBinary: ;
+                      ftCursor: ;
+                      ftFixedChar     : AProp.SetValue(LPointer, TValue.From(AField.AsString));
+                      ftWideString    : AProp.SetValue(LPointer, TValue.From(AField.AsString));
+                      ftLargeint      : AProp.SetValue(LPointer, TValue.From(AField.AsLargeInt));
+                      ftADT: ;
+                      ftArray: ;
+                      ftReference: ;
+                      ftDataSet: ;
+                      ftOraBlob: ;
+                      ftOraClob: ;
+                      ftVariant       : AProp.SetValue(LPointer, TValue.From(AField.Value));
+                      ftInterface: ;
+                      ftIDispatch: ;
+                      ftGuid: ;
+                      ftTimeStamp: ;
+                      ftFMTBcd: ;
+                      ftFixedWideChar: ;
+                      ftWideMemo      : AProp.SetValue(LPointer, TValue.From(AField.AsString));
+                      ftOraTimeStamp: ;
+                      ftOraInterval: ;
+                      ftLongWord      : AProp.SetValue(LPointer, TValue.From(AField.AsInteger));
+                      ftShortint      : AProp.SetValue(LPointer, TValue.From(AField.AsInteger));
+                      ftByte          : AProp.SetValue(LPointer, TValue.From(AField.AsInteger));
+                      ftExtended: ;
+                      ftConnection: ;
+                      ftParams: ;
+                      ftStream: ;
+                      ftTimeStampOffset: ;
+                      ftObject: ;
+                      ftSingle: ;
+                    end;
+                    Break;
+                  end;
+          end;
+
+        SetLength(Result, Length(Result)+1);
+        Result[Length(Result)-1] := AModel;
+        LCmd.Next;
+      end;
+    end;
+
+
+
+
+
+
+(*
+    LAttr := nil;
+    for AProp in AProps do
+    begin
+      for LAttr in AProp.GetAttributes do
+      begin
+        if (LAttr is OneToOne) then
+        begin
+          APropValue := AType.GetProperty((LAttr as OneToOne).ValuePropertyName);
+          LFilterValue := APropValue.GetValue(LPointer).AsVariant;
+          Break;
+        end
+        else if (LAttr is OneToMany) then
+        begin
+          APropValue := AType.GetProperty((LAttr as OneToMany).ValuePropertyName);
+          LFilterValue := APropValue.GetValue(LPointer).AsVariant;
+          Break;
+        end;
+      end;
+
+        if (AProp.PropertyType.TypeKind = tkDynArray) then
+        begin
+          AValue := AProp.GetValue(LPointer);
+
+          LPackage := ACtx.GetPackages[0];
+          LTmpArr := AProp.PropertyType.QualifiedName.Split(['<']);
+          AType := LPackage.FindType(LTmpArr[Length(LTmpArr)-1].Replace('>', ''));
+          Writeln(AType.Name);
+          Writeln(AType.AsInstance.MetaclassType.ClassName);
+
+          for APropFilter in AType.GetProperties do
+            if (APropFilter.Name = (LAttr as OneToMany).FilterPropertyName) then
+              for LAttr2 in APropFilter.GetAttributes do
+                if (LAttr2 is Column) then
+                begin
+                  LFilter := ' AND ' + (LAttr2 as Column).Name + '=' + QuotedStr(LFilterValue);
+                  Break;
+                end;
+
+          AModelArr := Self.GetList(AValue.AsClass, LFilter, ALock);
+
+          AType := ACtx.GetType(AModelArr);
+          AProp.SetValue(LPointer, TValue.FromArray(AType.Handle, AValue));
+        end
+        else
+        begin
+          AValue := AProp.GetValue(LPointer);
+          AModel := AValue.AsObject;
+          AModel := Self.GetById(AModel.ClassType, LFilterValue.ToInt64, ALock);
+          AProp.SetValue(LPointer, AModel);
+        end;
+    end;
+*)
+  finally
+    ACtx.Free;
+    LCmd.Free;
+  end;
 end;
 
-function TEntityManager2.GetList<T>(const AIDs: TArray<Int64>; ALock: Boolean): TList<T>;
+function TEntityManager2.GetList(AClass: TClass; const AIDs: TArray<Int64>; ALock: Boolean): TArray<TObject>;
 begin
-//
+  Result := [];
+  Writeln('GetList with ID Array');
 end;
 
 function TEntityManager2.GetTableName(AClass: TClass): string;
@@ -428,6 +717,8 @@ begin
     Move(AModel, LPointer, SizeOf(Pointer));
 
     LTableName := Self.GetTableName(AModel.ClassType);
+
+    LID := 0;
 
     LColNames := '';
     for AProp in AType.GetProperties do
@@ -578,16 +869,6 @@ end;
 procedure TEntityManager2.DeleteBatch<T>(const AFilter: string);
 begin
 //
-end;
-
-function TEntityManager2.DisableLazzyLoading: Boolean;
-begin
-  Self.FLazzyLoading := False;
-end;
-
-function TEntityManager2.EnableLazzyLoading: Boolean;
-begin
-  Self.FLazzyLoading := True;
 end;
 
 end.
