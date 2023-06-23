@@ -8,7 +8,7 @@ uses
   Data.DB, EntityAttributes;
 
 type
-  TEntityManager2 = class
+  TEntityManager = class
   private
     FConnection: TZAbstractConnection;
     FLazzyLoading: Boolean;
@@ -17,12 +17,12 @@ type
 
     function GetTableName(AClass: TClass): string;
   public
-    function GetById(AClass: TClass; AID: Int64; ALock: Boolean = False): TObject;
-    function GetList(AClass: TClass; const AIDs: TArray<Int64>; ALock: Boolean = False): TArray<TObject>; reintroduce; overload;
-    function GetList(AClass: TClass; const AFilter: string = ''; ALock: Boolean = False): TArray<TObject>; reintroduce; overload;
-    procedure Add(AModel: TEntity);
+    function GetById(AClass: TClass; AID: Int64; ALock: Boolean = False): TObject; virtual;
+    function GetList(AClass: TClass; const AIDs: TArray<Int64>; ALock: Boolean = False): TArray<TObject>; reintroduce; overload; virtual;
+    function GetList(AClass: TClass; const AFilter: string = ''; ALock: Boolean = False): TArray<TObject>; reintroduce; overload; virtual;
+    procedure Add(AModel: TObject);
     procedure AddBatch<T>(AModels: TArray<T>);
-    procedure Update(AModel: TEntity);
+    procedure Update(AModel: TObject);
     procedure UpdateBatch<T>(AModels: TArray<T>);
     procedure Delete(AClass: TClass; const AID: Int64);
     procedure DeleteBatch<T>(const AIDs: TArray<Int64>); reintroduce; overload;
@@ -47,7 +47,7 @@ implementation
 uses
   System.Classes;
 
-procedure TEntityManager2.Add(AModel: TEntity);
+procedure TEntityManager.Add(AModel: TObject);
 var
   LCmd: TZQuery;
 
@@ -56,23 +56,22 @@ var
   AProp : TRttiProperty;
   LAttr : TCustomAttribute;
 
-  LColName : string;
-  LTableName : string;
-  LColNames: string;
-  LColValues: string;
+  LTable : string;
+  LNames: string;
+  LValues: string;
   LPointer: Pointer;
 begin
   ACtx := TRttiContext.Create;
   LCmd := TZQuery.Create(nil);
   AProp := nil;
   try
-    AType := ACtx.GetType(AModel);
-    LTableName := Self.GetTableName(AModel.ClassType);
+    AType := ACtx.GetType(AModel.ClassType);
+    LTable := Self.GetTableName(AModel.ClassType);
 
     Move(AModel, LPointer, SizeOf(Pointer));
 
-    LColNames := '';
-    LColValues := '';
+    LNames := '';
+    LValues := '';
     for AProp in AType.GetProperties do
     begin
       if AProp.Visibility in [mvPublished, mvPublic] then
@@ -81,40 +80,38 @@ begin
         begin
           if LAttr is Column then
           begin
-            LColName := Column(LAttr).Name;
+            if Column(LAttr).Name = '' then
+              raise Exception.Create('Column attribute must be declared!!!');
 
-            if LColName = '' then
-              raise Exception.Create('ColumnAttribute tanýmlý deðil. Bu bilgi tanýmlanmak zorunda!!!');
-
-            if LColName = 'id' then
+            if Column(LAttr).Name = 'id' then
               Break;
 
-            LColNames := LColNames + LColName + ',';
+            LNames := LNames + Column(LAttr).Name + ',';
 
             case AProp.PropertyType.TypeKind of
               tkUnknown       : ;
-              tkInteger       : LColValues := LColValues + IntToStr(AProp.GetValue(LPointer).AsInteger) + ',';
-              tkChar          : LColValues := LColValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
-              tkEnumeration   : raise Exception.Create('Tanýmlý olmayan data type');
-              tkFloat         : LColValues := LColValues + FloatToStr(AProp.GetValue(LPointer).AsExtended) + ',';
-              tkString        : LColValues := LColValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
-              tkSet           : raise Exception.Create('Tanýmlý olmayan data type');
-              tkClass         : raise Exception.Create('Tanýmlý olmayan data type');
-              tkMethod        : raise Exception.Create('Tanýmlý olmayan data type');
-              tkWChar         : LColValues := LColValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
-              tkLString       : LColValues := LColValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
-              tkWString       : LColValues := LColValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
-              tkVariant       : raise Exception.Create('Tanýmlý olmayan data type');
-              tkArray         : raise Exception.Create('Tanýmlý olmayan data type');
-              tkRecord        : raise Exception.Create('Tanýmlý olmayan data type');
-              tkInterface     : raise Exception.Create('Tanýmlý olmayan data type');
-              tkInt64         : LColValues := LColValues + IntToStr(AProp.GetValue(LPointer).AsInt64) + ',';
-              tkDynArray      : raise Exception.Create('Tanýmlý olmayan data type');
-              tkUString       : LColValues := LColValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
-              tkClassRef      : raise Exception.Create('Tanýmlý olmayan data type');
-              tkPointer       : raise Exception.Create('Tanýmlý olmayan data type');
-              tkProcedure     : raise Exception.Create('Tanýmlý olmayan data type');
-              tkMRecord       : raise Exception.Create('Tanýmlý olmayan data type');
+              tkInteger       : LValues := LValues + IntToStr(AProp.GetValue(LPointer).AsInteger) + ',';
+              tkChar          : LValues := LValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
+              tkEnumeration   : raise Exception.Create('Not implemented data type');
+              tkFloat         : LValues := LValues + FloatToStr(AProp.GetValue(LPointer).AsExtended) + ',';
+              tkString        : LValues := LValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
+              tkSet           : raise Exception.Create('Not implemented data type');
+              tkClass         : raise Exception.Create('Not implemented data type');
+              tkMethod        : raise Exception.Create('Not implemented data type');
+              tkWChar         : LValues := LValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
+              tkLString       : LValues := LValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
+              tkWString       : LValues := LValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
+              tkVariant       : raise Exception.Create('Not implemented data type');
+              tkArray         : raise Exception.Create('Not implemented data type');
+              tkRecord        : raise Exception.Create('Not implemented data type');
+              tkInterface     : raise Exception.Create('Not implemented data type');
+              tkInt64         : LValues := LValues + IntToStr(AProp.GetValue(LPointer).AsInt64) + ',';
+              tkDynArray      : raise Exception.Create('Not implemented data type');
+              tkUString       : LValues := LValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
+              tkClassRef      : raise Exception.Create('Not implemented data type');
+              tkPointer       : raise Exception.Create('Not implemented data type');
+              tkProcedure     : raise Exception.Create('Not implemented data type');
+              tkMRecord       : raise Exception.Create('Not implemented data type');
             end;
           end;
         end;
@@ -122,7 +119,7 @@ begin
     end;
 
     LCmd.Connection := Connection;
-    LCmd.SQL.Text := Trim('INSERT INTO ' + LTableName + '(' + LeftStr(LColNames, Length(LColNames)-1) + ') VALUES (' + LeftStr(LColValues, Length(LColValues)-1) + ') RETURNING id;');
+    LCmd.SQL.Text := Trim('INSERT INTO ' + LTable + '(' + LeftStr(LNames, Length(LNames)-1) + ') VALUES (' + LeftStr(LValues, Length(LValues)-1) + ') RETURNING id;');
     LCmd.Prepare;
     if LCmd.Prepared and (AProp <> nil) then
     begin
@@ -135,7 +132,7 @@ begin
   end;
 end;
 
-function TEntityManager2.GetById(AClass: TClass; AID: Int64; ALock: Boolean): TObject;
+function TEntityManager.GetById(AClass: TClass; AID: Int64; ALock: Boolean): TObject;
 var
   LCmd: TZQuery;
 
@@ -148,7 +145,6 @@ var
   APropValue: TRttiProperty;
   AProps: TArray<TRttiProperty>;
 
-  AParam: TRttiParameter;
   AValue: TValue;
   AValues: TArray<TValue>;
   LAttr: TCustomAttribute;
@@ -165,14 +161,13 @@ var
   LPointerArr: Pointer;
 
   AField: TField;
-  IsList: Boolean;
-  LTmpArr: TArray<string>;
 
   LPackage: TRttiPackage;
 
   LFilter: string;
   LFilterValue: string;
-  n1: Integer;
+
+  StartBracetPos, EndBracetPos: Integer;
 begin
   if AId = 0 then Exit;
 
@@ -189,11 +184,6 @@ begin
     begin
       if Assigned(AMethod) and AMethod.IsConstructor and AType.IsInstance then
       begin
-        for AParam in AMethod.GetParameters do
-        begin
-          SetLength(AValues, Length(AValues)+1);
-          AValues[Length(AValues)-1] := AParam;
-        end;
         Result := TEntity(AMethod.Invoke(AType.AsInstance.MetaclassType, []).AsObject);
         break;
       end;
@@ -339,10 +329,9 @@ begin
           AValue := AProp.GetValue(LPointer);
 
           LPackage := ACtx.GetPackages[0];
-          LTmpArr := AProp.PropertyType.QualifiedName.Split(['<']);
-          AType := LPackage.FindType(LTmpArr[Length(LTmpArr)-1].Replace('>', ''));
-          Writeln(AType.Name);
-          Writeln(AType.AsInstance.MetaclassType.ClassName);
+          StartBracetPos := Pos('<', AProp.PropertyType.QualifiedName);
+          EndBracetPos := Pos('>', AProp.PropertyType.QualifiedName);
+          AType := LPackage.FindType(Copy(AProp.PropertyType.QualifiedName, StartBracetPos, EndBracetPos-StartBracetPos));
 
           for APropFilter in AType.GetProperties do
             if (APropFilter.Name = (LAttr as OneToMany).FilterPropertyName) then
@@ -380,7 +369,7 @@ begin
   end;
 end;
 
-function TEntityManager2.GetList(AClass: TClass; const AFilter: string; ALock: Boolean): TArray<TObject>;
+function TEntityManager.GetList(AClass: TClass; const AFilter: string; ALock: Boolean): TArray<TObject>;
 var
   LCmd: TZQuery;
 
@@ -393,9 +382,7 @@ var
   APropValue: TRttiProperty;
   AProps: TArray<TRttiProperty>;
 
-  AParam: TRttiParameter;
   AValue: TValue;
-  AValues: TArray<TValue>;
   LAttr: TCustomAttribute;
   LAttr2: TCustomAttribute;
 
@@ -409,10 +396,7 @@ var
   LPointer: Pointer;
 
   AField: TField;
-  IsList: Boolean;
   LTmpArr: TArray<string>;
-
-  LPackage: TRttiPackage;
 
   LFilter: string;
   LFilterValue: string;
@@ -482,11 +466,6 @@ begin
         begin
           if Assigned(AMethod) and AMethod.IsConstructor and AType.IsInstance then
           begin
-            for AParam in AMethod.GetParameters do
-            begin
-              SetLength(AValues, Length(AValues)+1);
-              AValues[Length(AValues)-1] := AParam;
-            end;
             AModel := TEntity(AMethod.Invoke(AType.AsInstance.MetaclassType, []).AsObject);
             Move(AModel, LPointer, SizeOf(Pointer));
             break;
@@ -567,78 +546,19 @@ begin
         LCmd.Next;
       end;
     end;
-
-
-
-
-
-
-(*
-    LAttr := nil;
-    for AProp in AProps do
-    begin
-      for LAttr in AProp.GetAttributes do
-      begin
-        if (LAttr is OneToOne) then
-        begin
-          APropValue := AType.GetProperty((LAttr as OneToOne).ValuePropertyName);
-          LFilterValue := APropValue.GetValue(LPointer).AsVariant;
-          Break;
-        end
-        else if (LAttr is OneToMany) then
-        begin
-          APropValue := AType.GetProperty((LAttr as OneToMany).ValuePropertyName);
-          LFilterValue := APropValue.GetValue(LPointer).AsVariant;
-          Break;
-        end;
-      end;
-
-        if (AProp.PropertyType.TypeKind = tkDynArray) then
-        begin
-          AValue := AProp.GetValue(LPointer);
-
-          LPackage := ACtx.GetPackages[0];
-          LTmpArr := AProp.PropertyType.QualifiedName.Split(['<']);
-          AType := LPackage.FindType(LTmpArr[Length(LTmpArr)-1].Replace('>', ''));
-          Writeln(AType.Name);
-          Writeln(AType.AsInstance.MetaclassType.ClassName);
-
-          for APropFilter in AType.GetProperties do
-            if (APropFilter.Name = (LAttr as OneToMany).FilterPropertyName) then
-              for LAttr2 in APropFilter.GetAttributes do
-                if (LAttr2 is Column) then
-                begin
-                  LFilter := ' AND ' + (LAttr2 as Column).Name + '=' + QuotedStr(LFilterValue);
-                  Break;
-                end;
-
-          AModelArr := Self.GetList(AValue.AsClass, LFilter, ALock);
-
-          AType := ACtx.GetType(AModelArr);
-          AProp.SetValue(LPointer, TValue.FromArray(AType.Handle, AValue));
-        end
-        else
-        begin
-          AValue := AProp.GetValue(LPointer);
-          AModel := AValue.AsObject;
-          AModel := Self.GetById(AModel.ClassType, LFilterValue.ToInt64, ALock);
-          AProp.SetValue(LPointer, AModel);
-        end;
-    end;
-*)
   finally
     ACtx.Free;
     LCmd.Free;
   end;
 end;
 
-function TEntityManager2.GetList(AClass: TClass; const AIDs: TArray<Int64>; ALock: Boolean): TArray<TObject>;
+function TEntityManager.GetList(AClass: TClass; const AIDs: TArray<Int64>; ALock: Boolean): TArray<TObject>;
 begin
   Result := [];
   Writeln('GetList with ID Array');
 end;
 
-function TEntityManager2.GetTableName(AClass: TClass): string;
+function TEntityManager.GetTableName(AClass: TClass): string;
 var
   ACtx: TRttiContext;
   AType: TRttiType;
@@ -659,42 +579,42 @@ begin
 
 end;
 
-procedure TEntityManager2.LogicalAdd<T>(AModels: TArray<T>; AWithBegin, AWithCommit: Boolean);
+procedure TEntityManager.LogicalAdd<T>(AModels: TArray<T>; AWithBegin, AWithCommit: Boolean);
 begin
 //
 end;
 
-procedure TEntityManager2.LogicalDelete<T>(const AIDs: TArray<Int64>; AWithCommit: Boolean);
+procedure TEntityManager.LogicalDelete<T>(const AIDs: TArray<Int64>; AWithCommit: Boolean);
 begin
 //
 end;
 
-function TEntityManager2.LogicalGet<T>(const AFilter: string; ALock, AWithBegin: Boolean): TList<T>;
+function TEntityManager.LogicalGet<T>(const AFilter: string; ALock, AWithBegin: Boolean): TList<T>;
 begin
 //
 end;
 
-procedure TEntityManager2.LogicalUpdate<T>(AModels: TArray<T>; AWithCommit: Boolean);
+procedure TEntityManager.LogicalUpdate<T>(AModels: TArray<T>; AWithCommit: Boolean);
 begin
 //
 end;
 
-procedure TEntityManager2.TransactionCommit;
+procedure TEntityManager.TransactionCommit;
 begin
 //
 end;
 
-procedure TEntityManager2.TransactionRollback;
+procedure TEntityManager.TransactionRollback;
 begin
 //
 end;
 
-procedure TEntityManager2.TransactionStart;
+procedure TEntityManager.TransactionStart;
 begin
 //
 end;
 
-procedure TEntityManager2.Update(AModel: TEntity);
+procedure TEntityManager.Update(AModel: TObject);
 var
   ACtx: TRttiContext;
   AType: TRttiType;
@@ -781,17 +701,17 @@ begin
   end;
 end;
 
-procedure TEntityManager2.AddBatch<T>(AModels: TArray<T>);
+procedure TEntityManager.AddBatch<T>(AModels: TArray<T>);
 begin
 //
 end;
 
-procedure TEntityManager2.UpdateBatch<T>(AModels: TArray<T>);
+procedure TEntityManager.UpdateBatch<T>(AModels: TArray<T>);
 begin
 //
 end;
 
-function TEntityManager2.Clone<T>(ASource: T): T;
+function TEntityManager.Clone<T>(ASource: T): T;
 var
   ACtx: TRttiContext;
   AType: TRttiType;
@@ -825,12 +745,12 @@ begin
   end;
 end;
 
-function TEntityManager2.Connection: TZAbstractConnection;
+function TEntityManager.Connection: TZAbstractConnection;
 begin
   Result := FConnection;
 end;
 
-constructor TEntityManager2.Create(AConnection: TZAbstractConnection);
+constructor TEntityManager.Create(AConnection: TZAbstractConnection);
 begin
   if AConnection = nil then
     raise Exception.Create('Connection Required');
@@ -839,7 +759,7 @@ begin
   FLazzyLoading := True;
 end;
 
-procedure TEntityManager2.Delete(AClass: TClass; const AID: Int64);
+procedure TEntityManager.Delete(AClass: TClass; const AID: Int64);
 var
   LTableName : string;
   LCmd: TZQuery;
@@ -861,12 +781,12 @@ begin
   end;
 end;
 
-procedure TEntityManager2.DeleteBatch<T>(const AIDs: TArray<Int64>);
+procedure TEntityManager.DeleteBatch<T>(const AIDs: TArray<Int64>);
 begin
 //
 end;
 
-procedure TEntityManager2.DeleteBatch<T>(const AFilter: string);
+procedure TEntityManager.DeleteBatch<T>(const AFilter: string);
 begin
 //
 end;
