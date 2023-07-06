@@ -3,7 +3,7 @@ unit Entity;
 interface
 
 uses
-  SysUtils, StrUtils, Generics.Collections, System.TypInfo, Rtti,
+  SysUtils, StrUtils, Classes, Generics.Collections, System.TypInfo, Rtti,
   ZAbstractConnection, Data.DB, EntityAttributes;
 
 type
@@ -15,6 +15,8 @@ type
     property ID: Int64 read FID write FID;
 
     constructor Create; virtual;
+
+    function GetClassType: TClass;
   end;
 
 implementation
@@ -23,6 +25,11 @@ constructor TEntity.Create;
 begin
   inherited;
   //
+end;
+
+function TEntity.GetClassType: TClass;
+begin
+  Result := Self.ClassType;
 end;
 
 end.

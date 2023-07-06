@@ -27,7 +27,7 @@ type
     [NotMapped]
     property SubeSehirID: Int64 read FSubeSehirID write FSubeSehirID;
 
-    [OneToOne('ID', 'BankaID')]
+    [HasOne('ID', 'BankaID', True)]
     property Banka: TChBanka read FBanka write FBanka;
 
     constructor Create; override;
@@ -39,7 +39,7 @@ type
     FBankaAdi: string;
     FSwiftKodu: string;
 
-    FBankaSubeleri: TArray<TChBankaSubesi>;
+    FBankaSubeleri: TObjectList<TChBankaSubesi>;
   public
     [Column('banka_adi', [cpUnique, cpNotNull], 64, 0, 0)]
     property BankaAdi: string read FBankaAdi write FBankaAdi;
@@ -47,8 +47,8 @@ type
     [Column('swift_kodu', [], 16, 0, 0)]
     property SwiftKodu: string read FSwiftKodu write FSwiftKodu;
 
-    [OneToMany('BankaID', 'ID')]
-    property BankaSubeleri: TArray<TChBankaSubesi> read FBankaSubeleri write FBankaSubeleri;
+    [HasMany('BankaID', 'ID', True, TChBankaSubesi)]
+    property BankaSubeleri: TObjectList<TChBankaSubesi> read FBankaSubeleri write FBankaSubeleri;
 
     constructor Create; override;
   end;
@@ -58,7 +58,7 @@ implementation
 constructor TChBanka.Create;
 begin
   inherited;
-  Self.FBankaSubeleri := [];
+  Self.FBankaSubeleri := TObjectList<TChBankaSubesi>.Create(True);
 end;
 
 constructor TChBankaSubesi.Create;
