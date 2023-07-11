@@ -10,23 +10,18 @@ uses
   ZConnection,
   Entity in 'Entity.pas',
   EntityManager in 'EntityManager.pas',
-  ChBankalar in 'ChBankalar.pas',
-  SysGunler in 'SysGunler.pas',
   EntityAttributes in 'EntityAttributes.pas',
-  SysUlkeler in 'SysUlkeler.pas';
+  Persons in 'Persons.pas';
 
 var
   LConn: TZConnection;
   LMan: TEntityManager;
-  LBank: TChBanka;
-  LBanks: TObjectList<TChBanka>;
-  LBankBranch: TChBankaSubesi;
-  lstr: string;
-  LID: Int64;
 
-  LCountry: TSysUlke;
-  LCountries: TObjectList<TSysUlke>;
-  LCity: TSysSehir;
+  lstr: string;
+
+  LPerson: TPerson;
+  LPersons: TObjectList<TPerson>;
+  LAddress: TPersonAddress;
 begin
   try
     LConn := TZConnection.Create(nil);
@@ -38,50 +33,149 @@ begin
     LConn.Connect;
 
     LMan := TEntityManager.Create(LConn);
-    LMan.StartTrans();
 
-    LCountries := TObjectList<TSysUlke>.Create(True);
+    LPerson := TPerson.Create;
+    LPerson.PersonName := 'Person1';
+    LPerson.PersonAge := 20;
+    LPerson.Salary := 1000;
+    LMan.Add(LPerson);//Add One
 
-    LCountries := LMan.GetList<TSysUlke>(' and ulke_kodu in (''DX'', ''TX'', ''XX'')');
-    //LMan.DeleteBatch<TSysUlke>(' and ulke_kodu in (''DX'', ''TX'', ''XX'')');
+    LPerson := LMan.GetByOne<TPerson>(LPerson.Id, False);//GetOne
+    Writeln(LPerson.PersonName);
+    LMan.Delete<TPerson>(LPerson.Id);//Delete with ID
 
-    for LCountry in LCountries do
-      LMan.Delete<TSysUlke>(LCountry);
+    LPerson := TPerson.Create;
+    LPerson.PersonName := 'Person2';
+    LPerson.PersonAge := 20;
+    LPerson.Salary := 1000;
+    LMan.Add(LPerson);//Add One
 
-    LCountry := TSysUlke.Create;
-    LCountry.UlkeKodu := 'YX';
-    LCountry.UlkeAdi := 'Almanya';
-    LCountries.Add(LCountry);
+    LPerson := LMan.GetByOne<TPerson>(LPerson.Id, False);//GetOne
+    Writeln(LPerson.PersonName);
+    LMan.Delete(LPerson);//Delete with Model
 
-    LCountry := TSysUlke.Create;
-    LCountry.UlkeKodu := 'ZX';
-    LCountry.UlkeAdi := 'Türkiyeee';
-    LCountries.Add(LCountry);
+    LPersons := TObjectList<TPerson>.Create(True);
+    try
+      LPerson := TPerson.Create;
+      LPerson.PersonName := 'Person3';
+      LPerson.PersonAge := 20;
+      LPerson.Salary := 1000;
+      LPersons.Add(LPerson);
+      LPerson := TPerson.Create;
+      LPerson.PersonName := 'Person4';
+      LPerson.PersonAge := 20;
+      LPerson.Salary := 1000;
+      LPersons.Add(LPerson);
+      LMan.AddBatch<TPerson>(LPersons.ToArray);//Add Batch
+    finally
+      LPersons.Free;
+    end;
 
-    LCountry := TSysUlke.Create;
-    LCountry.UlkeKodu := 'RX';
-    LCountry.UlkeAdi := 'Azeri';
-    LCountries.Add(LCountry);
 
-    LMan.AddBatch<TSysUlke>(LCountries.ToArray);
+    LPersons := LMan.GetList<TPerson>('', False);//GetList
+    for LPerson in LPersons do
+      Writeln(LPerson.PersonName);
+    LMan.DeleteBatch<TPerson>(LPersons.ToArray);//Delete Batch with Models
 
-    for LCountry in LCountries do
-      Writeln(LCountry.UlkeAdi);
+    LPersons := TObjectList<TPerson>.Create(True);
+    try
+      LPerson := TPerson.Create;
+      LPerson.PersonName := 'Person5';
+      LPerson.PersonAge := 26;
+      LPerson.Salary := 2000;
+      LPersons.Add(LPerson);
+      LPerson := TPerson.Create;
+      LPerson.PersonName := 'Person6';
+      LPerson.PersonAge := 22;
+      LPerson.Salary := 3000;
+      LPersons.Add(LPerson);
+      LMan.AddBatch<TPerson>(LPersons.ToArray);//Add Batch
+    finally
+      LPersons.Free;
+    end;
 
-    for LCountry in LCountries do
-      LCountry.UlkeAdi := UpperCase(LCountry.UlkeAdi);
+    LPersons := LMan.GetList<TPerson>('', False);//GetList
+    for LPerson in LPersons do
+      Writeln(LPerson.PersonName);
+    LMan.DeleteBatch<TPerson>([LPersons[0].Id, LPersons[1].Id]);//Delete Batch with Id
 
-    LMan.UpdateBatch<TSysUlke>(LCountries.ToArray);
+    LPersons := TObjectList<TPerson>.Create(True);
+    try
+      LPerson := TPerson.Create;
+      LPerson.PersonName := 'Person7';
+      LPerson.PersonAge := 12;
+      LPerson.Salary := 200;
+      LPersons.Add(LPerson);
+      LPerson := TPerson.Create;
+      LPerson.PersonName := 'Person8';
+      LPerson.PersonAge := 32;
+      LPerson.Salary := 500;
+      LPersons.Add(LPerson);
+      LMan.AddBatch<TPerson>(LPersons.ToArray);//Add Batch
+    finally
+      LPersons.Free;
+    end;
+    LMan.DeleteBatch<TPerson>(' and id > 1');//Delete Batch with Filter
 
-    LCountries.Clear;
 
-    LCountries := LMan.GetList<TSysUlke>('');
+    LPersons := TObjectList<TPerson>.Create(True);
+    try
+      LPerson := TPerson.Create;
+      LPerson.PersonName := 'PXX';
+      LPerson.PersonAge := 17;
+      LPerson.Salary := 160;
+      LPersons.Add(LPerson);
+      LPerson := TPerson.Create;
+      LPerson.PersonName := 'PYY';
+      LPerson.PersonAge := 14;
+      LPerson.Salary := 320;
+      LPersons.Add(LPerson);
+      LMan.AddBatch<TPerson>(LPersons.ToArray);//Add Batch
+    finally
+      LPersons.Free;
+    end;
 
-    for LCountry in LCountries do
-      Writeln(LCountry.UlkeAdi);
+    LPersons := LMan.GetList<TPerson>('', False);//GetList
+    for LPerson in LPersons do
+    begin
+      Writeln(LPerson.PersonName + ' before');
+      LPerson.PersonName := LPerson.PersonName + LPerson.Id.ToString;
+      LMan.Update(LPerson);//Update
+      Writeln(LPerson.PersonName + ' after');
+    end;
+    LMan.DeleteBatch<TPerson>('');//Delete Batch with Filter
 
-    LMan.CommitTrans();
-    LMan.Free;
+
+    LPersons := TObjectList<TPerson>.Create(True);
+    try
+      LPerson := TPerson.Create;
+      LPerson.PersonName := 'AAA';
+      LPerson.PersonAge := 17;
+      LPerson.Salary := 160;
+      LPersons.Add(LPerson);
+      LPerson := TPerson.Create;
+      LPerson.PersonName := 'BBB';
+      LPerson.PersonAge := 14;
+      LPerson.Salary := 320;
+      LPersons.Add(LPerson);
+      LMan.AddBatch<TPerson>(LPersons.ToArray);//Add Batch
+    finally
+      LPersons.Free;
+    end;
+
+    LPersons := LMan.GetList<TPerson>('', False);//GetList
+    for LPerson in LPersons do
+    begin
+      LPerson.PersonName := LPerson.PersonName + LPerson.Id.ToString;
+    end;
+
+    LMan.UpdateBatch<TPerson>(LPersons.ToArray);
+
+    LPersons := LMan.GetList<TPerson>('', False);
+    for LPerson in LPersons do
+      Writeln(LPerson.PersonName);
+
+    LMan.DeleteBatch<TPerson>(LPersons.ToArray);
 
     Readln(lstr);
   except
