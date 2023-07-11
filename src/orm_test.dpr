@@ -33,7 +33,7 @@ begin
     LConn.Connect;
 
     LMan := TEntityManager.Create(LConn);
-
+(*
     LPerson := TPerson.Create;
     LPerson.PersonName := 'Person1';
     LPerson.PersonAge := 20;
@@ -176,6 +176,33 @@ begin
       Writeln(LPerson.PersonName);
 
     LMan.DeleteBatch<TPerson>(LPersons.ToArray);
+*)
+    LPersons := LMan.GetList<TPerson>('', False);
+    LMan.DeleteBatch<TPerson>(LPersons.ToArray);
+
+    LPerson := TPerson.Create;
+    LPerson.PersonName := 'Person1';
+    LPerson.PersonAge := 20;
+    LPerson.Salary := 1000;
+    LMan.Add(LPerson);//Add One
+
+    LAddress := TPersonAddress.Create;
+    LAddress.City := 'Istanbul';
+    LAddress.Country := 'Turkey';
+    LAddress.PersonId := LPerson.Id;
+    LPerson.Addresses.Add(LAddress);
+
+    LAddress := TPersonAddress.Create;
+    LAddress.City := 'Bochum';
+    LAddress.Country := 'Germany';
+    LAddress.PersonId := LPerson.Id;
+    LPerson.Addresses.Add(LAddress);
+    LMan.AddBatch<TPersonAddress>(LPerson.Addresses.ToArray);
+
+    LPerson := LMan.GetByOne<TPerson>(LPerson.Id, False);
+
+//    LMan.AddBatch<TPersonAddress>(LPerson.Addresses.ToArray);
+//    LPersons := LMan.GetList<TPerson>('', False);
 
     Readln(lstr);
   except

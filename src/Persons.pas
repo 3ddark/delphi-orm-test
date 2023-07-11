@@ -6,7 +6,7 @@ uses
   Entity, Generics.Collections, SysUtils, System.Types, EntityAttributes;
 (*
 -- DROP TABLE IF EXISTS public.aa_person_addresses;
--- DROP TABLE IF EXISTS public.aa_person;
+-- DROP TABLE IF EXISTS public.aa_persons;
 CREATE TABLE IF NOT EXISTS public.aa_persons
 (
   id bigserial,
@@ -25,8 +25,8 @@ ALTER TABLE IF EXISTS public.aa_persons
 CREATE TABLE IF NOT EXISTS public.aa_person_addresses
 (
   id bigserial,
-  country character varying(16) COLLATE pg_catalog."default",
-  city smallint not null,
+  country character varying(32) COLLATE pg_catalog."default",
+  city character varying(32) COLLATE pg_catalog."default",
   person_id bigint,
   PRIMARY KEY (id),
   FOREIGN KEY(person_id)
@@ -47,7 +47,7 @@ type
   TPersonAddress = class(TEntity)
   private
     FPersonId: Int64;
-    FCountry: Integer;
+    FCountry: string;
     FCity: string;
 
     FPerson: TPerson;
@@ -55,7 +55,7 @@ type
     [Column('person_id')]
     property PersonId: Int64 read FPersonId write FPersonId;
     [Column('country')]
-    property Country: Integer read FCountry write FCountry;
+    property Country: string read FCountry write FCountry;
     [Column('city')]
     property City: string read FCity write FCity;
 

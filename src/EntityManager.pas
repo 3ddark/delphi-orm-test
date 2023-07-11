@@ -475,12 +475,13 @@ begin
 
     SetModelValueFromQuery(Result, rT, LQry);
 
+    //not support Sub Entity
+(*
     rT := rC.GetType(Result.ClassType);
     rPs := GetRelations(rT);
-
     for rP in rPs do
     begin
-      if  (RightStr(rP.PropertyType.QualifiedName.Split(['<'])[0], 5) = 'TList')
+      if  (RightStr(rP.PropertyType.QualifiedName.Split(['<'])[0], 11) = 'TObjectList')
       and (rP.PropertyType.TypeKind = tkClass)
       then
       begin
@@ -539,6 +540,7 @@ begin
         end;
       end;
     end;
+*)
   finally
     rC.Free;
   end;
@@ -590,7 +592,8 @@ begin
     SetListModelValueFromQuery(AObject, rT, LSQL);
 
     if not ALazyLoading then Exit;
-
+    //not support Sub Entity
+(*
     for AModelListItem in TObjectList<TObject>(AObject) do
     begin
       rT := rC.GetType(AModelListItem.ClassType);
@@ -658,6 +661,7 @@ begin
         end;
       end;
     end;
+*)
   finally
     rC.Free;
   end;
@@ -667,63 +671,67 @@ procedure TEntityManager.Add<T>(AModel: T);
 var
   LCmd: TZQuery;
 
-  ACtx: TRttiContext;
-  AType: TRttiType;
-  AProp : TRttiProperty;
-  LAttr : TCustomAttribute;
+  rC: TRttiContext;
+  rT: TRttiType;
+  rP, rPValue : TRttiProperty;
+  rPs : TArray<TRttiProperty>;
+  rA : TCustomAttribute;
+  LValue: TValue;
 
   LTable : string;
   LNames: string;
-  LValues: string;
+  LValues, LFilterValue: string;
   LPointer: Pointer;
+  LID: Int64;
+  AObject, AModel2: TObject;
 begin
-  ACtx := TRttiContext.Create;
+  rC := TRttiContext.Create;
   LCmd := TZQuery.Create(nil);
-  AProp := nil;
+  rP := nil;
   try
-    AType := ACtx.GetType(TypeInfo(T));
-    LTable := Self.GetTableName(AType.AsInstance.MetaclassType);
+    rT := rC.GetType(TypeInfo(T));
+    LTable := Self.GetTableName(rT.AsInstance.MetaclassType);
 
     Move(AModel, LPointer, SizeOf(Pointer));
 
     LNames := '';
     LValues := '';
-    for AProp in AType.GetProperties do
+    for rP in rT.GetProperties do
     begin
-      if AProp.Visibility in [mvPublished, mvPublic] then
+      if rP.Visibility in [mvPublished, mvPublic] then
       begin
-        for LAttr in AProp.GetAttributes do
+        for rA in rP.GetAttributes do
         begin
-          if LAttr is Column then
+          if rA is Column then
           begin
-            if Column(LAttr).Name = '' then
+            if Column(rA).Name = '' then
               raise Exception.Create('Column attribute must be declared!!!');
 
-            if Column(LAttr).Name = 'id' then
+            if Column(rA).Name = 'id' then
               Break;
 
-            LNames := LNames + Column(LAttr).Name + ',';
+            LNames := LNames + Column(rA).Name + ',';
 
-            case AProp.PropertyType.TypeKind of
+            case rP.PropertyType.TypeKind of
               tkUnknown       : ;
-              tkInteger       : LValues := LValues + IntToStr(AProp.GetValue(LPointer).AsInteger) + ',';
-              tkChar          : LValues := LValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
+              tkInteger       : LValues := LValues + IntToStr(rP.GetValue(LPointer).AsInteger) + ',';
+              tkChar          : LValues := LValues + QuotedStr(rP.GetValue(LPointer).AsString) + ',';
               tkEnumeration   : raise Exception.Create('Not implemented data type');
-              tkFloat         : LValues := LValues + FloatToStr(AProp.GetValue(LPointer).AsExtended) + ',';
-              tkString        : LValues := LValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
+              tkFloat         : LValues := LValues + FloatToStr(rP.GetValue(LPointer).AsExtended) + ',';
+              tkString        : LValues := LValues + QuotedStr(rP.GetValue(LPointer).AsString) + ',';
               tkSet           : raise Exception.Create('Not implemented data type');
               tkClass         : raise Exception.Create('Not implemented data type');
               tkMethod        : raise Exception.Create('Not implemented data type');
-              tkWChar         : LValues := LValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
-              tkLString       : LValues := LValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
-              tkWString       : LValues := LValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
+              tkWChar         : LValues := LValues + QuotedStr(rP.GetValue(LPointer).AsString) + ',';
+              tkLString       : LValues := LValues + QuotedStr(rP.GetValue(LPointer).AsString) + ',';
+              tkWString       : LValues := LValues + QuotedStr(rP.GetValue(LPointer).AsString) + ',';
               tkVariant       : raise Exception.Create('Not implemented data type');
               tkArray         : raise Exception.Create('Not implemented data type');
               tkRecord        : raise Exception.Create('Not implemented data type');
               tkInterface     : raise Exception.Create('Not implemented data type');
-              tkInt64         : LValues := LValues + IntToStr(AProp.GetValue(LPointer).AsInt64) + ',';
+              tkInt64         : LValues := LValues + IntToStr(rP.GetValue(LPointer).AsInt64) + ',';
               tkDynArray      : raise Exception.Create('Not implemented data type');
-              tkUString       : LValues := LValues + QuotedStr(AProp.GetValue(LPointer).AsString) + ',';
+              tkUString       : LValues := LValues + QuotedStr(rP.GetValue(LPointer).AsString) + ',';
               tkClassRef      : raise Exception.Create('Not implemented data type');
               tkPointer       : raise Exception.Create('Not implemented data type');
               tkProcedure     : raise Exception.Create('Not implemented data type');
@@ -737,13 +745,39 @@ begin
     LCmd.Connection := Connection;
     LCmd.SQL.Text := Trim('INSERT INTO ' + LTable + '(' + LeftStr(LNames, Length(LNames)-1) + ') VALUES (' + LeftStr(LValues, Length(LValues)-1) + ') RETURNING id;');
     LCmd.Prepare;
-    if LCmd.Prepared and (AProp <> nil) then
+    if LCmd.Prepared and (rP <> nil) then
     begin
       LCmd.Open;
-      AProp.SetValue(LPointer, TValue.From(LCmd.Fields.Fields[0].AsLargeInt));
+      rP.SetValue(LPointer, TValue.From(LCmd.Fields.Fields[0].AsLargeInt));
+      LID := LCmd.Fields.Fields[0].AsLargeInt;
     end;
+
+    //not support Sub Entity
+(*
+    rPs := GetRelations(rT);
+    for rP in rPs do
+    begin
+      if  (RightStr(rP.PropertyType.QualifiedName.Split(['<'])[0], 11) = 'TObjectList')
+      and (rP.PropertyType.TypeKind = tkClass)
+      then
+      begin
+      end
+      else
+      if (rP.PropertyType.TypeKind = tkClass) then
+      begin
+        for rA in rP.GetAttributes do
+        begin
+          if (rA is HasOne) then
+          begin
+            //
+            Break;
+          end
+        end;
+      end;
+    end;
+*)
   finally
-    ACtx.Free;
+    rC.Free;
     LCmd.Free;
   end;
 end;
