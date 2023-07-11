@@ -12,7 +12,8 @@ uses
   EntityManager in 'EntityManager.pas',
   ChBankalar in 'ChBankalar.pas',
   SysGunler in 'SysGunler.pas',
-  EntityAttributes in 'EntityAttributes.pas';
+  EntityAttributes in 'EntityAttributes.pas',
+  SysUlkeler in 'SysUlkeler.pas';
 
 var
   LConn: TZConnection;
@@ -22,6 +23,10 @@ var
   LBankBranch: TChBankaSubesi;
   lstr: string;
   LID: Int64;
+
+  LCountry: TSysUlke;
+  LCountries: TObjectList<TSysUlke>;
+  LCity: TSysSehir;
 begin
   try
     LConn := TZConnection.Create(nil);
@@ -33,28 +38,49 @@ begin
     LConn.Connect;
 
     LMan := TEntityManager.Create(LConn);
-    LID := 2;
-    LBank := LMan.GetByOne<TChBanka>(LID);
-    Writeln('Get Bank By Id ' + LID.ToString);
-    Writeln(Format('%s, %s', [LBank.ID.ToString, LBank.BankaAdi]));
-    for LBankBranch in LBank.BankaSubeleri do
-      Writeln(Format('%s%s %s %s', [#9, LBankBranch.ID.ToString, LBankBranch.SubeKodu.ToString, LBankBranch.SubeAdi]));
+    LMan.StartTrans();
 
-    LID := 1;
-    Writeln(sLineBreak + 'Get Bank Brach By Id ' + LID.ToString);
-    LBankBranch := LMan.GetByOne<TChBankaSubesi>(LID);
-    Writeln(Format('%s %s %s', [LBankBranch.ID.ToString, LBankBranch.SubeKodu.ToString, LBankBranch.SubeAdi]));
-    Writeln(Format('%s%s %s', [#9, LBankBranch.Banka.ID.ToString, LBankBranch.Banka.BankaAdi]));
+    LCountries := TObjectList<TSysUlke>.Create(True);
 
-    Writeln(sLineBreak + 'Get All Banks');
-    LBanks := LMan.GetList<TChBanka>('');
-    for LBank in LBanks do
-    begin
-      Writeln(Format('%s %s', [LBank.ID.ToString, LBank.BankaAdi]));
-      for LBankBranch in LBank.BankaSubeleri do
-        Writeln(Format('%s%s %s %s', [#9,LBankBranch.ID.ToString, LBankBranch.SubeKodu.ToString, LBankBranch.SubeAdi]));
-    end;
+    LCountries := LMan.GetList<TSysUlke>(' and ulke_kodu in (''DX'', ''TX'', ''XX'')');
+    //LMan.DeleteBatch<TSysUlke>(' and ulke_kodu in (''DX'', ''TX'', ''XX'')');
 
+    for LCountry in LCountries do
+      LMan.Delete<TSysUlke>(LCountry);
+
+    LCountry := TSysUlke.Create;
+    LCountry.UlkeKodu := 'YX';
+    LCountry.UlkeAdi := 'Almanya';
+    LCountries.Add(LCountry);
+
+    LCountry := TSysUlke.Create;
+    LCountry.UlkeKodu := 'ZX';
+    LCountry.UlkeAdi := 'Türkiyeee';
+    LCountries.Add(LCountry);
+
+    LCountry := TSysUlke.Create;
+    LCountry.UlkeKodu := 'RX';
+    LCountry.UlkeAdi := 'Azeri';
+    LCountries.Add(LCountry);
+
+    LMan.AddBatch<TSysUlke>(LCountries.ToArray);
+
+    for LCountry in LCountries do
+      Writeln(LCountry.UlkeAdi);
+
+    for LCountry in LCountries do
+      LCountry.UlkeAdi := UpperCase(LCountry.UlkeAdi);
+
+    LMan.UpdateBatch<TSysUlke>(LCountries.ToArray);
+
+    LCountries.Clear;
+
+    LCountries := LMan.GetList<TSysUlke>('');
+
+    for LCountry in LCountries do
+      Writeln(LCountry.UlkeAdi);
+
+    LMan.CommitTrans();
     LMan.Free;
 
     Readln(lstr);

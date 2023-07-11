@@ -67,7 +67,7 @@ type
     FFilterPropertyName : string;
     FValuePropertyName : string;
   public
-    constructor Create(const AFilterPropertyName: string; const AValuePropertyName: string; ALazzyLoading: Boolean);
+    constructor Create(const AFilterPropertyName: string; const AValuePropertyName: string);
     property FilterPropertyName: string read FFilterPropertyName write FFilterPropertyName;
     property ValuePropertyName: string read FValuePropertyName write FValuePropertyName;
   end;
@@ -76,18 +76,10 @@ type
   private
     FFilterPropertyName : string;
     FValuePropertyName : string;
-    FListClass: TClass;
   public
-    constructor Create(const AFilterPropertyName: string; const AValuePropertyName: string; ALazzyLoading: Boolean; AListClass: TClass);
+    constructor Create(const AFilterPropertyName: string; const AValuePropertyName: string);
     property FilterPropertyName: string read FFilterPropertyName write FFilterPropertyName;
     property ValuePropertyName: string read FValuePropertyName write FValuePropertyName;
-    property ListClass: TClass read FListClass write FListClass;
-  end;
-
-  EagerLoad = class (TCustomAttribute)
-  end;
-
-  LazzyLoad = class (TCustomAttribute)
   end;
 
 implementation
@@ -142,17 +134,16 @@ begin
   Result := cpPrimaryKey in FColProps;
 end;
 
-constructor HasOne.Create(const AFilterPropertyName: string; const AValuePropertyName: string; ALazzyLoading: Boolean);
+constructor HasOne.Create(const AFilterPropertyName: string; const AValuePropertyName: string);
 begin
   FFilterPropertyName := AFilterPropertyName;
   FValuePropertyName := AValuePropertyName;
 end;
 
-constructor HasMany.Create(const AFilterPropertyName: string; const AValuePropertyName: string; ALazzyLoading: Boolean; AListClass: TClass);
+constructor HasMany.Create(const AFilterPropertyName: string; const AValuePropertyName: string);
 begin
   FFilterPropertyName := AFilterPropertyName;
   FValuePropertyName := AValuePropertyName;
-  FListClass := AListClass;
 end;
 
 end.

@@ -11,7 +11,7 @@ type
   [Table('ch_banka_subeleri', 'public')]
   TChBankaSubesi = class(TEntity)
   private
-    FBankaID: Int64;
+    FBankaId: Int64;
     FSubeKodu: Integer;
     FSubeAdi: string;
     FSubeSehirID: Int64;
@@ -19,7 +19,7 @@ type
     FBanka: TChBanka;
   public
     [Column('banka_id', [], 0, 0, 0)]
-    property BankaID: Int64 read FBankaID write FBankaID;
+    property BankaId: Int64 read FBankaId write FBankaId;
     [Column('sube_kodu', [], 0, 0, 0)]
     property SubeKodu: Integer read FSubeKodu write FSubeKodu;
     [Column('sube_adi', [cpNotNull], 64, 0, 0)]
@@ -27,7 +27,7 @@ type
     [NotMapped]
     property SubeSehirID: Int64 read FSubeSehirID write FSubeSehirID;
 
-    [HasOne('ID', 'BankaID', True)]
+    [HasOne('Id', 'BankaId')]
     property Banka: TChBanka read FBanka write FBanka;
 
     constructor Create; override;
@@ -47,7 +47,7 @@ type
     [Column('swift_kodu', [], 16, 0, 0)]
     property SwiftKodu: string read FSwiftKodu write FSwiftKodu;
 
-    [HasMany('BankaID', 'ID', True, TChBankaSubesi)]
+    [HasMany('BankaId', 'Id')]
     property BankaSubeleri: TObjectList<TChBankaSubesi> read FBankaSubeleri write FBankaSubeleri;
 
     constructor Create; override;
