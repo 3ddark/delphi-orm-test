@@ -26,7 +26,7 @@ begin
   try
     LConn := TZConnection.Create(nil);
     LConn.Protocol := 'postgresql-9';
-    LConn.Database := 'ths_erp';
+    LConn.Database := 'mydb-test';
     LConn.HostName := 'localhost';
     LConn.User := 'postgres';
     LConn.Password := 'qwe';
