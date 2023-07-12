@@ -1,0 +1,11 @@
+*.~
+__history
+__recovery
+src/Win32
+*.dproj.local
+*.identcache
+*.res
+*.otares
+*.dproj
+*.dcu
+*.exe
