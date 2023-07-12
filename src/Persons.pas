@@ -3,7 +3,8 @@ unit Persons;
 interface
 
 uses
-  Entity, Generics.Collections, SysUtils, System.Types, EntityAttributes;
+  Generics.Collections, SysUtils, System.Types,
+  EntityAttributes, Entity, EntityManager;
 (*
 -- DROP TABLE IF EXISTS public.aa_person_addresses;
 -- DROP TABLE IF EXISTS public.aa_persons;

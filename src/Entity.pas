@@ -4,7 +4,7 @@ interface
 
 uses
   SysUtils, StrUtils, Classes, Generics.Collections, System.TypInfo, Rtti,
-  ZAbstractConnection, Data.DB, EntityAttributes;
+  ZAbstractConnection, Data.DB, EntityAttributes, EntityManager;
 
 type
   TEntity = class(TObject)
@@ -15,8 +15,6 @@ type
     property Id: Int64 read FId write FId;
 
     constructor Create; virtual;
-
-    function GetClassType: TClass;
   end;
 
 implementation
@@ -24,12 +22,6 @@ implementation
 constructor TEntity.Create;
 begin
   inherited;
-  //
-end;
-
-function TEntity.GetClassType: TClass;
-begin
-  Result := Self.ClassType;
 end;
 
 end.

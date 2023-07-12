@@ -4,7 +4,7 @@ interface
 
 uses
   SysUtils, StrUtils, Generics.Collections, System.TypInfo, Rtti,
-  ZAbstractConnection, ZAbstractDataset, ZDataset, Entity,
+  ZAbstractConnection, ZAbstractDataset, ZDataset,
   Data.DB, EntityAttributes;
 
 type
