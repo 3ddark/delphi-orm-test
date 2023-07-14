@@ -28,6 +28,9 @@ type
 
     function Clone: TPerson; reintroduce; overload;
     class procedure BusinessSelect(AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
+    class procedure BusinessInsert(AManager: TEntityManager; APermissionCheck: Boolean);
+    class procedure BusinessUpdate(AManager: TEntityManager; APermissionCheck: Boolean);
+    class procedure BusinessDelete(AManager: TEntityManager; APermissionCheck: Boolean);
   end;
 
   TPersonAdres = class(TTable)
@@ -71,6 +74,21 @@ begin
       LPersons[n1].DisposeOf;
     SetLength(LPersons, 0);
   end;
+end;
+
+class procedure TPerson.BusinessInsert(AManager: TEntityManager; APermissionCheck: Boolean);
+begin
+//
+end;
+
+class procedure TPerson.BusinessUpdate(AManager: TEntityManager; APermissionCheck: Boolean);
+begin
+//
+end;
+
+class procedure TPerson.BusinessDelete(AManager: TEntityManager; APermissionCheck: Boolean);
+begin
+//
 end;
 
 constructor TPerson.Create;

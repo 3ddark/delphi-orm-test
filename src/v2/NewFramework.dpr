@@ -6,7 +6,10 @@ uses
   Ths.Erp.Database.Table in 'Ths.Erp.Database.Table.pas',
   Ths.Erp.Database.Manager in 'Ths.Erp.Database.Manager.pas',
   Logger in 'Logger.pas',
-  Persons in 'Persons.pas';
+  Persons in 'Persons.pas',
+  StockTransactions in 'StockTransactions.pas',
+  Invoices in 'Invoices.pas',
+  AccountTransactions in 'AccountTransactions.pas';
 
 {$R *.res}
 

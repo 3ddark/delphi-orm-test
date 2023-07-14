@@ -14,7 +14,7 @@ type
   TPermissionType = (ptRead, ptAddRecord, ptUpdate, ptDelete, ptSpecial);
 
   TBusinessSelectEvent = procedure(AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean) of Object;
-  TBusinessOperationEvent = procedure(APermissionCheck: Boolean) of Object;
+  TBusinessOperationEvent = procedure(AManager: TEntityManager; APermissionCheck: Boolean) of Object;
 
   TEntityManager = class
   private
@@ -69,9 +69,9 @@ type
     function AfterDeleteDB(ATable: TTable): Boolean; virtual;
 
     function LogicalSelect(AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean; AProcBusinessSelect: TBusinessSelectEvent): Boolean; virtual;
-    function LogicalInsert(AWithBegin, AWithCommit, APermissionCheck: Boolean):Boolean; virtual;
-    function LogicalUpdate(AWithCommit, APermissionCheck: Boolean):Boolean; virtual;
-    function LogicalDelete(AWithCommit, APermissionCheck: Boolean):Boolean; virtual;
+    function LogicalInsert(AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessInsert: TBusinessOperationEvent): Boolean; virtual;
+    function LogicalUpdate(AWithCommit, APermissionCheck: Boolean; AProcBusinessUpdate: TBusinessOperationEvent): Boolean; virtual;
+    function LogicalDelete(AWithCommit, APermissionCheck: Boolean; AProcBusinessDelete: TBusinessOperationEvent): Boolean; virtual;
 
     procedure Listen(ATableName: string); virtual;
     procedure Unlisten(ATableName: string); virtual;
@@ -644,13 +644,16 @@ begin
   end;
 end;
 
-function TEntityManager.LogicalInsert(AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
+function TEntityManager.LogicalInsert(AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessInsert: TBusinessOperationEvent): Boolean;
 begin
   Result := False;
   try
+    if not Assigned(AProcBusinessInsert) then
+      raise Exception.Create('BusinessInsert event olmak zorunda!!!');
+
     if AWithBegin then StartTrans;
 
-    //
+    AProcBusinessInsert(Self, APermissionCheck);
 
     if AWithCommit then CommitTrans;
     Result := True;
@@ -663,11 +666,14 @@ begin
   end;
 end;
 
-function TEntityManager.LogicalUpdate(AWithCommit, APermissionCheck: Boolean): Boolean;
+function TEntityManager.LogicalUpdate(AWithCommit, APermissionCheck: Boolean; AProcBusinessUpdate: TBusinessOperationEvent): Boolean;
 begin
   Result := False;
   try
-    //
+    if not Assigned(AProcBusinessUpdate) then
+      raise Exception.Create('BusinessUpdate event olmak zorunda!!!');
+
+    AProcBusinessUpdate(Self, APermissionCheck);
 
     if AWithCommit then CommitTrans;
     Result := True;
@@ -680,11 +686,14 @@ begin
   end;
 end;
 
-function TEntityManager.LogicalDelete(AWithCommit, APermissionCheck: Boolean): Boolean;
+function TEntityManager.LogicalDelete(AWithCommit, APermissionCheck: Boolean; AProcBusinessDelete: TBusinessOperationEvent): Boolean;
 begin
   Result := False;
   try
-    //
+    if not Assigned(AProcBusinessDelete) then
+      raise Exception.Create('BusinessDelete event olmak zorunda!!!');
+
+    AProcBusinessDelete(Self, APermissionCheck);
 
     if AWithCommit then CommitTrans;
     Result := True;
@@ -838,8 +847,8 @@ begin
   LFields := '';
   for AFieldDB in ATable.Fields do
     if fpSelect in AFieldDB.FieldIslemTipleri then
-      LFields := LFields + AFieldDB.FieldName + ',';
-  Result := 'SELECT ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' FROM ' + ATable.TableName;
+      LFields := LFields + AFieldDB.QryName + ',';
+  Result := 'SELECT ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' FROM ' + ATable.SchemaName + '.' + ATable.TableName;
 end;
 
 function TEntityManager.PrepareSelectCustomQuery(ATable: TTable; AFields: TArray<TFieldDB>): string;
@@ -850,8 +859,8 @@ begin
   LFields := '';
   for AFieldDB in AFields do
     if fpSelect in AFieldDB.FieldIslemTipleri then
-      LFields := LFields + AFieldDB.FieldName + ',';
-  Result := 'SELECT ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' FROM ' + ATable.TableName;
+      LFields := LFields + AFieldDB.QryName + ',';
+  Result := 'SELECT ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' FROM ' + ATable.SchemaName + '.' + ATable.TableName;
 end;
 
 function TEntityManager.PrepareInsertQuery(ATable: TTable): string;

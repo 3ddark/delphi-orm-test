@@ -1,0 +1,42 @@
+CREATE TABLE IF NOT EXISTS public.a_account_transactions
+(
+    id bigserial,
+    hesap_kodu character varying(16),
+    tarih timestamp without time zone NOT NULL,
+    tip smallint NOT NULL,
+    miktar numeric(18,6) NOT NULL,
+    fiyat numeric(18,6) NOT NULL DEFAULT 0,
+    doviz_fiyat numeric(18,6) NOT NULL DEFAULT 0,
+    para character varying(3) COLLATE pg_catalog."default",
+    fatura_id bigint,
+    fatura_detay_id bigint,
+    PRIMARY KEY (id)
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.a_account_transactions
+    OWNER to postgres;
+
+CREATE TABLE IF NOT EXISTS public.a_stock_transactions
+(
+    id bigserial,
+    stok_kodu character varying(32),
+    tarih timestamp without time zone NOT NULL,
+    tip smallint NOT NULL,
+    miktar numeric(18,6) NOT NULL,
+    fiyat numeric(18,6) NOT NULL DEFAULT 0,
+    doviz_fiyat numeric(18,6) NOT NULL DEFAULT 0,
+    para character varying(3) COLLATE pg_catalog."default",
+    fatura_id bigint,
+    fatura_detay_id bigint,
+    PRIMARY KEY (id),
+    UNIQUE (stok_kodu, fatura_id, fatura_detay_id)
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.a_stock_transactions
+    OWNER to postgres;
+
+
