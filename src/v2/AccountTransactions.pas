@@ -1,4 +1,4 @@
-unit AccountTransactions;
+﻿unit AccountTransactions;
 
 interface
 
@@ -25,7 +25,7 @@ type
     property DovizFiyat: TFieldDB read FDovizFiyat write FDovizFiyat;
     property Para: TFieldDB read FPara write FPara;
 
-    constructor Create; override;
+    constructor Create(); override;
     destructor Destroy; override;
 
     function Clone: TAccountTransaction; reintroduce; overload;
@@ -33,7 +33,7 @@ type
 
 implementation
 
-constructor TAccountTransaction.Create;
+constructor TAccountTransaction.Create();
 begin
   Self.SchemaName := 'public';
   Self.TableName := 'a_account_transactions';
@@ -58,7 +58,7 @@ end;
 
 function TAccountTransaction.Clone: TAccountTransaction;
 begin
-  Result := TAccountTransaction.Create;
+  Result := TAccountTransaction.Create();
   Result.CloneData(Self);
 end;
 

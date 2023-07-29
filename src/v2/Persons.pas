@@ -1,4 +1,4 @@
-unit Persons;
+﻿unit Persons;
 
 interface
 
@@ -23,7 +23,7 @@ type
     property Salary: TFieldDB read FSalary write SetSalary;
     property Adres: TPersonAdres read FAdres write SetAdres;
 
-    constructor Create; override;
+    constructor Create(); override;
     destructor Destroy; override;
 
     function Clone: TPerson; reintroduce; overload;
@@ -91,7 +91,7 @@ begin
 //
 end;
 
-constructor TPerson.Create;
+constructor TPerson.Create();
 begin
   Self.SchemaName := 'public';
   Self.TableName := 'aa_persons';
@@ -113,7 +113,7 @@ end;
 
 function TPerson.Clone: TPerson;
 begin
-  Result := TPerson.Create;
+  Result := TPerson.Create();
   Result.CloneData(Self);
 end;
 
@@ -143,7 +143,7 @@ begin
   Self.TableName := 'aa_person_addresses';
   Self.TableSourceCode := '1000';
 
-  inherited Create;
+  inherited Create();
 
   FCountry := TFieldDB.Create('country', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
   FCity := TFieldDB.Create('city', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
@@ -160,7 +160,7 @@ end;
 
 function TPersonAdres.Clone: TPersonAdres;
 begin
-  Result := TPersonAdres.Create;
+  Result := TPersonAdres.Create();
   Result.CloneData(Self);
 end;
 

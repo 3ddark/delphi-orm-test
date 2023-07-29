@@ -1,4 +1,4 @@
-unit Ths.Erp.Database.Table;
+ï»¿unit Ths.Erp.Database.Table;
 
 interface
 
@@ -76,7 +76,7 @@ type
     function GetTableName: string;
     procedure SetTableName(ATableName: string);
   published
-    constructor Create; virtual;
+    constructor Create(); virtual;
     destructor Destroy; override;
   public
     Id: TFieldDB;
@@ -273,10 +273,10 @@ begin
       end;
 end;
 
-constructor TTable.Create;
+constructor TTable.Create();
 begin
   if Trim(FTableName) = '' then
-    raise Exception.Create('Table sınıfları Inherited Create işleminden önce Tablo adı tanımlanmak zorunda!!!');
+    raise Exception.Create('Table sÄ±nÄ±flarÄ± Inherited Create iÅŸleminden Ã¶nce Tablo adÄ± tanÄ±mlanmak zorunda!!!');
 
   SetLength(FFields, 0);
 

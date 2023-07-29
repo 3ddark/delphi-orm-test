@@ -1,20 +1,19 @@
-unit Ths.Erp.Database.Manager;
+ï»¿unit Ths.Erp.Database.Manager;
 
 interface
 
 uses
-  System.SysUtils, Classes, StrUtils, System.Variants, Data.DB,
-  System.Rtti, System.Generics.Collections,
-  ZAbstractRODataset, ZAbstractDataset, ZDataset,
-  ZAbstractConnection, ZConnection,
+  System.SysUtils, Classes, StrUtils, System.Variants, Data.DB, System.Rtti,
+  System.Generics.Collections,
+  ZAbstractRODataset, ZAbstractDataset, ZDataset, ZAbstractConnection, ZConnection,
   Ths.Erp.Database.Table;
 
 type
   TEntityManager = class;
   TPermissionType = (ptRead, ptAddRecord, ptUpdate, ptDelete, ptSpecial);
 
-  TBusinessSelectEvent = procedure(AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean) of Object;
-  TBusinessOperationEvent = procedure(AManager: TEntityManager; APermissionCheck: Boolean) of Object;
+  TBusinessSelectEvent = procedure(AClass: TClass; var AList: TArray<TTable>; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean) of Object;
+  TBusinessOperationEvent = procedure(AManager: TEntityManager; ATables: TArray<TTable>; APermissionCheck: Boolean) of Object;
 
   TEntityManager = class
   private
@@ -29,7 +28,7 @@ type
     function PrepareInsertQuery(ATable: TTable): string;
     function PrepareUpdateQuery(ATable: TTable): string;
     function PrepareUpdateCustomQuery(ATable: TTable; AFields: TArray<TFieldDB>): string;
-    function PrepareDeleteQuery(ATable: TTable): string;
+    function PrepareDeleteQuery(ATable: TTable; AFilterStartWithAnd: string): string;
 
     function GetOneBase(ATable: TTable; AFilter: string; ALock: Boolean): Boolean;
     function GetOneCustomBase(const ATable: TTable; AFields: TArray<TFieldDB>; AFilter: string; ALock: Boolean): Boolean;
@@ -62,16 +61,17 @@ type
     function BeforeCustomUpdateDB(ATable: TTable): Boolean; virtual;
     function AfterCustomUpdateDB(ATable: TTable): Boolean; virtual;
 
-    function DeleteBatch(ATables: TArray<TTable>; APermissionCheck: Boolean=True): Boolean; virtual;
+    function DeleteBatch(AClass: TClass; AFilter: string; APermissionCheck: Boolean=True): Boolean; overload;
+    function DeleteBatch(ATables: TArray<TTable>; APermissionCheck: Boolean=True): Boolean; overload;
     function Delete(ATable: TTable; APermissionCheck: Boolean=True): Boolean; virtual;
     function DoDelete(ATable: TTable; APermissionCheck: Boolean): Boolean; virtual;
     function BeforeDeleteDB(ATable: TTable): Boolean; virtual;
     function AfterDeleteDB(ATable: TTable): Boolean; virtual;
 
-    function LogicalSelect(AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean; AProcBusinessSelect: TBusinessSelectEvent): Boolean; virtual;
-    function LogicalInsert(AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessInsert: TBusinessOperationEvent): Boolean; virtual;
-    function LogicalUpdate(AWithCommit, APermissionCheck: Boolean; AProcBusinessUpdate: TBusinessOperationEvent): Boolean; virtual;
-    function LogicalDelete(AWithCommit, APermissionCheck: Boolean; AProcBusinessDelete: TBusinessOperationEvent): Boolean; virtual;
+    function LogicalSelect(AClass: TClass; var AList: TArray<TTable>; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean; AProcBusinessSelect: TBusinessSelectEvent): TEntityManager; virtual;
+    function LogicalInsert(ATables: TArray<TTable>; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessInsert: TBusinessOperationEvent): Boolean; virtual;
+    function LogicalUpdate(ATables: TArray<TTable>; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessUpdate: TBusinessOperationEvent): Boolean; virtual;
+    function LogicalDelete(ATables: TArray<TTable>; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessDelete: TBusinessOperationEvent): Boolean; virtual;
 
     procedure Listen(ATableName: string); virtual;
     procedure Unlisten(ATableName: string); virtual;
@@ -86,7 +86,7 @@ type
 
 implementation
 
-uses Logger, Persons;
+uses Logger;
 
 function TEntityManager.CallCreateMethod(AClass: TClass): TTable;
 var
@@ -314,7 +314,7 @@ begin
       if (ATable.TableName = '') then
         Exit;
     except
-      raise Exception.Create('GetOne ile doldurulacak olan ATable parametresi tanýmlý olmak zorunda!!!');
+      raise Exception.Create('GetOne ile doldurulacak olan ATable parametresi tanÄ±mlÄ± olmak zorunda!!!');
     end;
 
     LQry := Self.NewQuery;
@@ -330,7 +330,7 @@ begin
         LQry.Open;
         GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
         if LQry.RecordCount > 1 then
-          raise Exception.Create('Verilen parametre ile birden fazla kayýt bulundu!!!');
+          raise Exception.Create('Verilen parametre ile birden fazla kayÄ±t bulundu!!!');
 
         if LQry.RecordCount = 1 then
           Result := True;
@@ -372,7 +372,7 @@ begin
       if (ATable.TableName = '') then
         Exit;
     except
-      raise Exception.Create('GetOne ile doldurulacak olan ATable parametresi tanýmlý olmak zorunda!!!');
+      raise Exception.Create('GetOne ile doldurulacak olan ATable parametresi tanÄ±mlÄ± olmak zorunda!!!');
     end;
 
     LQry := Self.NewQuery;
@@ -388,7 +388,7 @@ begin
         LQry.Open;
         GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
         if LQry.RecordCount > 1 then
-          raise Exception.Create('Verilen parametre ile birden fazla kayýt bulundu!!!');
+          raise Exception.Create('Verilen parametre ile birden fazla kayÄ±t bulundu!!!');
 
         if LQry.RecordCount = 1 then
           Result := True;
@@ -585,6 +585,42 @@ begin
       AfterDeleteDB(ATable);
 end;
 
+function TEntityManager.DeleteBatch(AClass: TClass; AFilter: string; APermissionCheck: Boolean): Boolean;
+var
+  ATable: TTable;
+  LQry: TZQuery;
+begin
+  Result := False;
+  try
+    ATable := CallCreateMethod(AClass) as TTable;
+
+    if not Self.IsAuthorized(ATable.TableSourceCode, TPermissionType.ptDelete, APermissionCheck) then
+    begin
+      ATable.DisposeOf;
+      Exit;
+    end;
+
+    LQry := Self.NewQuery;
+    try
+      LQry.SQL.Text := Self.PrepareDeleteQuery(ATable, IfThen(AFilter <> '', ' and ' + AFilter, ''));
+      LQry.Prepare;
+      if LQry.Prepared then
+      begin
+        LQry.ExecSQL;
+        GLogger.RunLog('BATCH DELETING ' + ATable.ClassName + ' filter: ' + AFilter);
+        ATable.DisposeOf;
+      end;
+    finally
+      LQry.DisposeOf;
+    end;
+  except
+    on E: Exception do
+    begin
+      GLogger.ErrorLog(E);
+    end;
+  end;
+end;
+
 function TEntityManager.DeleteBatch(ATables: TArray<TTable>; APermissionCheck: Boolean): Boolean;
 var
   ATable: TTable;
@@ -604,7 +640,7 @@ function TEntityManager.DoDelete(ATable: TTable; APermissionCheck: Boolean): Boo
 begin
   with Self.NewQuery do
   try
-    SQL.Text := PrepareDeleteQuery(ATable);
+    SQL.Text := PrepareDeleteQuery(ATable, ' and ' + ATable.Id.QryName + '=' + ATable.Id.AsString);
     ExecSQL;
     GLogger.RunLog(SQL.Text.Replace(sLineBreak, ''));
     Result := True;
@@ -619,9 +655,9 @@ begin
   Result := True;
 end;
 
-function TEntityManager.LogicalSelect(AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean; AProcBusinessSelect: TBusinessSelectEvent): Boolean;
+function TEntityManager.LogicalSelect(AClass: TClass; var AList: TArray<TTable>; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean; AProcBusinessSelect: TBusinessSelectEvent): TEntityManager;
 begin
-  Result := False;
+  Result := Self;
   try
     if not Assigned(AProcBusinessSelect) then
       raise Exception.Create('BusinessSelect event olmak zorunda!!!');
@@ -632,9 +668,7 @@ begin
     if AWithBegin then
       StartTrans;
 
-    AProcBusinessSelect(Self, AFilter, ALock, APermissionCheck);
-
-    Result := True;
+    AProcBusinessSelect(AClass, AList, Self, AFilter, ALock, APermissionCheck);
   except
     on E: Exception do
     begin
@@ -644,7 +678,7 @@ begin
   end;
 end;
 
-function TEntityManager.LogicalInsert(AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessInsert: TBusinessOperationEvent): Boolean;
+function TEntityManager.LogicalInsert(ATables: TArray<TTable>; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessInsert: TBusinessOperationEvent): Boolean;
 begin
   Result := False;
   try
@@ -653,7 +687,7 @@ begin
 
     if AWithBegin then StartTrans;
 
-    AProcBusinessInsert(Self, APermissionCheck);
+    AProcBusinessInsert(Self, ATables, APermissionCheck);
 
     if AWithCommit then CommitTrans;
     Result := True;
@@ -666,14 +700,16 @@ begin
   end;
 end;
 
-function TEntityManager.LogicalUpdate(AWithCommit, APermissionCheck: Boolean; AProcBusinessUpdate: TBusinessOperationEvent): Boolean;
+function TEntityManager.LogicalUpdate(ATables: TArray<TTable>; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessUpdate: TBusinessOperationEvent): Boolean;
 begin
   Result := False;
   try
     if not Assigned(AProcBusinessUpdate) then
       raise Exception.Create('BusinessUpdate event olmak zorunda!!!');
 
-    AProcBusinessUpdate(Self, APermissionCheck);
+    if AWithBegin then StartTrans;
+
+    AProcBusinessUpdate(Self, ATables, APermissionCheck);
 
     if AWithCommit then CommitTrans;
     Result := True;
@@ -686,14 +722,16 @@ begin
   end;
 end;
 
-function TEntityManager.LogicalDelete(AWithCommit, APermissionCheck: Boolean; AProcBusinessDelete: TBusinessOperationEvent): Boolean;
+function TEntityManager.LogicalDelete(ATables: TArray<TTable>; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessDelete: TBusinessOperationEvent): Boolean;
 begin
   Result := False;
   try
     if not Assigned(AProcBusinessDelete) then
       raise Exception.Create('BusinessDelete event olmak zorunda!!!');
 
-    AProcBusinessDelete(Self, APermissionCheck);
+    if AWithBegin then StartTrans;
+
+    AProcBusinessDelete(Self, ATables, APermissionCheck);
 
     if AWithCommit then CommitTrans;
     Result := True;
@@ -710,7 +748,7 @@ procedure TEntityManager.Listen(ATableName: string);
 begin
   try
     if ATableName = '' then
-      raise Exception.Create('Tablo adý olmak zorunda "LISTEN iþlemini yapamazsýn!!!"');
+      raise Exception.Create('Tablo adÄ± olmak zorunda "LISTEN iÅŸlemini yapamazsÄ±n!!!"');
 
     with Self.NewQuery do
     try
@@ -732,7 +770,7 @@ procedure TEntityManager.Unlisten(ATableName: string);
 begin
   try
     if ATableName = '' then
-      raise Exception.Create('Tablo adý olmak zorunda "UNLISTEN iþlemini yapamazsýn!!!"');
+      raise Exception.Create('Tablo adÄ± olmak zorunda "UNLISTEN iÅŸlemini yapamazsÄ±n!!!"');
 
     with Self.NewQuery do
     try
@@ -754,7 +792,7 @@ procedure TEntityManager.Notify(ATableName: string);
 begin
   try
     if ATableName = '' then
-      raise Exception.Create('Tablo adý olmak zorunda "NOTIFY iþlemini yapamazsýn!!!"');
+      raise Exception.Create('Tablo adÄ± olmak zorunda "NOTIFY iÅŸlemini yapamazsÄ±n!!!"');
 
     with Self.NewQuery do
     try
@@ -833,9 +871,9 @@ begin
 
     if (not Result) and AShowException then
       raise Exception.Create(
-        'Ýþlem ' + LMessage + AddLBs(2) +
-        'Bu kaynaða eriþim hakkýnýz yok! : ' + TableName + ' ' + ClassName + AddLBs +
-        'Bu tablo için eriþim kaynak kodu hatasý: ' + TableName + ' ' + LPermSourceCode);
+        'Ä°ÅŸlem ' + LMessage + AddLBs(2) +
+        'Bu kaynaÄŸa eriÅŸim hakkÄ±nÄ±z yok! : ' + TableName + ' ' + ClassName + AddLBs +
+        'Bu tablo iÃ§in eriÅŸim kaynak kodu hatasÄ±: ' + TableName + ' ' + LPermSourceCode);
 *)
 end;
 
@@ -895,14 +933,14 @@ begin
       then
         LValues := LValues + AFieldDB.AsString + ','
       else if (AFieldDB.DataType = ftDate) then
-        LValues := LValues + DateToStr(AFieldDB.AsDate) + ','
+        LValues := LValues + QuotedStr(DateToStr(AFieldDB.AsDate)) + ','
       else if (AFieldDB.DataType = ftTime) then
-        LValues := LValues + TimeToStr(AFieldDB.AsTime) + ','
+        LValues := LValues + QuotedStr(TimeToStr(AFieldDB.AsTime)) + ','
       else
       if (AFieldDB.DataType = ftDateTime)
       or (AFieldDB.DataType = ftTimeStamp)
       then
-        LValues := LValues + DateTimeToStr(AFieldDB.AsDateTime) + ','
+        LValues := LValues + QuotedStr(DateTimeToStr(AFieldDB.AsDateTime)) + ','
       else
       if (AFieldDB.DataType = ftFloat)
       or (AFieldDB.DataType = ftBCD)
@@ -946,14 +984,14 @@ begin
       then
         LFields := LFields + AFieldDB.FieldName + '=' + AFieldDB.AsString + ','
       else if (AFieldDB.DataType = ftDate) then
-        LFields := LFields + AFieldDB.FieldName + '=' + DateToStr(AFieldDB.AsDate) + ','
+        LFields := LFields + AFieldDB.FieldName + '=' + QuotedStr(DateToStr(AFieldDB.AsDate)) + ','
       else if (AFieldDB.DataType = ftTime) then
-        LFields := LFields + AFieldDB.FieldName + '=' + TimeToStr(AFieldDB.AsTime) + ','
+        LFields := LFields + AFieldDB.FieldName + '=' + QuotedStr(TimeToStr(AFieldDB.AsTime)) + ','
       else
       if (AFieldDB.DataType = ftDateTime)
       or (AFieldDB.DataType = ftTimeStamp)
       then
-        LFields := LFields + AFieldDB.FieldName + '=' + DateTimeToStr(AFieldDB.AsDateTime) + ','
+        LFields := LFields + AFieldDB.FieldName + '=' + QuotedStr(DateTimeToStr(AFieldDB.AsDateTime)) + ','
       else
       if (AFieldDB.DataType = ftFloat)
       or (AFieldDB.DataType = ftBCD)
@@ -996,14 +1034,14 @@ begin
       then
         LFields := LFields + AFieldDB.FieldName + '=' + AFieldDB.AsString + ','
       else if (AFieldDB.DataType = ftDate) then
-        LFields := LFields + AFieldDB.FieldName + '=' + DateToStr(AFieldDB.AsDate) + ','
+        LFields := LFields + AFieldDB.FieldName + '=' + QuotedStr(DateToStr(AFieldDB.AsDate)) + ','
       else if (AFieldDB.DataType = ftTime) then
-        LFields := LFields + AFieldDB.FieldName + '=' + TimeToStr(AFieldDB.AsTime) + ','
+        LFields := LFields + AFieldDB.FieldName + '=' + QuotedStr(TimeToStr(AFieldDB.AsTime)) + ','
       else
       if (AFieldDB.DataType = ftDateTime)
       or (AFieldDB.DataType = ftTimeStamp)
       then
-        LFields := LFields + AFieldDB.FieldName + '=' + DateTimeToStr(AFieldDB.AsDateTime) + ','
+        LFields := LFields + AFieldDB.FieldName + '=' + QuotedStr(DateTimeToStr(AFieldDB.AsDateTime)) + ','
       else
       if (AFieldDB.DataType = ftFloat)
       or (AFieldDB.DataType = ftBCD)
@@ -1015,9 +1053,9 @@ begin
   Result := 'UPDATE ' + ATable.TableName + ' SET ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' WHERE id=' + ATable.Id.AsString + ';';
 end;
 
-function TEntityManager.PrepareDeleteQuery(ATable: TTable): string;
+function TEntityManager.PrepareDeleteQuery(ATable: TTable; AFilterStartWithAnd: string): string;
 begin
-  Result := 'DELETE FROM ' + ATable.TableName + ' WHERE id=' + ATable.Id.AsString + ';';
+  Result := 'DELETE FROM ' + ATable.TableName + ' WHERE 1=1 ' + AFilterStartWithAnd;
 end;
 
 procedure TEntityManager.StartTrans(AConnection: TZAbstractConnection);
@@ -1029,6 +1067,7 @@ begin
     LConnection := AConnection;
   if not LConnection.InTransaction then
     LConnection.StartTransaction;
+  GLogger.RunLog('START TRANSACTION');
 end;
 
 procedure TEntityManager.CommitTrans(AConnection: TZAbstractConnection);
@@ -1040,6 +1079,7 @@ begin
     LConnection := AConnection;
   if not LConnection.InTransaction then
     LConnection.StartTransaction;
+  GLogger.RunLog('COMMIT TRANSACTION');
 end;
 
 procedure TEntityManager.RollbackTrans(AConnection: TZAbstractConnection);
@@ -1051,6 +1091,7 @@ begin
     LConnection := AConnection;
   if not LConnection.InTransaction then
     LConnection.StartTransaction;
+  GLogger.RunLog('ROLLBACK TRANSACTION');
 end;
 
 end.

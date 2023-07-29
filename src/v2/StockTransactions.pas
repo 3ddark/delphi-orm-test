@@ -1,4 +1,4 @@
-unit StockTransactions;
+ï»¿unit StockTransactions;
 
 interface
 
@@ -16,6 +16,8 @@ type
     FFiyat: TFieldDB;
     FDovizFiyat: TFieldDB;
     FPara: TFieldDB;
+    FFaturaId: TFieldDB;
+    FFaturaDetayId: TFieldDB;
   public
     property StokKodu: TFieldDB read FStokKodu write FStokKodu;
     property Tarih: TFieldDB read FTarih write FTarih;
@@ -24,8 +26,10 @@ type
     property Fiyat: TFieldDB read FFiyat write FFiyat;
     property DovizFiyat: TFieldDB read FDovizFiyat write FDovizFiyat;
     property Para: TFieldDB read FPara write FPara;
+    property FaturaId: TFieldDB read FFaturaId write FFaturaId;
+    property FaturaDetayId: TFieldDB read FFaturaDetayId write FFaturaDetayId;
 
-    constructor Create; override;
+    constructor Create(); override;
     destructor Destroy; override;
 
     function Clone: TStockTransaction; reintroduce; overload;
@@ -33,7 +37,7 @@ type
 
 implementation
 
-constructor TStockTransaction.Create;
+constructor TStockTransaction.Create();
 begin
   Self.SchemaName := 'public';
   Self.TableName := 'a_stock_transactions';
@@ -43,11 +47,13 @@ begin
 
   FStokKodu := TFieldDB.Create('stok_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
   FTarih := TFieldDB.Create('tarih', ftDateTime, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FTip := TFieldDB.Create('tip', ftSmallint, 0, Self, [fpSelect, fpInsert, fpUpdate]);  //0 Giriþ 1 Çýkýþ
+  FTip := TFieldDB.Create('tip', ftSmallint, 0, Self, [fpSelect, fpInsert, fpUpdate]);  //0 GiriÅŸ 1 Ã‡Ä±kÄ±ÅŸ
   FMiktar := TFieldDB.Create('miktar', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
   FFiyat := TFieldDB.Create('fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
   FDovizFiyat := TFieldDB.Create('doviz_fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
   FPara := TFieldDB.Create('para', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FFaturaId := TFieldDB.Create('fatura_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FFaturaDetayId := TFieldDB.Create('fatura_detay_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
 end;
 
 destructor TStockTransaction.Destroy;
@@ -58,7 +64,7 @@ end;
 
 function TStockTransaction.Clone: TStockTransaction;
 begin
-  Result := TStockTransaction.Create;
+  Result := TStockTransaction.Create();
   Result.CloneData(Self);
 end;
 
