@@ -3,29 +3,23 @@
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.DateUtils,
-  System.SysUtils, System.Variants, System.Classes, System.Generics.Collections,
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, Vcl.StdCtrls,
-  ZAbstractRODataset, ZAbstractDataset, ZDataset, ZAbstractConnection, ZConnection,
-  Ths.Erp.Database.Table, Ths.Erp.Database.Manager,
-  Persons, Stocks, Invoices, StockTransactions, AccountTransactions;
+  Ths.Erp.Database.Table, Ths.Erp.Database.ManagerStack,
+  Stocks, Invoices;
 
 type
   TfrmMain = class(TForm)
-    ZConnection1: TZConnection;
-    ZQuery1: TZQuery;
     btnResetTables: TButton;
     btnAddBusiness: TButton;
     btnFillTestData: TButton;
     btnUpdateBusiness: TButton;
     procedure FormCreate(Sender: TObject);
     procedure btnResetTablesClick(Sender: TObject);
-    procedure FormDestroy(Sender: TObject);
     procedure btnFillTestDataClick(Sender: TObject);
     procedure btnAddBusinessClick(Sender: TObject);
     procedure btnUpdateBusinessClick(Sender: TObject);
   private
-    FManager: TEntityManager;
   public
     { Public declarations }
   end;
@@ -39,10 +33,10 @@ implementation
 
 procedure TfrmMain.btnResetTablesClick(Sender: TObject);
 begin
-  FManager.Start;
-  FManager.DeleteBatch(TInvoice, '', False);
-  FManager.DeleteBatch(TStock, '', False);
-  FManager.Commit;
+  ManagerMain.Start;
+  ManagerMain.DeleteBatch(TInvoice, '', False);
+  ManagerMain.DeleteBatch(TStock, '', False);
+  ManagerMain.Commit;
 end;
 
 procedure TfrmMain.btnUpdateBusinessClick(Sender: TObject);
@@ -51,7 +45,7 @@ var
   LInvoiceLine: TInvoiceLine;
 begin
   LInvoice := TInvoice.Create;
-  FManager.LogicalSelect(TInvoice, TTable(LInvoice), '1=1', True, True, False, TInvoice.BusinessSelect);
+  ManagerMain.LogicalSelect(TInvoice, TTable(LInvoice), '1=1', True, True, False, TInvoice.BusinessSelect);
   try
     LInvoice.HesapKodu.Value := '120-001-015';
 
@@ -63,7 +57,7 @@ begin
     LInvoiceLine.Kdv.Value := 20;
     LInvoice.AddLine(LInvoiceLine);
 
-    FManager.LogicalUpdate(LInvoice, False, True, False, TInvoice.BusinessUpdate);
+    ManagerMain.LogicalUpdate(LInvoice, False, True, False, TInvoice.BusinessUpdate);
   finally
     LInvoice.DisposeOf;
   end;
@@ -91,7 +85,7 @@ begin
     LInvL.Kdv.Value := 20;
     LInv.AddLine(LInvL);
 
-    FManager.LogicalInsert(LInv, True, True, False, TInvoice.BusinessInsert);
+    ManagerMain.LogicalInsert(LInv, True, True, False, TInvoice.BusinessInsert);
   finally
     LInv.DisposeOf;
   end;
@@ -101,29 +95,29 @@ procedure TfrmMain.btnFillTestDataClick(Sender: TObject);
 var
   ATable: TStock;
 begin
-  FManager.Start;
+  ManagerMain.Start;
   ATable := TStock.Create();
   try
     ATable.StokKodu.Value := 'PC1';
     ATable.StokAdi.Value := 'Bilgisayar Paket 1';
-    FManager.Insert(ATable, False);
+    ManagerMain.Insert(ATable, False);
 
     ATable.StokKodu.Value := 'PC2G';
     ATable.StokAdi.Value := 'Bilgisayar Paket 2 Gaming';
-    FManager.Insert(ATable, False);
+    ManagerMain.Insert(ATable, False);
 
     ATable.StokKodu.Value := 'MONLG1';
     ATable.StokAdi.Value := 'Monitör LG 19"';
-    FManager.Insert(ATable, False);
+    ManagerMain.Insert(ATable, False);
 
     ATable.StokKodu.Value := 'MONLG2';
     ATable.StokAdi.Value := 'Monitör LG 21"';
-    FManager.Insert(ATable, False);
+    ManagerMain.Insert(ATable, False);
 
     ATable.StokKodu.Value := 'MONLG3C';
     ATable.StokAdi.Value := 'Monitör LG 24" Curved';
-    FManager.Insert(ATable, False);
-    FManager.Commit;
+    ManagerMain.Insert(ATable, False);
+    ManagerMain.Commit;
   finally
     ATable.DisposeOf;
   end;
@@ -136,15 +130,7 @@ procedure TfrmMain.FormCreate(Sender: TObject);
 //  LPersons: TArray<TTable>;
 //  LAdres: TPersonAdres;
 begin
-  ZConnection1 := TZConnection.Create(nil);
-  ZConnection1.Protocol := 'postgresql-9';
-  ZConnection1.Database := 'ths_erp';
-  ZConnection1.HostName := 'localhost';
-  ZConnection1.User := 'postgres';
-  ZConnection1.Password := 'qwe';
-  ZConnection1.Connect;
-
-  FManager := TEntityManager.Create(ZConnection1);
+  TManagerStack.prepareManager;
 
 //  LPerson := TPerson.Create;
 //  try
@@ -163,14 +149,6 @@ begin
 //      LPersons[n1].DisposeOf;
 //    SetLength(LPersons, 0);
 //  end;
-
-end;
-
-procedure TfrmMain.FormDestroy(Sender: TObject);
-begin
-  FManager.Free;
-  ZConnection1.Disconnect;
-  ZConnection1.DisposeOf;
 end;
 
 end.

@@ -10,7 +10,8 @@ uses
   StockTransactions in 'StockTransactions.pas',
   Invoices in 'Invoices.pas',
   AccountTransactions in 'AccountTransactions.pas',
-  Stocks in 'Stocks.pas';
+  Stocks in 'Stocks.pas',
+  Ths.Erp.Database.ManagerStack in 'Ths.Erp.Database.ManagerStack.pas';
 
 {$R *.res}
 

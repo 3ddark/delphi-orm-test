@@ -1,9 +1,9 @@
 object frmMain: TfrmMain
   Left = 0
   Top = 0
-  Caption = 'frmMain'
-  ClientHeight = 299
-  ClientWidth = 635
+  Caption = 'ORM Test'
+  ClientHeight = 184
+  ClientWidth = 208
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -11,59 +11,41 @@ object frmMain: TfrmMain
   Font.Name = 'Tahoma'
   Font.Style = []
   OnCreate = FormCreate
-  OnDestroy = FormDestroy
   TextHeight = 13
   object btnResetTables: TButton
-    Left = 8
+    Left = 32
     Top = 8
-    Width = 107
+    Width = 147
     Height = 25
     Caption = 'Reset Tables'
     TabOrder = 0
     OnClick = btnResetTablesClick
   end
   object btnAddBusiness: TButton
-    Left = 144
-    Top = 8
-    Width = 107
+    Left = 32
+    Top = 90
+    Width = 147
     Height = 25
     Caption = 'Add Business'
-    TabOrder = 1
+    TabOrder = 2
     OnClick = btnAddBusinessClick
   end
   object btnFillTestData: TButton
-    Left = 8
-    Top = 56
-    Width = 107
+    Left = 32
+    Top = 49
+    Width = 147
     Height = 25
     Caption = 'Fill Test Data'
-    TabOrder = 2
+    TabOrder = 1
     OnClick = btnFillTestDataClick
   end
   object btnUpdateBusiness: TButton
-    Left = 144
-    Top = 56
-    Width = 107
+    Left = 32
+    Top = 131
+    Width = 147
     Height = 25
     Caption = 'Update Business'
     TabOrder = 3
     OnClick = btnUpdateBusinessClick
-  end
-  object ZConnection1: TZConnection
-    ControlsCodePage = cCP_UTF16
-    Catalog = ''
-    HostName = ''
-    Port = 0
-    Database = ''
-    User = ''
-    Password = ''
-    Protocol = ''
-    Left = 312
-    Top = 152
-  end
-  object ZQuery1: TZQuery
-    Params = <>
-    Left = 320
-    Top = 160
   end
 end

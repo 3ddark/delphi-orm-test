@@ -4,8 +4,7 @@ interface
 
 uses
   System.SysUtils, Classes, StrUtils, System.Variants, Data.DB, System.Rtti,
-  System.Generics.Collections,
-  ZAbstractRODataset, ZAbstractDataset, ZDataset, ZAbstractConnection, ZConnection,
+  ZAbstractRODataset, ZAbstractDataset, ZDataset, ZAbstractConnection,
   Ths.Erp.Database.Table;
 
 type
@@ -17,6 +16,7 @@ type
 
   TEntityManager = class
   private
+    FId: Int64;
     FConnection: TZAbstractConnection;
 
     function NewQuery: TZQuery;
@@ -34,6 +34,8 @@ type
     function GetOneCustomBase(const ATable: TTable; AFields: TArray<TFieldDB>; AFilter: string; ALock: Boolean): Boolean;
   public
     property Connection: TZAbstractConnection read FConnection;
+
+    function GetNewRecordId: Int64;
 
     constructor Create(AConnection: TZAbstractConnection); virtual;
     destructor Destroy; override;
@@ -113,6 +115,7 @@ begin
   if AConnection = nil then
     raise Exception.Create('Connection required');
 
+  FId := 0;
   FConnection := AConnection;
 
   with Self.NewQuery do
@@ -264,6 +267,12 @@ begin
       GLogger.ErrorLog(E);
     end;
   end;
+end;
+
+function TEntityManager.GetNewRecordId: Int64;
+begin
+  FId := FId - 1;
+  Result := FId;
 end;
 
 function TEntityManager.GetOne(ATable: TTable; AFilter: string; ALock, APermissionCheck: Boolean): Boolean;

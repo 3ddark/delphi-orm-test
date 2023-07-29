@@ -94,6 +94,8 @@ type
 
 implementation
 
+uses Ths.Erp.Database.ManagerStack;
+
 constructor  TFieldDB.Create(
   AFieldName: string;
   AFieldType: TFieldType;
@@ -281,7 +283,7 @@ begin
   SetLength(FFields, 0);
 
   Id := TFieldDB.Create('id', ftInteger, 0, Self, [fpSelect, fpUpdate]);
-  Id.Value := -1;//FDatabase.GetNewRecordId;
+  Id.Value := ManagerMain.GetNewRecordId;
 end;
 
 function TTable.GetTableName: string;

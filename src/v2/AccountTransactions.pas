@@ -2,7 +2,7 @@
 
 interface
 
-uses Data.DB, Ths.Erp.Database.Table, Ths.Erp.Database.Manager;
+uses Data.DB, Ths.Erp.Database.Table;
 
 type
   TAccountTransactionType = (attAlacak, aatBorc);

@@ -34,8 +34,9 @@ var
   PID: DWORD;
 begin
   if AFileName = '' then
-    raise Exception.Create('Log dosyası adı zorunludur!!!');
-  FLogFileName := ExtractFilePath(Application.ExeName) + AFileName + '.log';
+    FLogFileName := ChangeFileExt(ExtractFileName(Application.ExeName), '.log')
+  else
+    FLogFileName := ExtractFilePath(Application.ExeName) + AFileName + '.log';
 
   FProcessID := '';
   FDBConnectionPID := '';
@@ -100,7 +101,7 @@ begin
 end;
 
 initialization
-  GLogger := TLogger.Create('TestLog');
+  GLogger := TLogger.Create('');
 finalization
   FreeAndNil(GLogger);
 
