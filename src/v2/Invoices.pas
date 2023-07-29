@@ -37,10 +37,10 @@ type
 
     function Clone: TInvoice; reintroduce; overload;
 
-    class procedure BusinessSelect(AClass: TClass; var AList: TArray<TTable>; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
-    class procedure BusinessInsert(AManager: TEntityManager; ATables: TArray<TTable>; APermissionCheck: Boolean);
-    class procedure BusinessUpdate(AManager: TEntityManager; ATables: TArray<TTable>; APermissionCheck: Boolean);
-    class procedure BusinessDelete(AManager: TEntityManager; ATables: TArray<TTable>; APermissionCheck: Boolean);
+    class procedure BusinessSelect(AClass: TClass; var ATable: TTable; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
+    class procedure BusinessInsert(AManager: TEntityManager; ATable: TTable; APermissionCheck: Boolean);
+    class procedure BusinessUpdate(AManager: TEntityManager; ATable: TTable; APermissionCheck: Boolean);
+    class procedure BusinessDelete(AManager: TEntityManager; ATable: TTable; APermissionCheck: Boolean);
   end;
 
   TInvoiceLine = class(TTable)
@@ -74,77 +74,67 @@ type
 
 implementation
 
-class procedure TInvoice.BusinessSelect(AClass: TClass; var AList: TArray<TTable>; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
+class procedure TInvoice.BusinessSelect(AClass: TClass; var ATable: TTable; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
 var
-  n1, n2: Integer;
+  n1: Integer;
   LInvLs: TArray<TTable>;
   AInvoice: TInvoice;
   AInvoiceLine: TInvoiceLine;
 begin
-  AManager.GetList(AClass, AList, AFilter, ALock, APermissionCheck);
-  for n1 := 0 to Length(AList)-1 do
+  AManager.GetOne(ATable, AFilter, ALock, APermissionCheck);
+
+  AInvoice := ATable as TInvoice;
+  AInvoiceLine := TInvoiceLine.Create();
+  AManager.GetList(TInvoiceLine, LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + AInvoice.Id.AsString, ALock, APermissionCheck);
+  AInvoiceLine.DisposeOf;
+  for n1 := 0 to Length(LInvLs)-1 do
   begin
-    AInvoice := AList[n1] as TInvoice;
-    AInvoiceLine := TInvoiceLine.Create();
-    AManager.GetList(TInvoiceLine, LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + AInvoice.Id.AsString, ALock, APermissionCheck);
-    AInvoiceLine.DisposeOf;
-    for n2 := 0 to Length(LInvLs)-1 do
-    begin
-      AInvoiceLine := LInvLs[n2] as TInvoiceLine;
-      AInvoice.AddLine(AInvoiceLine);
-      LInvLs[n2] := nil;
-    end;
+    AInvoiceLine := LInvLs[n1] as TInvoiceLine;
+    AInvoice.AddLine(AInvoiceLine);
+    LInvLs[n1] := nil;
   end;
 end;
 
-class procedure TInvoice.BusinessInsert(AManager: TEntityManager; ATables: TArray<TTable>; APermissionCheck: Boolean);
+class procedure TInvoice.BusinessInsert(AManager: TEntityManager; ATable: TTable; APermissionCheck: Boolean);
 var
-  ATable: TTable;
   AInvoice: TInvoice;
   ALine: TInvoiceLine;
 begin
-  for ATable in ATables do
+  AInvoice := ATable as TInvoice;
+  AManager.Insert(AInvoice, APermissionCheck);
+  for ALine in AInvoice.InvoiceLines do
   begin
-    AInvoice := TInvoice(ATable);
-    AManager.Insert(AInvoice, APermissionCheck);
-    for ALine in AInvoice.InvoiceLines do
+    ALine.HeaderId.Value := AInvoice.Id.Value;
+    AManager.Insert(ALine, False);
+
+    ALine.AddStockTransaction(AManager, False);
+  end;
+end;
+
+class procedure TInvoice.BusinessUpdate(AManager: TEntityManager; ATable: TTable; APermissionCheck: Boolean);
+var
+  AInvoice: TInvoice;
+  ALine: TInvoiceLine;
+begin
+  AInvoice := ATable as TInvoice;
+  AManager.Update(AInvoice, APermissionCheck);
+  for ALine in AInvoice.InvoiceLines do
+  begin
+    if ALine.Id.Value <= 0 then
     begin
       ALine.HeaderId.Value := AInvoice.Id.Value;
       AManager.Insert(ALine, False);
-
       ALine.AddStockTransaction(AManager, False);
-    end;
-  end;
-end;
-
-class procedure TInvoice.BusinessUpdate(AManager: TEntityManager; ATables: TArray<TTable>; APermissionCheck: Boolean);
-var
-  ATable: TTable;
-  AInvoice: TInvoice;
-  ALine: TInvoiceLine;
-begin
-  for ATable in ATables do
-  begin
-    AInvoice := TInvoice(ATable);
-    AManager.Update(AInvoice, APermissionCheck);
-    for ALine in AInvoice.InvoiceLines do
+    end
+    else
     begin
-      if ALine.Id.Value <= 0 then
-      begin
-        ALine.HeaderId.Value := AInvoice.Id.Value;
-        AManager.Insert(ALine, False);
-        ALine.AddStockTransaction(AManager, False);
-      end
-      else
-      begin
-        AManager.Update(ALine, False);
-        ALine.UpdateStockTransaction(AManager, False);
-      end;
+      AManager.Update(ALine, False);
+      ALine.UpdateStockTransaction(AManager, False);
     end;
   end;
 end;
 
-class procedure TInvoice.BusinessDelete(AManager: TEntityManager; ATables: TArray<TTable>; APermissionCheck: Boolean);
+class procedure TInvoice.BusinessDelete(AManager: TEntityManager; ATable: TTable; APermissionCheck: Boolean);
 begin
 
 end;

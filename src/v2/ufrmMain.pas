@@ -39,38 +39,33 @@ implementation
 
 procedure TfrmMain.btnResetTablesClick(Sender: TObject);
 begin
+  FManager.Start;
   FManager.DeleteBatch(TInvoice, '', False);
   FManager.DeleteBatch(TStock, '', False);
+  FManager.Commit;
 end;
 
 procedure TfrmMain.btnUpdateBusinessClick(Sender: TObject);
 var
   LInvoice: TInvoice;
-  LInvoices: TArray<TTable>;
   LInvoiceLine: TInvoiceLine;
 begin
-  FManager.LogicalSelect(TInvoice, LInvoices, '1=1', True, True, False, TInvoice.BusinessSelect);
-  if Length(LInvoices) = 1 then
-  begin
-    LInvoice := TInvoice(LInvoices[0]);
-    try
-      LInvoices[0] := nil;
-      SetLength(LInvoices, 0);
+  LInvoice := TInvoice.Create;
+  FManager.LogicalSelect(TInvoice, TTable(LInvoice), '1=1', True, True, False, TInvoice.BusinessSelect);
+  try
+    LInvoice.HesapKodu.Value := '120-001-015';
 
-      LInvoice.HesapKodu.Value := '120-001-015';
+    LInvoiceLine := TInvoiceLine.Create();
+    LInvoiceLine.StokKodu.Value := 'PC2G';
+    LInvoiceLine.Iskonto.Value := 20;
+    LInvoiceLine.Miktar.Value := 1;
+    LInvoiceLine.Fiyat.Value := 20000;
+    LInvoiceLine.Kdv.Value := 20;
+    LInvoice.AddLine(LInvoiceLine);
 
-      LInvoiceLine := TInvoiceLine.Create();
-      LInvoiceLine.StokKodu.Value := 'PC2G';
-      LInvoiceLine.Iskonto.Value := 20;
-      LInvoiceLine.Miktar.Value := 1;
-      LInvoiceLine.Fiyat.Value := 20000;
-      LInvoiceLine.Kdv.Value := 20;
-      LInvoice.AddLine(LInvoiceLine);
-
-      FManager.LogicalUpdate([LInvoice], False, True, False, TInvoice.BusinessUpdate);
-    finally
-      LInvoice.DisposeOf;
-    end;
+    FManager.LogicalUpdate(LInvoice, False, True, False, TInvoice.BusinessUpdate);
+  finally
+    LInvoice.DisposeOf;
   end;
 end;
 
@@ -96,7 +91,7 @@ begin
     LInvL.Kdv.Value := 20;
     LInv.AddLine(LInvL);
 
-    FManager.LogicalInsert([LInv], True, True, False, TInvoice.BusinessInsert);
+    FManager.LogicalInsert(LInv, True, True, False, TInvoice.BusinessInsert);
   finally
     LInv.DisposeOf;
   end;
@@ -106,6 +101,7 @@ procedure TfrmMain.btnFillTestDataClick(Sender: TObject);
 var
   ATable: TStock;
 begin
+  FManager.Start;
   ATable := TStock.Create();
   try
     ATable.StokKodu.Value := 'PC1';
@@ -127,6 +123,7 @@ begin
     ATable.StokKodu.Value := 'MONLG3C';
     ATable.StokAdi.Value := 'Monitör LG 24" Curved';
     FManager.Insert(ATable, False);
+    FManager.Commit;
   finally
     ATable.DisposeOf;
   end;

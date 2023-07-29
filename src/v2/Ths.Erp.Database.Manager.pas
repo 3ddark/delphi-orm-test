@@ -12,8 +12,8 @@ type
   TEntityManager = class;
   TPermissionType = (ptRead, ptAddRecord, ptUpdate, ptDelete, ptSpecial);
 
-  TBusinessSelectEvent = procedure(AClass: TClass; var AList: TArray<TTable>; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean) of Object;
-  TBusinessOperationEvent = procedure(AManager: TEntityManager; ATables: TArray<TTable>; APermissionCheck: Boolean) of Object;
+  TBusinessSelectEvent = procedure(AClass: TClass; var ATable: TTable; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean) of Object;
+  TBusinessOperationEvent = procedure(AManager: TEntityManager; ATable: TTable; APermissionCheck: Boolean) of Object;
 
   TEntityManager = class
   private
@@ -68,10 +68,10 @@ type
     function BeforeDeleteDB(ATable: TTable): Boolean; virtual;
     function AfterDeleteDB(ATable: TTable): Boolean; virtual;
 
-    function LogicalSelect(AClass: TClass; var AList: TArray<TTable>; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean; AProcBusinessSelect: TBusinessSelectEvent): TEntityManager; virtual;
-    function LogicalInsert(ATables: TArray<TTable>; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessInsert: TBusinessOperationEvent): Boolean; virtual;
-    function LogicalUpdate(ATables: TArray<TTable>; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessUpdate: TBusinessOperationEvent): Boolean; virtual;
-    function LogicalDelete(ATables: TArray<TTable>; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessDelete: TBusinessOperationEvent): Boolean; virtual;
+    function LogicalSelect(AClass: TClass; var ATable: TTable; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean; AProcBusinessSelect: TBusinessSelectEvent): TEntityManager; virtual;
+    function LogicalInsert(ATable: TTable; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessInsert: TBusinessOperationEvent): Boolean; virtual;
+    function LogicalUpdate(ATable: TTable; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessUpdate: TBusinessOperationEvent): Boolean; virtual;
+    function LogicalDelete(ATable: TTable; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessDelete: TBusinessOperationEvent): Boolean; virtual;
 
     procedure Listen(ATableName: string); virtual;
     procedure Unlisten(ATableName: string); virtual;
@@ -79,9 +79,9 @@ type
 
     function IsAuthorized(ATableSourceCode: string; APermissionType: TPermissionType; APermissionCheck: Boolean; AShowException: Boolean=True): Boolean;
 
-    procedure StartTrans(AConnection: TZAbstractConnection = nil);
-    procedure CommitTrans(AConnection: TZAbstractConnection = nil);
-    procedure RollbackTrans(AConnection: TZAbstractConnection = nil);
+    procedure Start(AConnection: TZAbstractConnection = nil);
+    procedure Commit(AConnection: TZAbstractConnection = nil);
+    procedure Rollback(AConnection: TZAbstractConnection = nil);
   end;
 
 implementation
@@ -655,7 +655,7 @@ begin
   Result := True;
 end;
 
-function TEntityManager.LogicalSelect(AClass: TClass; var AList: TArray<TTable>; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean; AProcBusinessSelect: TBusinessSelectEvent): TEntityManager;
+function TEntityManager.LogicalSelect(AClass: TClass; var ATable: TTable; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean; AProcBusinessSelect: TBusinessSelectEvent): TEntityManager;
 begin
   Result := Self;
   try
@@ -666,79 +666,79 @@ begin
       AWithBegin := False;
 
     if AWithBegin then
-      StartTrans;
+      Start;
 
-    AProcBusinessSelect(AClass, AList, Self, AFilter, ALock, APermissionCheck);
+    AProcBusinessSelect(AClass, ATable, Self, AFilter, ALock, APermissionCheck);
   except
     on E: Exception do
     begin
-      Self.RollbackTrans;
+      Self.Rollback;
       GLogger.ErrorLog(E);
     end;
   end;
 end;
 
-function TEntityManager.LogicalInsert(ATables: TArray<TTable>; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessInsert: TBusinessOperationEvent): Boolean;
+function TEntityManager.LogicalInsert(ATable: TTable; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessInsert: TBusinessOperationEvent): Boolean;
 begin
   Result := False;
   try
     if not Assigned(AProcBusinessInsert) then
       raise Exception.Create('BusinessInsert event olmak zorunda!!!');
 
-    if AWithBegin then StartTrans;
+    if AWithBegin then Start;
 
-    AProcBusinessInsert(Self, ATables, APermissionCheck);
+    AProcBusinessInsert(Self, ATable, APermissionCheck);
 
-    if AWithCommit then CommitTrans;
+    if AWithCommit then Commit;
     Result := True;
   except
     on E: Exception do
     begin
-      Self.RollbackTrans;
+      Self.Rollback;
       GLogger.ErrorLog(E);
     end;
   end;
 end;
 
-function TEntityManager.LogicalUpdate(ATables: TArray<TTable>; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessUpdate: TBusinessOperationEvent): Boolean;
+function TEntityManager.LogicalUpdate(ATable: TTable; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessUpdate: TBusinessOperationEvent): Boolean;
 begin
   Result := False;
   try
     if not Assigned(AProcBusinessUpdate) then
       raise Exception.Create('BusinessUpdate event olmak zorunda!!!');
 
-    if AWithBegin then StartTrans;
+    if AWithBegin then Start;
 
-    AProcBusinessUpdate(Self, ATables, APermissionCheck);
+    AProcBusinessUpdate(Self, ATable, APermissionCheck);
 
-    if AWithCommit then CommitTrans;
+    if AWithCommit then Commit;
     Result := True;
   except
     on E: Exception do
     begin
-      Self.RollbackTrans;
+      Self.Rollback;
       GLogger.ErrorLog(E);
     end;
   end;
 end;
 
-function TEntityManager.LogicalDelete(ATables: TArray<TTable>; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessDelete: TBusinessOperationEvent): Boolean;
+function TEntityManager.LogicalDelete(ATable: TTable; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessDelete: TBusinessOperationEvent): Boolean;
 begin
   Result := False;
   try
     if not Assigned(AProcBusinessDelete) then
       raise Exception.Create('BusinessDelete event olmak zorunda!!!');
 
-    if AWithBegin then StartTrans;
+    if AWithBegin then Start;
 
-    AProcBusinessDelete(Self, ATables, APermissionCheck);
+    AProcBusinessDelete(Self, ATable, APermissionCheck);
 
-    if AWithCommit then CommitTrans;
+    if AWithCommit then Commit;
     Result := True;
   except
     on E: Exception do
     begin
-      Self.RollbackTrans;
+      Self.Rollback;
       GLogger.ErrorLog(E);
     end;
   end;
@@ -1058,7 +1058,7 @@ begin
   Result := 'DELETE FROM ' + ATable.TableName + ' WHERE 1=1 ' + AFilterStartWithAnd;
 end;
 
-procedure TEntityManager.StartTrans(AConnection: TZAbstractConnection);
+procedure TEntityManager.Start(AConnection: TZAbstractConnection);
 var
   LConnection: TZAbstractConnection;
 begin
@@ -1072,7 +1072,7 @@ begin
   end;
 end;
 
-procedure TEntityManager.CommitTrans(AConnection: TZAbstractConnection);
+procedure TEntityManager.Commit(AConnection: TZAbstractConnection);
 var
   LConnection: TZAbstractConnection;
 begin
@@ -1086,7 +1086,7 @@ begin
   end;
 end;
 
-procedure TEntityManager.RollbackTrans(AConnection: TZAbstractConnection);
+procedure TEntityManager.Rollback(AConnection: TZAbstractConnection);
 var
   LConnection: TZAbstractConnection;
 begin
