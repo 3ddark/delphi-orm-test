@@ -1066,8 +1066,10 @@ begin
   if Assigned(AConnection) then
     LConnection := AConnection;
   if not LConnection.InTransaction then
+  begin
     LConnection.StartTransaction;
-  GLogger.RunLog('START TRANSACTION');
+    GLogger.RunLog('START TRANSACTION');
+  end;
 end;
 
 procedure TEntityManager.CommitTrans(AConnection: TZAbstractConnection);
@@ -1077,9 +1079,11 @@ begin
   LConnection := Connection;
   if Assigned(AConnection) then
     LConnection := AConnection;
-  if not LConnection.InTransaction then
-    LConnection.StartTransaction;
-  GLogger.RunLog('COMMIT TRANSACTION');
+  if LConnection.InTransaction then
+  begin
+    LConnection.Commit;
+    GLogger.RunLog('COMMIT TRANSACTION');
+  end;
 end;
 
 procedure TEntityManager.RollbackTrans(AConnection: TZAbstractConnection);
@@ -1089,9 +1093,11 @@ begin
   LConnection := Connection;
   if Assigned(AConnection) then
     LConnection := AConnection;
-  if not LConnection.InTransaction then
-    LConnection.StartTransaction;
-  GLogger.RunLog('ROLLBACK TRANSACTION');
+  if LConnection.InTransaction then
+  begin
+    LConnection.Rollback;
+    GLogger.RunLog('ROLLBACK TRANSACTION');
+  end;
 end;
 
 end.

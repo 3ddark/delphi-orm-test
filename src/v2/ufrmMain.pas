@@ -49,7 +49,7 @@ var
   LInvoices: TArray<TTable>;
   LInvoiceLine: TInvoiceLine;
 begin
-  FManager.LogicalSelect(TInvoice, LInvoices, '', True, True, False, TInvoice.BusinessSelect);
+  FManager.LogicalSelect(TInvoice, LInvoices, '1=1', True, True, False, TInvoice.BusinessSelect);
   if Length(LInvoices) = 1 then
   begin
     LInvoice := TInvoice(LInvoices[0]);
@@ -67,7 +67,7 @@ begin
       LInvoiceLine.Kdv.Value := 20;
       LInvoice.AddLine(LInvoiceLine);
 
-      FManager.LogicalUpdate([LInvoice], True, True, False, TInvoice.BusinessUpdate);
+      FManager.LogicalUpdate([LInvoice], False, True, False, TInvoice.BusinessUpdate);
     finally
       LInvoice.DisposeOf;
     end;
