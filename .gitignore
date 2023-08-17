@@ -9,3 +9,4 @@ src/Win32
 *.dproj
 *.dcu
 *.exe
+*.log

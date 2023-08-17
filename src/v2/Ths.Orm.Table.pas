@@ -1,4 +1,4 @@
-﻿unit Ths.Erp.Database.Table;
+﻿unit Ths.Orm.Table;
 
 interface
 
@@ -17,9 +17,9 @@ type
   TFieldIslemTipi = (fpSelect, fpInsert, fpUpdate);
   TFieldIslemTipleri = set of TFieldIslemTipi;
 
-  TTable = class;
+  TThsTable = class;
 
-  TFieldDB = class
+  TThsField = class
   private
     FFieldName: string;
     FDataType: TFieldType;
@@ -27,7 +27,7 @@ type
     FSize: Integer;
     FIsNullable: Boolean;
     FOtherFieldName: string;
-    FOwnerTable: TTable;
+    FOwnerTable: TThsTable;
     FFieldIslemTipleri: TFieldIslemTipleri;
     function GetValue: Variant;
     procedure SetValue(const Value: Variant);
@@ -39,19 +39,19 @@ type
     property Size: Integer read FSize write FSize;
     property IsNullable: Boolean read FIsNullable write FIsNullable;
     property OtherFieldName: string read FOtherFieldName write FOtherFieldName;
-    property OwnerTable: TTable read FOwnerTable write FOwnerTable;
+    property OwnerTable: TThsTable read FOwnerTable write FOwnerTable;
     property FieldIslemTipleri: TFieldIslemTipleri read FFieldIslemTipleri write SetFieldIslemTipleri;
 
     constructor Create(AFieldName: string;
                      AFieldType: TFieldType;
                      AValue: Variant;
-                     AOwnerTable: TTable;
+                     AOwnerTable: TThsTable;
                      AFieldIslemTipleri: TFieldIslemTipleri;
                      AOtherFieldName: string = '';
                      AMaxLength: Integer=0;
                      AIsNullable: Boolean=True);
 
-    procedure Clone(var AField: TFieldDB);
+    procedure Clone(var AField: TThsField);
 
     function AsBoolean: Boolean;
     function AsString: string;
@@ -66,12 +66,12 @@ type
   end;
 
 
-  TTable = class
+  TThsTable = class
   private
     FSchemaName: string;
     FTableName: string;
     FTableSourceCode: string;
-    FFields: TArray<TFieldDB>;
+    FFields: TArray<TThsField>;
 
     function GetTableName: string;
     procedure SetTableName(ATableName: string);
@@ -79,28 +79,28 @@ type
     constructor Create(); virtual;
     destructor Destroy; override;
   public
-    Id: TFieldDB;
+    Id: TThsField;
 
     property SchemaName: string read FSchemaName write FSchemaName;
     property TableName: string read GetTableName write SetTableName;
     property TableSourceCode: string read FTableSourceCode write FTableSourceCode;
-    property Fields: TArray<TFieldDB> read FFields write FFields;
+    property Fields: TArray<TThsField> read FFields write FFields;
 
     procedure Clear; virtual;
-    function Clone: TTable; virtual; abstract;
+    function Clone: TThsTable; virtual; abstract;
     function Validate: Boolean; virtual;
-    procedure CloneData(ASrcTable: TTable);
+    procedure CloneData(ASrcTable: TThsTable);
   end;
 
 implementation
 
 uses Ths.Erp.Database.ManagerStack;
 
-constructor  TFieldDB.Create(
+constructor  TThsField.Create(
   AFieldName: string;
   AFieldType: TFieldType;
   AValue: Variant;
-  AOwnerTable: TTable;
+  AOwnerTable: TThsTable;
   AFieldIslemTipleri: TFieldIslemTipleri;
   AOtherFieldName: string = '';
   AMaxLength: Integer=0;
@@ -122,17 +122,17 @@ begin
   end;
 end;
 
-function TFieldDB.GetValue: Variant;
+function TThsField.GetValue: Variant;
 begin
   Result := FValue;
 end;
 
-procedure TFieldDB.SetFieldIslemTipleri(const Value: TFieldIslemTipleri);
+procedure TThsField.SetFieldIslemTipleri(const Value: TFieldIslemTipleri);
 begin
   FFieldIslemTipleri := Value;
 end;
 
-procedure TFieldDB.SetValue(const Value: Variant);
+procedure TThsField.SetValue(const Value: Variant);
 begin
   FValue := Value;
 
@@ -193,19 +193,19 @@ begin
     end;
 end;
 
-function TFieldDB.QryName: string;
+function TThsField.QryName: string;
 begin
   Result := IfThen(FOwnerTable.SchemaName <> '', FOwnerTable.SchemaName + '.', '') + FOwnerTable.TableName + '.' + FieldName;
 end;
 
-function TFieldDB.AsBoolean: Boolean;
+function TThsField.AsBoolean: Boolean;
 begin
   Result := False;
   if VarType(FValue) and varTypeMask = varBoolean then
     Result := FValue;
 end;
 
-function TFieldDB.AsDate: TDate;
+function TThsField.AsDate: TDate;
 begin
   if VarIsFloat(Value) or VarIsNumeric(Value) then
     Result := VarToDateTime(Value)
@@ -213,7 +213,7 @@ begin
     Result := StrToDateDef(AsString, 0);
 end;
 
-function TFieldDB.AsTime: TTime;
+function TThsField.AsTime: TTime;
 begin
   if VarIsFloat(Value) or VarIsNumeric(Value) then
     Result := TimeOf(VarToDateTime(Value))
@@ -221,7 +221,7 @@ begin
     Result := TimeOf(StrToDateTimeDef(AsString, 0));
 end;
 
-function TFieldDB.AsDateTime: TDateTime;
+function TThsField.AsDateTime: TDateTime;
 begin
   if VarIsFloat(Value) or VarIsNumeric(Value) then
     Result := VarToDateTime(Value)
@@ -229,27 +229,27 @@ begin
     Result := StrToDateTimeDef(AsString, 0);
 end;
 
-function TFieldDB.AsFloat: Double;
+function TThsField.AsFloat: Double;
 begin
   Result := StrToFloatDef(AsString, 0);
 end;
 
-function TFieldDB.AsInt64: Int64;
+function TThsField.AsInt64: Int64;
 begin
   Result := StrToInt64Def(AsString, 0);
 end;
 
-function TFieldDB.AsInteger: Integer;
+function TThsField.AsInteger: Integer;
 begin
   Result := StrToIntDef(AsString, 0);
 end;
 
-function TFieldDB.AsString: string;
+function TThsField.AsString: string;
 begin
   Result := System.Variants.VarToStr(Value);
 end;
 
-procedure TFieldDB.Clone(var AField: TFieldDB);
+procedure TThsField.Clone(var AField: TThsField);
 begin
   AField.FOwnerTable := FOwnerTable;
   AField.FFieldName := FFieldName;
@@ -260,9 +260,9 @@ begin
   AField.FOtherFieldName := FOtherFieldName;
 end;
 
-procedure TTable.CloneData(ASrcTable: TTable);
+procedure TThsTable.CloneData(ASrcTable: TThsTable);
 var
-  AFieldSrc, AFieldDes: TFieldDB;
+  AFieldSrc, AFieldDes: TThsField;
 begin
   for AFieldSrc in ASrcTable.Fields do
     for AFieldDes in Self.Fields do
@@ -275,30 +275,30 @@ begin
       end;
 end;
 
-constructor TTable.Create();
+constructor TThsTable.Create;
 begin
   if Trim(FTableName) = '' then
     raise Exception.Create('Table sınıfları Inherited Create işleminden önce Tablo adı tanımlanmak zorunda!!!');
 
   SetLength(FFields, 0);
 
-  Id := TFieldDB.Create('id', ftInteger, 0, Self, [fpSelect, fpUpdate]);
-  Id.Value := ManagerMain.GetNewRecordId;
+  Id := TThsField.Create('id', ftInteger, 0, Self, [fpSelect, fpUpdate]);
+  Id.Value := ManagerMain.GetNewRecordId
 end;
 
-function TTable.GetTableName: string;
+function TThsTable.GetTableName: string;
 begin
   Result := FTableName;
 end;
 
-procedure TTable.SetTableName(ATableName: string);
+procedure TThsTable.SetTableName(ATableName: string);
 begin
   FTableName := ATableName;
 end;
 
-destructor TTable.Destroy;
+destructor TThsTable.Destroy;
 var
-  AField: TFieldDB;
+  AField: TThsField;
 begin
   for AField in Fields do
     AField.DisposeOf;
@@ -306,9 +306,9 @@ begin
   inherited;
 end;
 
-procedure TTable.Clear;
+procedure TThsTable.Clear;
 var
-  AField: TFieldDB;
+  AField: TThsField;
 begin
   for AField in FFields do
   begin
@@ -351,7 +351,7 @@ begin
   end;
 end;
 
-function TTable.Validate: Boolean;
+function TThsTable.Validate: Boolean;
 begin
   Result := True;
 end;

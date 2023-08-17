@@ -2,28 +2,28 @@
 
 interface
 
-uses Data.DB, Ths.Erp.Database.Table;
+uses Data.DB, Ths.Orm.Table, Ths.Orm.Manager;
 
 type
   TAccountTransactionType = (attAlacak, aatBorc);
 
-  TAccountTransaction = class(TTable)
+  TAccountTransaction = class(TThsTable)
   private
-    FHesapKodu: TFieldDB;
-    FTarih: TFieldDB;
-    FTip: TFieldDB;
-    FMiktar: TFieldDB;
-    FFiyat: TFieldDB;
-    FDovizFiyat: TFieldDB;
-    FPara: TFieldDB;
+    FHesapKodu: TThsField;
+    FTarih: TThsField;
+    FTip: TThsField;
+    FMiktar: TThsField;
+    FFiyat: TThsField;
+    FDovizFiyat: TThsField;
+    FPara: TThsField;
   public
-    property StokKodu: TFieldDB read FHesapKodu write FHesapKodu;
-    property Tarih: TFieldDB read FTarih write FTarih;
-    property Tip: TFieldDB read FTip write FTip;
-    property Miktar: TFieldDB read FMiktar write FMiktar;
-    property Fiyat: TFieldDB read FFiyat write FFiyat;
-    property DovizFiyat: TFieldDB read FDovizFiyat write FDovizFiyat;
-    property Para: TFieldDB read FPara write FPara;
+    property StokKodu: TThsField read FHesapKodu write FHesapKodu;
+    property Tarih: TThsField read FTarih write FTarih;
+    property Tip: TThsField read FTip write FTip;
+    property Miktar: TThsField read FMiktar write FMiktar;
+    property Fiyat: TThsField read FFiyat write FFiyat;
+    property DovizFiyat: TThsField read FDovizFiyat write FDovizFiyat;
+    property Para: TThsField read FPara write FPara;
 
     constructor Create(); override;
     destructor Destroy; override;
@@ -41,13 +41,13 @@ begin
 
   inherited;
 
-  FHesapKodu := TFieldDB.Create('hesap_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FTarih := TFieldDB.Create('tarih', ftDateTime, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FTip := TFieldDB.Create('tip', ftSmallint, 0, Self, [fpSelect, fpInsert, fpUpdate]);  //0 Alacak 1 Borc
-  FMiktar := TFieldDB.Create('miktar', ftFloat, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FFiyat := TFieldDB.Create('fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FDovizFiyat := TFieldDB.Create('doviz_fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FPara := TFieldDB.Create('para', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FHesapKodu := TThsField.Create('hesap_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FTarih := TThsField.Create('tarih', ftDateTime, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FTip := TThsField.Create('tip', ftSmallint, 0, Self, [fpSelect, fpInsert, fpUpdate]);  //0 Alacak 1 Borc
+  FMiktar := TThsField.Create('miktar', ftFloat, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FFiyat := TThsField.Create('fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FDovizFiyat := TThsField.Create('doviz_fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FPara := TThsField.Create('para', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
 end;
 
 destructor TAccountTransaction.Destroy;

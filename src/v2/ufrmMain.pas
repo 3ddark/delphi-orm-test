@@ -3,10 +3,13 @@
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, Vcl.StdCtrls,
-  Ths.Erp.Database.Table, Ths.Erp.Database.ManagerStack,
-  Stocks, Invoices;
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
+  System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
+  Vcl.StdCtrls, Data.DB, System.Generics.Collections,
+  Ths.Orm.ManagerStack,
+  Ths.Orm.Table,
+  Ths.Orm.Manager,
+  Persons, Stocks, Invoices;
 
 type
   TfrmMain = class(TForm)
@@ -31,36 +34,39 @@ implementation
 
 {$R *.dfm}
 
-procedure TfrmMain.btnResetTablesClick(Sender: TObject);
+procedure TfrmMain.FormCreate(Sender: TObject);
+//var
+//  n1: Integer;
+//  LPerson: TPerson;
+//  LPersons: TArray<TTable>;
+//  LAdres: TPersonAdres;
 begin
-  ManagerMain.Start;
-  ManagerMain.DeleteBatch(TInvoice, '', False);
-  ManagerMain.DeleteBatch(TStock, '', False);
-  ManagerMain.Commit;
-end;
+  TManagerStack.prepareManager(
+    'localhost',
+    'ths_erp',
+    'postgres',
+    'qwe',
+    ExtractFilePath(Application.ExeName) + 'lib' + PathDelim + 'libpq.dll',
+    5432
+  );
 
-procedure TfrmMain.btnUpdateBusinessClick(Sender: TObject);
-var
-  LInvoice: TInvoice;
-  LInvoiceLine: TInvoiceLine;
-begin
-  LInvoice := TInvoice.Create;
-  ManagerMain.LogicalSelect(TInvoice, TTable(LInvoice), '1=1', True, True, False, TInvoice.BusinessSelect);
-  try
-    LInvoice.HesapKodu.Value := '120-001-015';
-
-    LInvoiceLine := TInvoiceLine.Create();
-    LInvoiceLine.StokKodu.Value := 'PC2G';
-    LInvoiceLine.Iskonto.Value := 20;
-    LInvoiceLine.Miktar.Value := 1;
-    LInvoiceLine.Fiyat.Value := 20000;
-    LInvoiceLine.Kdv.Value := 20;
-    LInvoice.AddLine(LInvoiceLine);
-
-    ManagerMain.LogicalUpdate(LInvoice, False, True, False, TInvoice.BusinessUpdate);
-  finally
-    LInvoice.DisposeOf;
-  end;
+//  LPerson := TPerson.Create;
+//  try
+//    FManager.LogicalSelect(LPerson.Id.QryName + '=10', True, True, False, TPerson.BusinessSelect);
+//    FManager.GetOne(LPerson, 10, False);
+//    LPerson.PersonName.Value := UpperCase(LPerson.PersonName.AsString);
+//    FManager.Update(LPerson);
+//    LPerson.PersonName.Value :=  LowerCase(LPerson.PersonName.AsString);
+//    LPerson.PersonAge.Value := 27;
+//    LPerson.Salary.Value := 350;
+//    FManager.CustomUpdate(LPerson, [LPerson.PersonName, LPerson.PersonAge]);
+//    FManager.GetList(TPerson, LPersons, 'id > 0', False);
+//  finally
+//    LPerson.DisposeOf;
+//    for n1 := 0 to Length(LPersons)-1 do
+//      LPersons[n1].DisposeOf;
+//    SetLength(LPersons, 0);
+//  end;
 end;
 
 procedure TfrmMain.btnAddBusinessClick(Sender: TObject);
@@ -95,7 +101,7 @@ procedure TfrmMain.btnFillTestDataClick(Sender: TObject);
 var
   ATable: TStock;
 begin
-  ManagerMain.Start;
+  ManagerMain.StartTrans;
   ATable := TStock.Create();
   try
     ATable.StokKodu.Value := 'PC1';
@@ -117,38 +123,41 @@ begin
     ATable.StokKodu.Value := 'MONLG3C';
     ATable.StokAdi.Value := 'Monitör LG 24" Curved';
     ManagerMain.Insert(ATable, False);
-    ManagerMain.Commit;
+    ManagerMain.CommitTrans;
   finally
     ATable.DisposeOf;
   end;
 end;
 
-procedure TfrmMain.FormCreate(Sender: TObject);
-//var
-//  n1: Integer;
-//  LPerson: TPerson;
-//  LPersons: TArray<TTable>;
-//  LAdres: TPersonAdres;
+procedure TfrmMain.btnResetTablesClick(Sender: TObject);
 begin
-  TManagerStack.prepareManager;
+  ManagerMain.StartTrans;
+  ManagerMain.DeleteBatch(TInvoice, '', False);
+  ManagerMain.DeleteBatch(TStock, '', False);
+  ManagerMain.CommitTrans;
+end;
 
-//  LPerson := TPerson.Create;
-//  try
-//    FManager.LogicalSelect(LPerson.Id.QryName + '=10', True, True, False, TPerson.BusinessSelect);
-//    FManager.GetOne(LPerson, 10, False);
-//    LPerson.PersonName.Value := UpperCase(LPerson.PersonName.AsString);
-//    FManager.Update(LPerson);
-//    LPerson.PersonName.Value :=  LowerCase(LPerson.PersonName.AsString);
-//    LPerson.PersonAge.Value := 27;
-//    LPerson.Salary.Value := 350;
-//    FManager.CustomUpdate(LPerson, [LPerson.PersonName, LPerson.PersonAge]);
-//    FManager.GetList(TPerson, LPersons, 'id > 0', False);
-//  finally
-//    LPerson.DisposeOf;
-//    for n1 := 0 to Length(LPersons)-1 do
-//      LPersons[n1].DisposeOf;
-//    SetLength(LPersons, 0);
-//  end;
+procedure TfrmMain.btnUpdateBusinessClick(Sender: TObject);
+var
+  LInvoice: TInvoice;
+  LInvoiceLine: TInvoiceLine;
+begin
+  LInvoice := TInvoice.Create;
+  ManagerMain.LogicalSelect(TInvoice, TThsTable(LInvoice), '1=1', True, True, False, TInvoice.BusinessSelect);
+  try
+    LInvoice.HesapKodu.Value := '120-001-015';
+
+    LInvoiceLine := TInvoiceLine.Create();
+    LInvoiceLine.StokKodu.Value := 'PC2G';
+    LInvoiceLine.Iskonto.Value := 20;
+    LInvoiceLine.Miktar.Value := 1;
+    LInvoiceLine.Fiyat.Value := 20000;
+    LInvoiceLine.Kdv.Value := 20;
+    LInvoice.AddLine(LInvoiceLine);
+    ManagerMain.LogicalUpdate(LInvoice, False, True, False, TInvoice.BusinessUpdate);
+  finally
+    LInvoice.DisposeOf;
+  end;
 end;
 
 end.

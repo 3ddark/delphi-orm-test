@@ -3,30 +3,30 @@
 interface
 
 uses
-  Data.DB, System.SysUtils, System.Generics.Collections,
-  Ths.Erp.Database.Table, Ths.Erp.Database.Manager, StockTransactions;
+  Data.DB, Ths.Orm.Table, Ths.Orm.Manager, System.Generics.Collections,
+  StockTransactions;
 
 type
   TInvoiceLine = class;
 
-  TInvoice = class(TTable)
+  TInvoice = class(TThsTable)
   private
-    FFaturaNo: TFieldDB;
-    FFaturaTarihi: TFieldDB;
-    FHesapKodu: TFieldDB;
-    FHesapIsmi: TFieldDB;
-    FFaturaTipi: TFieldDB;
-    FPara: TFieldDB;
-    FInvoiceLines: TList<TInvoiceLine>;
+    FFaturaNo: TThsField;
+    FFaturaTarihi: TThsField;
+    FHesapKodu: TThsField;
+    FHesapIsmi: TThsField;
+    FFaturaTipi: TThsField;
+    FPara: TThsField;
+    FInvoiceLines: TObjectList<TInvoiceLine>;
   public
-    property FaturaNo: TFieldDB read FFaturaNo write FFaturaNo;
-    property FaturaTarihi: TFieldDB read FFaturaTarihi write FFaturaTarihi;
-    property HesapKodu: TFieldDB read FHesapKodu write FHesapKodu;
-    property HesapIsmi: TFieldDB read FHesapIsmi write FHesapIsmi;
-    property FaturaTipi: TFieldDB read FFaturaTipi write FFaturaTipi;
-    property Para: TFieldDB read FPara write FPara;
+    property FaturaNo: TThsField read FFaturaNo write FFaturaNo;
+    property FaturaTarihi: TThsField read FFaturaTarihi write FFaturaTarihi;
+    property HesapKodu: TThsField read FHesapKodu write FHesapKodu;
+    property HesapIsmi: TThsField read FHesapIsmi write FHesapIsmi;
+    property FaturaTipi: TThsField read FFaturaTipi write FFaturaTipi;
+    property Para: TThsField read FPara write FPara;
 
-    property InvoiceLines: TList<TInvoiceLine> read FInvoiceLines write FInvoiceLines;
+    property InvoiceLines: TObjectList<TInvoiceLine> read FInvoiceLines write FInvoiceLines;
 
     constructor Create(); override;
     destructor Destroy; override;
@@ -37,32 +37,32 @@ type
 
     function Clone: TInvoice; reintroduce; overload;
 
-    class procedure BusinessSelect(AClass: TClass; var ATable: TTable; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
-    class procedure BusinessInsert(AManager: TEntityManager; ATable: TTable; APermissionCheck: Boolean);
-    class procedure BusinessUpdate(AManager: TEntityManager; ATable: TTable; APermissionCheck: Boolean);
-    class procedure BusinessDelete(AManager: TEntityManager; ATable: TTable; APermissionCheck: Boolean);
+    class procedure BusinessSelect(AClass: TClass; var ATable: TThsTable; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
+    class procedure BusinessInsert(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
+    class procedure BusinessUpdate(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
+    class procedure BusinessDelete(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
   end;
 
-  TInvoiceLine = class(TTable)
+  TInvoiceLine = class(TThsTable)
   private
-    FHeaderId: TFieldDB;
-    FStokKodu: TFieldDB;
-    FIskonto: TFieldDB;
-    FMiktar: TFieldDB;
-    FFiyat: TFieldDB;
-    FKdv: TFieldDB;
+    FHeaderId: TThsField;
+    FStokKodu: TThsField;
+    FIskonto: TThsField;
+    FMiktar: TThsField;
+    FFiyat: TThsField;
+    FKdv: TThsField;
 
     FHeader: TInvoice;
     function CalculateAmount: Boolean;
     procedure AddStockTransaction(AManager: TEntityManager; APermissionCheck: Boolean);
     procedure UpdateStockTransaction(AManager: TEntityManager; APermissionCheck: Boolean);
   public
-    property HeaderId: TFieldDB read FHeaderId write FHeaderId;
-    property StokKodu: TFieldDB read FStokKodu write FStokKodu;
-    property Iskonto: TFieldDB read FIskonto write FIskonto;
-    property Miktar: TFieldDB read FMiktar write FMiktar;
-    property Fiyat: TFieldDB read FFiyat write FFiyat;
-    property Kdv: TFieldDB read FKdv write FKdv;
+    property HeaderId: TThsField read FHeaderId write FHeaderId;
+    property StokKodu: TThsField read FStokKodu write FStokKodu;
+    property Iskonto: TThsField read FIskonto write FIskonto;
+    property Miktar: TThsField read FMiktar write FMiktar;
+    property Fiyat: TThsField read FFiyat write FFiyat;
+    property Kdv: TThsField read FKdv write FKdv;
 
     property Header: TInvoice read FHeader write FHeader;
 
@@ -74,10 +74,10 @@ type
 
 implementation
 
-class procedure TInvoice.BusinessSelect(AClass: TClass; var ATable: TTable; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
+class procedure TInvoice.BusinessSelect(AClass: TClass; var ATable: TThsTable; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
 var
   n1: Integer;
-  LInvLs: TArray<TTable>;
+  LInvLs: TObjectList<TInvoiceLine>;
   AInvoice: TInvoice;
   AInvoiceLine: TInvoiceLine;
 begin
@@ -85,17 +85,16 @@ begin
 
   AInvoice := ATable as TInvoice;
   AInvoiceLine := TInvoiceLine.Create();
-  AManager.GetList(TInvoiceLine, LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + AInvoice.Id.AsString, ALock, APermissionCheck);
+  AManager.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + AInvoice.Id.AsString, ALock, APermissionCheck);
   AInvoiceLine.DisposeOf;
-  for n1 := 0 to Length(LInvLs)-1 do
+  for n1 := 0 to LInvLs.Count-1 do
   begin
-    AInvoiceLine := LInvLs[n1] as TInvoiceLine;
-    AInvoice.AddLine(AInvoiceLine);
-    LInvLs[n1] := nil;
+    AInvoice.AddLine(LInvLs.Items[n1]);
+    LInvLs.Items[n1] := nil;
   end;
 end;
 
-class procedure TInvoice.BusinessInsert(AManager: TEntityManager; ATable: TTable; APermissionCheck: Boolean);
+class procedure TInvoice.BusinessInsert(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
 var
   AInvoice: TInvoice;
   ALine: TInvoiceLine;
@@ -111,7 +110,7 @@ begin
   end;
 end;
 
-class procedure TInvoice.BusinessUpdate(AManager: TEntityManager; ATable: TTable; APermissionCheck: Boolean);
+class procedure TInvoice.BusinessUpdate(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
 var
   AInvoice: TInvoice;
   ALine: TInvoiceLine;
@@ -134,7 +133,7 @@ begin
   end;
 end;
 
-class procedure TInvoice.BusinessDelete(AManager: TEntityManager; ATable: TTable; APermissionCheck: Boolean);
+class procedure TInvoice.BusinessDelete(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
 begin
 
 end;
@@ -147,22 +146,18 @@ begin
 
   inherited;
 
-  FFaturaNo := TFieldDB.Create('fatura_no', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FFaturaTarihi := TFieldDB.Create('fatura_tarihi', ftDateTime, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FHesapKodu := TFieldDB.Create('hesap_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FHesapIsmi := TFieldDB.Create('hesa_ismi', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FFaturaTipi := TFieldDB.Create('fatura_tipi', ftSmallint, -1, Self, [fpSelect, fpInsert, fpUpdate]);//0 Iade, 1 Satış, 2 Ihracat
-  FPara := TFieldDB.Create('para', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FFaturaNo := TThsField.Create('fatura_no', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FFaturaTarihi := TThsField.Create('fatura_tarihi', ftDateTime, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FHesapKodu := TThsField.Create('hesap_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FHesapIsmi := TThsField.Create('hesa_ismi', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FFaturaTipi := TThsField.Create('fatura_tipi', ftSmallint, -1, Self, [fpSelect, fpInsert, fpUpdate]);//0 Return, 1 Sale, 2 Export
+  FPara := TThsField.Create('para', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
 
-  FInvoiceLines := TList<TInvoiceLine>.Create;
+  FInvoiceLines := TObjectList<TInvoiceLine>.Create;
 end;
 
 destructor TInvoice.Destroy;
-var
-  ATable: TInvoiceLine;
 begin
-  for ATable in FInvoiceLines do
-    ATable.DisposeOf;
   FInvoiceLines.DisposeOf;
   inherited;
 end;
@@ -203,12 +198,12 @@ begin
 
   inherited;
 
-  FHeaderId := TFieldDB.Create('header_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FStokKodu := TFieldDB.Create('stok_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FIskonto := TFieldDB.Create('iskonto', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FMiktar := TFieldDB.Create('miktar', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FFiyat := TFieldDB.Create('fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FKdv := TFieldDB.Create('kdv', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FHeaderId := TThsField.Create('header_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FStokKodu := TThsField.Create('stok_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FIskonto := TThsField.Create('iskonto', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FMiktar := TThsField.Create('miktar', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FFiyat := TThsField.Create('fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FKdv := TThsField.Create('kdv', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
 end;
 
 destructor TInvoiceLine.Destroy;

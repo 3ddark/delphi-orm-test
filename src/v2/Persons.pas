@@ -2,25 +2,25 @@
 
 interface
 
-uses Data.DB, Ths.Erp.Database.Table, Ths.Erp.Database.Manager;
+uses Data.DB, Ths.Orm.Table, Ths.Orm.Manager, System.Generics.Collections;
 
 type
   TPersonAdres = class;
 
-  TPerson = class(TTable)
+  TPerson = class(TThsTable)
   private
-    FPersonName: TFieldDB;
-    FPersonAge: TFieldDB;
-    FSalary: TFieldDB;
+    FPersonName: TThsField;
+    FPersonAge: TThsField;
+    FSalary: TThsField;
     FAdres: TPersonAdres;
     procedure SetAdres(const Value: TPersonAdres);
-    procedure SetPersonAge(const Value: TFieldDB);
-    procedure SetPersonName(const Value: TFieldDB);
-    procedure SetSalary(const Value: TFieldDB);
+    procedure SetPersonAge(const Value: TThsField);
+    procedure SetPersonName(const Value: TThsField);
+    procedure SetSalary(const Value: TThsField);
   public
-    property PersonName: TFieldDB read FPersonName write SetPersonName;
-    property PersonAge: TFieldDB read FPersonAge write SetPersonAge;
-    property Salary: TFieldDB read FSalary write SetSalary;
+    property PersonName: TThsField read FPersonName write SetPersonName;
+    property PersonAge: TThsField read FPersonAge write SetPersonAge;
+    property Salary: TThsField read FSalary write SetSalary;
     property Adres: TPersonAdres read FAdres write SetAdres;
 
     constructor Create(); override;
@@ -33,19 +33,19 @@ type
     class procedure BusinessDelete(AManager: TEntityManager; APermissionCheck: Boolean);
   end;
 
-  TPersonAdres = class(TTable)
+  TPersonAdres = class(TThsTable)
   private
-    FCountry: TFieldDB;
-    FCity: TFieldDB;
-    FPersonId: TFieldDB;
-    procedure SetCountry(const Value: TFieldDB);
-    procedure SetCity(const Value: TFieldDB);
-    procedure SetPersonId(const Value: TFieldDB);
+    FCountry: TThsField;
+    FCity: TThsField;
+    FPersonId: TThsField;
+    procedure SetCountry(const Value: TThsField);
+    procedure SetCity(const Value: TThsField);
+    procedure SetPersonId(const Value: TThsField);
   public
     Person: TPerson;
-    property Country: TFieldDB read FCountry write SetCountry;
-    property City: TFieldDB read FCity write SetCity;
-    property PersonId: TFieldDB read FPersonId write SetPersonId;
+    property Country: TThsField read FCountry write SetCountry;
+    property City: TThsField read FCity write SetCity;
+    property PersonId: TThsField read FPersonId write SetPersonId;
 
     constructor Create(APerson: TPerson = nil); reintroduce; overload;
     destructor Destroy; override;
@@ -60,19 +60,17 @@ class procedure TPerson.BusinessSelect(AManager: TEntityManager; AFilter: string
 var
   n1: Integer;
   LPerson: TPerson;
-  LPersons: TArray<TTable>;
+  LPersons: TObjectList<TPerson>;
 begin
   try
-    AManager.GetList(TPerson, LPersons, AFilter, ALock, APermissionCheck);
-    for n1 := 0 to Length(LPersons)-1 do
+    AManager.GetList<TPerson>(LPersons, AFilter, ALock, APermissionCheck);
+    for n1 := 0 to LPersons.Count-1 do
     begin
-      LPerson := LPersons[n1] as TPerson;
+      LPerson := LPersons.Items[n1];
       AManager.GetOne(LPerson.FAdres, LPerson.FAdres.PersonId.QryName + '=' + LPerson.Id.AsString, ALock, APermissionCheck);
     end;
   finally
-    for n1 := 0 to Length(LPersons)-1 do
-      LPersons[n1].DisposeOf;
-    SetLength(LPersons, 0);
+    LPersons.DisposeOf;
   end;
 end;
 
@@ -99,9 +97,9 @@ begin
 
   inherited;
 
-  FPersonName := TFieldDB.Create('person_name', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FPersonAge := TFieldDB.Create('person_age', ftSmallint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FSalary := TFieldDB.Create('salary', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FPersonName := TThsField.Create('person_name', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FPersonAge := TThsField.Create('person_age', ftSmallint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FSalary := TThsField.Create('salary', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
   FAdres := TPersonAdres.Create(Self);
 end;
 
@@ -122,17 +120,17 @@ begin
   FAdres := Value;
 end;
 
-procedure TPerson.SetPersonAge(const Value: TFieldDB);
+procedure TPerson.SetPersonAge(const Value: TThsField);
 begin
   FPersonAge := Value;
 end;
 
-procedure TPerson.SetPersonName(const Value: TFieldDB);
+procedure TPerson.SetPersonName(const Value: TThsField);
 begin
   FPersonName := Value;
 end;
 
-procedure TPerson.SetSalary(const Value: TFieldDB);
+procedure TPerson.SetSalary(const Value: TThsField);
 begin
   FSalary := Value;
 end;
@@ -145,9 +143,9 @@ begin
 
   inherited Create();
 
-  FCountry := TFieldDB.Create('country', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FCity := TFieldDB.Create('city', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FPersonId := TFieldDB.Create('person_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FCountry := TThsField.Create('country', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FCity := TThsField.Create('city', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FPersonId := TThsField.Create('person_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
 
   Person := APerson;
 end;
@@ -164,17 +162,17 @@ begin
   Result.CloneData(Self);
 end;
 
-procedure TPersonAdres.SetCity(const Value: TFieldDB);
+procedure TPersonAdres.SetCity(const Value: TThsField);
 begin
   FCity := Value;
 end;
 
-procedure TPersonAdres.SetCountry(const Value: TFieldDB);
+procedure TPersonAdres.SetCountry(const Value: TThsField);
 begin
   FCountry := Value;
 end;
 
-procedure TPersonAdres.SetPersonId(const Value: TFieldDB);
+procedure TPersonAdres.SetPersonId(const Value: TThsField);
 begin
   FPersonId := Value;
 end;
