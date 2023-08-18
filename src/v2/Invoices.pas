@@ -4,7 +4,7 @@ interface
 
 uses
   Data.DB, Ths.Orm.Table, Ths.Orm.Manager, System.Generics.Collections,
-  StockTransactions;
+  Ths.Orm.ManagerStack, StockTransactions;
 
 type
   TInvoiceLine = class;
@@ -37,10 +37,11 @@ type
 
     function Clone: TInvoice; reintroduce; overload;
 
-    class procedure BusinessSelect(AClass: TClass; var ATable: TThsTable; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
-    class procedure BusinessInsert(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
-    class procedure BusinessUpdate(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
-    class procedure BusinessDelete(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
+    class procedure BusinessSelectOne(ATable: TThsTable; AFilter: string; ALock, APermissionCheck: Boolean); override;
+    //procedure BusinessSelectList<T: Class>(var ATables: TObjectList<T>; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
+    procedure BusinessInsert(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
+    procedure BusinessUpdate(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
+    procedure BusinessDelete(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
   end;
 
   TInvoiceLine = class(TThsTable)
@@ -74,27 +75,59 @@ type
 
 implementation
 
-class procedure TInvoice.BusinessSelect(AClass: TClass; var ATable: TThsTable; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
+class procedure TInvoice.BusinessSelectOne(ATable: TThsTable; AFilter: string; ALock, APermissionCheck: Boolean);
 var
   n1: Integer;
   LInvLs: TObjectList<TInvoiceLine>;
-  AInvoice: TInvoice;
   AInvoiceLine: TInvoiceLine;
+  AInvoice: TInvoice;
 begin
-  AManager.GetOne(ATable, AFilter, ALock, APermissionCheck);
+  ATable.Free;
+  ATable := nil;
+  ManagerMain.GetOne(ATable, AFilter, ALock, APermissionCheck);
 
-  AInvoice := ATable as TInvoice;
   AInvoiceLine := TInvoiceLine.Create();
-  AManager.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + AInvoice.Id.AsString, ALock, APermissionCheck);
-  AInvoiceLine.DisposeOf;
-  for n1 := 0 to LInvLs.Count-1 do
-  begin
-    AInvoice.AddLine(LInvLs.Items[n1]);
-    LInvLs.Items[n1] := nil;
+  try
+    ManagerMain.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + TInvoice(ATable).Id.AsString, ALock, APermissionCheck);
+    TInvoice(ATable).InvoiceLines.Free;
+    TInvoice(ATable).InvoiceLines := nil;
+    TInvoice(ATable).InvoiceLines := LInvLs;
+  finally
+    AInvoiceLine.Free;
+    AInvoiceLine := nil;
   end;
 end;
+{
+procedure TInvoice.BusinessSelectList<T>(var ATables: TObjectList<T>; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
+var
+  n1, n2: Integer;
+  LInvLs: TObjectList<TInvoiceLine>;
+  AInvoice: TInvoice;
+  AInvoiceLine: TInvoiceLine;
+  I: Integer;
+begin
+  AManager.GetList<T>(ATables, AFilter, ALock, APermissionCheck);
 
-class procedure TInvoice.BusinessInsert(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
+  AInvoiceLine := TInvoiceLine.Create();
+  try
+    for n1 := 0 to ATables.Count-1 do
+    begin
+      AInvoice := (ATables.Items[n1] as TInvoice);
+      AManager.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + AInvoice.Id.AsString, ALock, APermissionCheck);
+      for n2 := 0 to LInvLs.Count-1 do
+      begin
+        AInvoice.AddLine(LInvLs.Items[n2]);
+        LInvLs.Items[n2] := nil;
+      end;
+      LInvLs.Free;
+    end;
+  finally
+    AInvoiceLine.Free;
+    AInvoiceLine := nil;
+  end;
+end;
+}
+procedure TInvoice.BusinessInsert(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
 var
   AInvoice: TInvoice;
   ALine: TInvoiceLine;
@@ -110,7 +143,7 @@ begin
   end;
 end;
 
-class procedure TInvoice.BusinessUpdate(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
+procedure TInvoice.BusinessUpdate(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
 var
   AInvoice: TInvoice;
   ALine: TInvoiceLine;
@@ -133,7 +166,7 @@ begin
   end;
 end;
 
-class procedure TInvoice.BusinessDelete(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
+procedure TInvoice.BusinessDelete(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
 begin
 
 end;

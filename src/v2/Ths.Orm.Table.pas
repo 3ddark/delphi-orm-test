@@ -66,7 +66,10 @@ type
   end;
 
 
-  TThsTable = class
+  IThsTable = interface
+  end;
+
+  TThsTable = class(TInterfacedObject, IThsTable)
   private
     FSchemaName: string;
     FTableName: string;
@@ -90,11 +93,13 @@ type
     function Clone: TThsTable; virtual; abstract;
     function Validate: Boolean; virtual;
     procedure CloneData(ASrcTable: TThsTable);
+
+    class procedure BusinessSelectOne(ATable: TThsTable; AFilter: string; ALock, APermissionCheck: Boolean); virtual;
   end;
 
 implementation
 
-uses Ths.Erp.Database.ManagerStack;
+uses Ths.Orm.ManagerStack;
 
 constructor  TThsField.Create(
   AFieldName: string;
@@ -304,6 +309,11 @@ begin
     AField.DisposeOf;
   SetLength(FFields, 0);
   inherited;
+end;
+
+class procedure TThsTable.BusinessSelectOne(ATable: TThsTable; AFilter: string; ALock, APermissionCheck: Boolean);
+begin
+//
 end;
 
 procedure TThsTable.Clear;

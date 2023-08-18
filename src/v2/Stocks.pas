@@ -2,16 +2,16 @@
 
 interface
 
-uses Data.DB, Ths.Erp.Database.Table;
+uses Data.DB, Ths.Orm.Table;
 
 type
-  TStock = class(TTable)
+  TStock = class(TThsTable)
   private
-    FStokKodu: TFieldDB;
-    FStokAdi: TFieldDB;
+    FStokKodu: TThsField;
+    FStokAdi: TThsField;
   public
-    property StokKodu: TFieldDB read FStokKodu write FStokKodu;
-    property StokAdi: TFieldDB read FStokAdi write FStokAdi;
+    property StokKodu: TThsField read FStokKodu write FStokKodu;
+    property StokAdi: TThsField read FStokAdi write FStokAdi;
 
     constructor Create(); override;
     destructor Destroy; override;
@@ -29,8 +29,8 @@ begin
 
   inherited;
 
-  FStokKodu := TFieldDB.Create('stok_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FStokAdi := TFieldDB.Create('stok_adi', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FStokKodu := TThsField.Create('stok_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FStokAdi := TThsField.Create('stok_adi', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
 end;
 
 destructor TStock.Destroy;

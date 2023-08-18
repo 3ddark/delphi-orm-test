@@ -17,11 +17,13 @@ type
     btnAddBusiness: TButton;
     btnFillTestData: TButton;
     btnUpdateBusiness: TButton;
+    btnGetOneByCodeFilter: TButton;
     procedure FormCreate(Sender: TObject);
     procedure btnResetTablesClick(Sender: TObject);
     procedure btnFillTestDataClick(Sender: TObject);
     procedure btnAddBusinessClick(Sender: TObject);
     procedure btnUpdateBusinessClick(Sender: TObject);
+    procedure btnGetOneByCodeFilterClick(Sender: TObject);
   private
   public
     { Public declarations }
@@ -91,7 +93,7 @@ begin
     LInvL.Kdv.Value := 20;
     LInv.AddLine(LInvL);
 
-    ManagerMain.LogicalInsert(LInv, True, True, False, TInvoice.BusinessInsert);
+    ManagerMain.LogicalInsert(LInv, True, True, False, LInv.BusinessInsert);
   finally
     LInv.DisposeOf;
   end;
@@ -129,11 +131,26 @@ begin
   end;
 end;
 
+procedure TfrmMain.btnGetOneByCodeFilterClick(Sender: TObject);
+var
+  LStock: TStock;
+  LFilter: string;
+begin
+  LStock := TStock.Create;
+  try
+    LFilter := LStock.StokKodu.QryName + '=' + QuotedStr('PC2G');
+  finally
+    LStock.DisposeOf;
+    LStock := nil;
+  end;
+  ManagerMain.GetOne(LStock, LFilter, True);
+end;
+
 procedure TfrmMain.btnResetTablesClick(Sender: TObject);
 begin
   ManagerMain.StartTrans;
-  ManagerMain.DeleteBatch(TInvoice, '', False);
-  ManagerMain.DeleteBatch(TStock, '', False);
+  ManagerMain.DeleteBatch<TInvoice>('', False);
+  ManagerMain.DeleteBatch<TStock>('', False);
   ManagerMain.CommitTrans;
 end;
 
@@ -142,8 +159,7 @@ var
   LInvoice: TInvoice;
   LInvoiceLine: TInvoiceLine;
 begin
-  LInvoice := TInvoice.Create;
-  ManagerMain.LogicalSelect(TInvoice, TThsTable(LInvoice), '1=1', True, True, False, TInvoice.BusinessSelect);
+  ManagerMain.LogicalSelectOne(LInvoice, '1=1', True, True, False);
   try
     LInvoice.HesapKodu.Value := '120-001-015';
 
@@ -154,7 +170,7 @@ begin
     LInvoiceLine.Fiyat.Value := 20000;
     LInvoiceLine.Kdv.Value := 20;
     LInvoice.AddLine(LInvoiceLine);
-    ManagerMain.LogicalUpdate(LInvoice, False, True, False, TInvoice.BusinessUpdate);
+    //ManagerMain.LogicalUpdate(LInvoice, False, True, False, TInvoice.BusinessUpdate);
   finally
     LInvoice.DisposeOf;
   end;

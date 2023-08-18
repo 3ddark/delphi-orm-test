@@ -3,7 +3,7 @@ object frmMain: TfrmMain
   Top = 0
   Caption = 'ORM Test'
   ClientHeight = 184
-  ClientWidth = 208
+  ClientWidth = 609
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -30,7 +30,7 @@ object frmMain: TfrmMain
     Width = 147
     Height = 25
     Caption = 'Add Business'
-    TabOrder = 2
+    TabOrder = 3
     OnClick = btnAddBusinessClick
   end
   object btnFillTestData: TButton
@@ -39,7 +39,7 @@ object frmMain: TfrmMain
     Width = 147
     Height = 25
     Caption = 'Fill Test Data'
-    TabOrder = 1
+    TabOrder = 2
     OnClick = btnFillTestDataClick
   end
   object btnUpdateBusiness: TButton
@@ -48,7 +48,16 @@ object frmMain: TfrmMain
     Width = 147
     Height = 25
     Caption = 'Update Business'
-    TabOrder = 3
+    TabOrder = 4
     OnClick = btnUpdateBusinessClick
+  end
+  object btnGetOneByCodeFilter: TButton
+    Left = 224
+    Top = 8
+    Width = 169
+    Height = 25
+    Caption = 'GetOne By Code Filter'
+    TabOrder = 1
+    OnClick = btnGetOneByCodeFilterClick
   end
 end
