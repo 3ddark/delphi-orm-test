@@ -3,7 +3,7 @@
 interface
 
 uses
-  Data.DB, Ths.Orm.Table, Ths.Orm.Manager, System.Generics.Collections,
+  System.SysUtils, Data.DB, Ths.Orm.Table, Ths.Orm.Manager, System.Generics.Collections,
   Ths.Orm.ManagerStack, StockTransactions;
 
 type
@@ -37,11 +37,10 @@ type
 
     function Clone: TInvoice; reintroduce; overload;
 
-    class procedure BusinessSelectOne(ATable: TThsTable; AFilter: string; ALock, APermissionCheck: Boolean); override;
-    //procedure BusinessSelectList<T: Class>(var ATables: TObjectList<T>; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
-    procedure BusinessInsert(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
-    procedure BusinessUpdate(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
-    procedure BusinessDelete(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
+    function BusinessSelect(AFilter: string; ALock, APermissionCheck: Boolean): Boolean; override;
+    function BusinessInsert(APermissionCheck: Boolean): Boolean; override;
+    function BusinessUpdate(APermissionCheck: Boolean): Boolean; override;
+    function BusinessDelete(APermissionCheck: Boolean): Boolean; override;
   end;
 
   TInvoiceLine = class(TThsTable)
@@ -55,8 +54,8 @@ type
 
     FHeader: TInvoice;
     function CalculateAmount: Boolean;
-    procedure AddStockTransaction(AManager: TEntityManager; APermissionCheck: Boolean);
-    procedure UpdateStockTransaction(AManager: TEntityManager; APermissionCheck: Boolean);
+    procedure AddStockTransaction(APermissionCheck: Boolean);
+    procedure UpdateStockTransaction(APermissionCheck: Boolean);
   public
     property HeaderId: TThsField read FHeaderId write FHeaderId;
     property StokKodu: TThsField read FStokKodu write FStokKodu;
@@ -75,100 +74,64 @@ type
 
 implementation
 
-class procedure TInvoice.BusinessSelectOne(ATable: TThsTable; AFilter: string; ALock, APermissionCheck: Boolean);
+function TInvoice.BusinessSelect(AFilter: string; ALock, APermissionCheck: Boolean): Boolean;
 var
-  n1: Integer;
   LInvLs: TObjectList<TInvoiceLine>;
   AInvoiceLine: TInvoiceLine;
-  AInvoice: TInvoice;
 begin
-  ATable.Free;
-  ATable := nil;
-  ManagerMain.GetOne(ATable, AFilter, ALock, APermissionCheck);
-
   AInvoiceLine := TInvoiceLine.Create();
   try
-    ManagerMain.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + TInvoice(ATable).Id.AsString, ALock, APermissionCheck);
-    TInvoice(ATable).InvoiceLines.Free;
-    TInvoice(ATable).InvoiceLines := nil;
-    TInvoice(ATable).InvoiceLines := LInvLs;
+    Result := ManagerMain.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + TInvoice(Self).Id.AsString, ALock, APermissionCheck);
+    TInvoice(Self).InvoiceLines.Free;
+    TInvoice(Self).InvoiceLines := nil;
+    TInvoice(Self).InvoiceLines := LInvLs;
   finally
-    AInvoiceLine.Free;
-    AInvoiceLine := nil;
+    FreeAndNil(AInvoiceLine);
   end;
 end;
-{
-procedure TInvoice.BusinessSelectList<T>(var ATables: TObjectList<T>; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
-var
-  n1, n2: Integer;
-  LInvLs: TObjectList<TInvoiceLine>;
-  AInvoice: TInvoice;
-  AInvoiceLine: TInvoiceLine;
-  I: Integer;
-begin
-  AManager.GetList<T>(ATables, AFilter, ALock, APermissionCheck);
 
-  AInvoiceLine := TInvoiceLine.Create();
+function TInvoice.BusinessInsert(APermissionCheck: Boolean): Boolean;
+var
+  ALine: TInvoiceLine;
+begin
+  Result := True;
   try
-    for n1 := 0 to ATables.Count-1 do
+    for ALine in Self.InvoiceLines do
     begin
-      AInvoice := (ATables.Items[n1] as TInvoice);
-      AManager.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + AInvoice.Id.AsString, ALock, APermissionCheck);
-      for n2 := 0 to LInvLs.Count-1 do
-      begin
-        AInvoice.AddLine(LInvLs.Items[n2]);
-        LInvLs.Items[n2] := nil;
-      end;
-      LInvLs.Free;
+      ALine.HeaderId.Value := Self.Id.Value;
+      ManagerMain.Insert(ALine, False);
+
+      ALine.AddStockTransaction(False);
     end;
-  finally
-    AInvoiceLine.Free;
-    AInvoiceLine := nil;
-  end;
-end;
-}
-procedure TInvoice.BusinessInsert(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
-var
-  AInvoice: TInvoice;
-  ALine: TInvoiceLine;
-begin
-  AInvoice := ATable as TInvoice;
-  AManager.Insert(AInvoice, APermissionCheck);
-  for ALine in AInvoice.InvoiceLines do
-  begin
-    ALine.HeaderId.Value := AInvoice.Id.Value;
-    AManager.Insert(ALine, False);
-
-    ALine.AddStockTransaction(AManager, False);
+  except
+    Result := False;
   end;
 end;
 
-procedure TInvoice.BusinessUpdate(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
+function TInvoice.BusinessUpdate(APermissionCheck: Boolean): Boolean;
 var
-  AInvoice: TInvoice;
   ALine: TInvoiceLine;
 begin
-  AInvoice := ATable as TInvoice;
-  AManager.Update(AInvoice, APermissionCheck);
-  for ALine in AInvoice.InvoiceLines do
+  for ALine in Self.InvoiceLines do
   begin
     if ALine.Id.Value <= 0 then
     begin
-      ALine.HeaderId.Value := AInvoice.Id.Value;
-      AManager.Insert(ALine, False);
-      ALine.AddStockTransaction(AManager, False);
+      ALine.HeaderId.Value := Self.Id.Value;
+      ManagerMain.Insert(ALine, False);
+      ALine.AddStockTransaction(False);
     end
     else
     begin
-      AManager.Update(ALine, False);
-      ALine.UpdateStockTransaction(AManager, False);
+      ManagerMain.Update(ALine, False);
+      ALine.UpdateStockTransaction(False);
     end;
   end;
+  Result := True;
 end;
 
-procedure TInvoice.BusinessDelete(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean);
+function TInvoice.BusinessDelete(APermissionCheck: Boolean): Boolean;
 begin
-
+  Result := True;
 end;
 
 constructor TInvoice.Create();
@@ -259,7 +222,7 @@ begin
   Result.CloneData(Self);
 end;
 
-procedure TInvoiceLine.AddStockTransaction(AManager: TEntityManager; APermissionCheck: Boolean);
+procedure TInvoiceLine.AddStockTransaction(APermissionCheck: Boolean);
 var
   LStockTransaction: TStockTransaction;
 begin
@@ -275,19 +238,19 @@ begin
     LStockTransaction.FaturaId.Value := Self.Header.Id.Value;
     LStockTransaction.FaturaDetayId.Value := Self.Id.Value;
 
-    AManager.Insert(LStockTransaction, APermissionCheck);
+    ManagerMain.Insert(LStockTransaction, APermissionCheck);
   finally
     LStockTransaction.DisposeOf;
   end;
 end;
 
-procedure TInvoiceLine.UpdateStockTransaction(AManager: TEntityManager; APermissionCheck: Boolean);
+procedure TInvoiceLine.UpdateStockTransaction(APermissionCheck: Boolean);
 var
   LStockTransaction: TStockTransaction;
 begin
   LStockTransaction := TStockTransaction.Create();
   try
-    AManager.GetOne(LStockTransaction, LStockTransaction.FaturaId.QryName + '=' + Self.FHeaderId.AsString + ' and ' +
+    ManagerMain.GetOne(LStockTransaction, LStockTransaction.FaturaId.QryName + '=' + Self.FHeaderId.AsString + ' and ' +
                                        LStockTransaction.FaturaDetayId.QryName + '=' + Self.Id.AsString,
                                        True, False);
     LStockTransaction.StokKodu.Value := Self.StokKodu.Value;
@@ -300,7 +263,7 @@ begin
     LStockTransaction.FaturaId.Value := Self.Header.Id.Value;
     LStockTransaction.FaturaDetayId.Value := Self.Id.Value;
 
-    AManager.Update(LStockTransaction, APermissionCheck);
+    ManagerMain.Update(LStockTransaction, APermissionCheck);
   finally
     LStockTransaction.DisposeOf;
   end;

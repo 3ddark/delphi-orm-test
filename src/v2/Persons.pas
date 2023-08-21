@@ -2,7 +2,9 @@
 
 interface
 
-uses Data.DB, Ths.Orm.Table, Ths.Orm.Manager, System.Generics.Collections;
+uses
+  Data.DB, Ths.Orm.Table, Ths.Orm.Manager, System.Generics.Collections,
+  Ths.Orm.ManagerStack;
 
 type
   TPersonAdres = class;
@@ -27,10 +29,11 @@ type
     destructor Destroy; override;
 
     function Clone: TPerson; reintroduce; overload;
-    class procedure BusinessSelect(AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
-    class procedure BusinessInsert(AManager: TEntityManager; APermissionCheck: Boolean);
-    class procedure BusinessUpdate(AManager: TEntityManager; APermissionCheck: Boolean);
-    class procedure BusinessDelete(AManager: TEntityManager; APermissionCheck: Boolean);
+
+    function BusinessSelect(AFilter: string; ALock, APermissionCheck: Boolean): Boolean; override;
+    function BusinessInsert(APermissionCheck: Boolean): Boolean; override;
+    function BusinessUpdate(APermissionCheck: Boolean): Boolean; override;
+    function BusinessDelete(APermissionCheck: Boolean): Boolean; override;
   end;
 
   TPersonAdres = class(TThsTable)
@@ -56,37 +59,28 @@ type
 
 implementation
 
-class procedure TPerson.BusinessSelect(AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean);
-var
-  n1: Integer;
-  LPerson: TPerson;
-  LPersons: TObjectList<TPerson>;
+function TPerson.BusinessSelect(AFilter: string; ALock, APermissionCheck: Boolean): Boolean;
 begin
+  Result := True;
   try
-    AManager.GetList<TPerson>(LPersons, AFilter, ALock, APermissionCheck);
-    for n1 := 0 to LPersons.Count-1 do
-    begin
-      LPerson := LPersons.Items[n1];
-      AManager.GetOne(LPerson.FAdres, LPerson.FAdres.PersonId.QryName + '=' + LPerson.Id.AsString, ALock, APermissionCheck);
-    end;
+    //ManagerMain.GetOne(Self.Adres, Self.Adres.PersonId.QryName + '=' + Self.Id.AsString, ALock, False);
   finally
-    LPersons.DisposeOf;
   end;
 end;
 
-class procedure TPerson.BusinessInsert(AManager: TEntityManager; APermissionCheck: Boolean);
+function TPerson.BusinessInsert(APermissionCheck: Boolean): Boolean;
 begin
-//
+  Result := True;
 end;
 
-class procedure TPerson.BusinessUpdate(AManager: TEntityManager; APermissionCheck: Boolean);
+function TPerson.BusinessUpdate(APermissionCheck: Boolean): Boolean;
 begin
-//
+  Result := True;
 end;
 
-class procedure TPerson.BusinessDelete(AManager: TEntityManager; APermissionCheck: Boolean);
+function TPerson.BusinessDelete(APermissionCheck: Boolean): Boolean;
 begin
-//
+ Result := True;
 end;
 
 constructor TPerson.Create();

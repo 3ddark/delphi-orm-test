@@ -94,7 +94,10 @@ type
     function Validate: Boolean; virtual;
     procedure CloneData(ASrcTable: TThsTable);
 
-    class procedure BusinessSelectOne(ATable: TThsTable; AFilter: string; ALock, APermissionCheck: Boolean); virtual;
+    function BusinessSelect(AFilter: string; ALock, APermissionCheck: Boolean): Boolean; virtual;
+    function BusinessInsert(APermissionCheck: Boolean): Boolean; virtual;
+    function BusinessUpdate(APermissionCheck: Boolean): Boolean; virtual;
+    function BusinessDelete(APermissionCheck: Boolean): Boolean; virtual;
   end;
 
 implementation
@@ -311,9 +314,24 @@ begin
   inherited;
 end;
 
-class procedure TThsTable.BusinessSelectOne(ATable: TThsTable; AFilter: string; ALock, APermissionCheck: Boolean);
+function TThsTable.BusinessSelect(AFilter: string; ALock, APermissionCheck: Boolean): Boolean;
 begin
-//
+  Result := ManagerMain.GetOne(Self, AFilter, ALock, APermissionCheck);
+end;
+
+function TThsTable.BusinessInsert(APermissionCheck: Boolean): Boolean;
+begin
+  Result := ManagerMain.Insert(Self, APermissionCheck);
+end;
+
+function TThsTable.BusinessUpdate(APermissionCheck: Boolean): Boolean;
+begin
+  Result := ManagerMain.Update(Self, APermissionCheck);
+end;
+
+function TThsTable.BusinessDelete(APermissionCheck: Boolean): Boolean;
+begin
+  Result := ManagerMain.Delete(Self, APermissionCheck);
 end;
 
 procedure TThsTable.Clear;

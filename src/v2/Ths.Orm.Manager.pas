@@ -13,8 +13,6 @@ type
   TEntityManager = class;
   TPermissionTypes = (prtRead, prtAdd, prtUpdate, prtDelete, prtSpecial);
 
-//  TBusinessSelectOneEvent = procedure(var ATable: TThsTable; AFilter: string; ALock, APermissionCheck: Boolean) of Object;
-  TBusinessSelectListEvent = procedure(var ATable: TObjectList<TThsTable>; AManager: TEntityManager; AFilter: string; ALock, APermissionCheck: Boolean) of Object;
   TBusinessOperationEvent = procedure(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean) of Object;
 
   TEntityManager = class
@@ -35,7 +33,6 @@ type
 
     function GetOneBase<T: Class>(var ATable: T; AFilter: string; ALock: Boolean): Boolean;
     function GetOneCustomBase<T: Class>(var ATable: T; AFields: TArray<TThsField>; AFilter: string; ALock: Boolean): Boolean;
-    function BusinessSelectOneBase<T: Class>(var ATable: T; AFilter: string; ALock, APermissionCheck: Boolean): Boolean;
   public
     property Connection: TZConnection read FConnection;
 
@@ -75,10 +72,13 @@ type
     function AfterDeleteDB<T: Class>(ATable: T): Boolean;
 
     function LogicalSelectOne<T: Class>(var ATable: T; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean): TEntityManager;
-    //function LogicalSelectList<T: Class>(var ATable: TObjectList<T>; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean; AProcBusinessSelect: TBusinessSelectListEvent): TEntityManager;
-    function LogicalInsert(ATable: TThsTable; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessInsert: TBusinessOperationEvent): Boolean; virtual;
-    function LogicalUpdate(ATable: TThsTable; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessUpdate: TBusinessOperationEvent): Boolean; virtual;
-    function LogicalDelete(ATable: TThsTable; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessDelete: TBusinessOperationEvent): Boolean; virtual;
+    function LogicalSelectList<T: Class>(var ATables: TObjectList<T>; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean): TEntityManager;
+    function LogicalInsertOne<T: Class>(ATable: T; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
+    function LogicalInsertList<T: Class>(ATables: TObjectList<T>; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
+    function LogicalUpdateOne<T: Class>(ATable: T; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
+    function LogicalUpdateList<T: Class>(ATables: TObjectList<T>; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
+    function LogicalDeleteOne<T: Class>(ATable: T; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
+    function LogicalDeleteList<T: Class>(ATables: TObjectList<T>; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
 
     procedure Listen(ATableName: string); virtual;
     procedure Unlisten(ATableName: string); virtual;
@@ -247,7 +247,6 @@ begin
   Result := False;
   try
     ATable := CallCreateMethod<T>;
-
     if not Self.IsAuthorized((ATable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
     begin
       TThsTable(ATable).Free;
@@ -303,10 +302,10 @@ end;
 
 function TEntityManager.GetOne<T>(var ATable: T; AFilter: string; ALock, APermissionCheck: Boolean): Boolean;
 begin
-  ATable := CallCreateMethod<T>;
+  Result := False;
   try
-    Result := Self.IsAuthorized((ATable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck);
-    if not Result then
+    ATable := CallCreateMethod<T>;
+    if not Self.IsAuthorized((ATable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
       Exit;
   finally
     TThsTable(ATable).Free;
@@ -320,10 +319,10 @@ function TEntityManager.GetOneCustom<T>(var ATable: T; AFields: TArray<TThsField
 var
   LTable: T;
 begin
-  LTable := CallCreateMethod<T>;
+  Result := False;
   try
-    Result := Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck);
-    if not Result then
+    LTable := CallCreateMethod<T>;
+    if not Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
       Exit;
     Result := GetOneCustomBase(ATable, AFields, AFilter, ALock);
   finally
@@ -336,10 +335,10 @@ function TEntityManager.GetOne<T>(var ATable: T; AID: Int64; ALock: Boolean; APe
 var
   LTable: T;
 begin
-  LTable := CallCreateMethod<T>;
+  Result := False;
   try
-    Result := Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck);
-    if not Result then
+    LTable := CallCreateMethod<T>;
+    if not Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
       Exit;
 
     Result := GetOneBase(ATable, 'id=' + AID.ToString, ALock)
@@ -353,10 +352,10 @@ function TEntityManager.GetOneCustom<T>(var ATable: T; AFields: TArray<TThsField
 var
   LTable: T;
 begin
-  LTable := CallCreateMethod<T>;
+  Result := False;
   try
-    Result := Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck);
-    if not Result then
+    LTable := CallCreateMethod<T>;
+    if not Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
       Exit;
 
     Result := GetOneCustomBase(ATable, AFields, 'id=' + AID.ToString, ALock);
@@ -479,41 +478,47 @@ end;
 
 function TEntityManager.Insert<T>(ATable: T; APermissionCheck: Boolean): Boolean;
 begin
-  Result := IsAuthorized((ATable as TThsTable).TableSourceCode, TPermissionTypes.prtAdd, APermissionCheck);
-  if not Result then
-    Exit;
-
-  if BeforeInsertDB(ATable) then
-    if DoInsert(ATable, APermissionCheck) then
-      AfterInsertDB(ATable);
-end;
-
-function TEntityManager.DoInsert<T>(ATable: T; APermissionCheck: Boolean): Boolean;
-var
-  LQry: TZQuery;
-begin
-  Result := True;
+  Result := False;
   try
-    LQry := Self.NewQuery;
-    try
-      LQry.SQL.Text := PrepareInsertQuery(ATable as TThsTable);
-      LQry.Prepare;
-      if LQry.Prepared then
-      begin
-        LQry.Open;
-        GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
-        (ATable as TThsTable).Id.Value := LQry.Fields.Fields[0].Value;
-        LQry.Close;
-      end;
-    finally
-      LQry.DisposeOf;
+    if not IsAuthorized((ATable as TThsTable).TableSourceCode, TPermissionTypes.prtAdd, APermissionCheck) then
+      Exit;
+
+    Result := BeforeInsertDB(ATable);
+    if Result then
+    begin
+      Result := DoInsert(ATable, APermissionCheck);
+      if Result then
+        AfterInsertDB(ATable);
     end;
   except
     on E: Exception do
     begin
       Result := False;
       GLogger.ErrorLog(E);
+      ShowException(E, E);
     end;
+  end;
+end;
+
+function TEntityManager.DoInsert<T>(ATable: T; APermissionCheck: Boolean): Boolean;
+var
+  LQry: TZQuery;
+begin
+  Result := False;
+  LQry := Self.NewQuery;
+  try
+    LQry.SQL.Text := PrepareInsertQuery(ATable as TThsTable);
+    LQry.Prepare;
+    if LQry.Prepared then
+    begin
+      LQry.Open;
+      GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
+      (ATable as TThsTable).Id.Value := LQry.Fields.Fields[0].Value;
+      LQry.Close;
+      Result := True;
+    end;
+  finally
+    LQry.DisposeOf;
   end;
 end;
 
@@ -530,40 +535,46 @@ end;
 
 function TEntityManager.Update<T>(ATable: T; APermissionCheck: Boolean): Boolean;
 begin
-  Result := IsAuthorized((ATable as TThsTable).TableSourceCode, TPermissionTypes.prtUpdate, APermissionCheck);
-  if not Result then
-    Exit;
-
-  if BeforeUpdateDB(ATable) then
-    if DoUpdate(ATable, APermissionCheck) then
-      AfterUpdateDB(ATable);
-end;
-
-function TEntityManager.DoUpdate<T>(ATable: T; APermissionCheck: Boolean): Boolean;
-var
-  LQry: TZQuery;
-begin
-  Result := True;
+  Result := False;
   try
-    LQry := Self.NewQuery;
-    try
-      LQry.SQL.Text := PrepareUpdateQuery(ATable as TThsTable);
-      LQry.Prepare;
-      if LQry.Prepared then
-      begin
-        LQry.ExecSQL;
-        GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
-        LQry.Close;
-      end;
-    finally
-      LQry.DisposeOf;
+    if not IsAuthorized((ATable as TThsTable).TableSourceCode, TPermissionTypes.prtUpdate, APermissionCheck) then
+      Exit;
+
+    Result := BeforeUpdateDB(ATable);
+    if Result then
+    begin
+      Result := DoUpdate(ATable, APermissionCheck);
+      if Result then
+        AfterUpdateDB(ATable);
     end;
   except
     on E: Exception do
     begin
       Result := False;
       GLogger.ErrorLog(E);
+      ShowException(E, E);
     end;
+  end;
+end;
+
+function TEntityManager.DoUpdate<T>(ATable: T; APermissionCheck: Boolean): Boolean;
+var
+  LQry: TZQuery;
+begin
+  LQry := Self.NewQuery;
+  Result := False;
+  try
+    LQry.SQL.Text := PrepareUpdateQuery(ATable as TThsTable);
+    LQry.Prepare;
+    if LQry.Prepared then
+    begin
+      LQry.ExecSQL;
+      GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
+      LQry.Close;
+      Result := True;
+    end;
+  finally
+    LQry.DisposeOf;
   end;
 end;
 
@@ -580,33 +591,17 @@ end;
 
 function TEntityManager.CustomUpdate<T>(ATable: T; AFields: TArray<TThsField>; APermissionCheck: Boolean): Boolean;
 begin
-  Result := IsAuthorized((ATable as TThsTable).TableSourceCode, TPermissionTypes.prtUpdate, APermissionCheck);
-  if not Result then
-    Exit;
-
-  if BeforeCustomUpdateDB(ATable) then
-    if DoCustomUpdate(ATable, AFields, APermissionCheck) then
-      AfterCUstomUpdateDB(ATable);
-end;
-
-function TEntityManager.DoCustomUpdate<T>(ATable: T; AFields: TArray<TThsField>; APermissionCheck: Boolean): Boolean;
-var
-  LQry: TZQuery;
-begin
-  Result := True;
+  Result := False;
   try
-    LQry := Self.NewQuery;
-    try
-      LQry.SQL.Text := PrepareUpdateCustomQuery(ATable as TThsTable, AFields);
-      LQry.Prepare;
-      if LQry.Prepared then
-      begin
-        LQry.ExecSQL;
-        GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
-        LQry.Close;
-      end;
-    finally
-      LQry.DisposeOf;
+    if not IsAuthorized((ATable as TThsTable).TableSourceCode, TPermissionTypes.prtUpdate, APermissionCheck) then
+      Exit;
+
+    Result := BeforeCustomUpdateDB(ATable);
+    if Result then
+    begin
+      Result := DoCustomUpdate(ATable, AFields, APermissionCheck);
+      if Result then
+        AfterCUstomUpdateDB(ATable);
     end;
   except
     on E: Exception do
@@ -614,6 +609,27 @@ begin
       Result := False;
       GLogger.ErrorLog(E);
     end;
+  end;
+end;
+
+function TEntityManager.DoCustomUpdate<T>(ATable: T; AFields: TArray<TThsField>; APermissionCheck: Boolean): Boolean;
+var
+  LQry: TZQuery;
+begin
+  Result := False;
+  LQry := Self.NewQuery;
+  try
+    LQry.SQL.Text := PrepareUpdateCustomQuery(ATable as TThsTable, AFields);
+    LQry.Prepare;
+    if LQry.Prepared then
+    begin
+      LQry.ExecSQL;
+      GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
+      LQry.Close;
+      Result := True;
+    end;
+  finally
+    LQry.DisposeOf;
   end;
 end;
 
@@ -630,13 +646,45 @@ end;
 
 function TEntityManager.Delete<T>(ATable: T; APermissionCheck: Boolean): Boolean;
 begin
-  Result := IsAuthorized((ATable as TThsTable).TableSourceCode, TPermissionTypes.prtDelete, APermissionCheck);
-  if not Result then
-    Exit;
+  Result := False;
+  try
+    if not IsAuthorized((ATable as TThsTable).TableSourceCode, TPermissionTypes.prtDelete, APermissionCheck) then
+      Exit;
 
-  if BeforeDeleteDB(ATable) then
-    if DoDelete(ATable, APermissionCheck) then
-      AfterDeleteDB(ATable);
+    Result := BeforeDeleteDB(ATable);
+    if Result then
+    begin
+      Result := DoDelete(ATable, APermissionCheck);
+      if Result then
+        AfterDeleteDB(ATable);
+    end;
+  except
+    on E: Exception do
+    begin
+      Result := False;
+      GLogger.ErrorLog(E);
+      ShowException(E, E);
+    end;
+  end;
+end;
+
+function TEntityManager.DoDelete<T>(ATable: T; APermissionCheck: Boolean): Boolean;
+begin
+  with Self.NewQuery do
+  try
+    SQL.Text := PrepareDeleteQuery(ATable as TThsTable);
+    ExecSQL;
+    GLogger.RunLog(SQL.Text.Replace(sLineBreak, ''));
+    Result := True;
+  finally
+    Free;
+  end;
+end;
+
+function TEntityManager.AfterDeleteDB<T>(ATable: T): Boolean;
+begin
+  GLogger.RunLog('DELETING ' + (ATable as TThsTable).ClassName + ' id: ' + IntToStr((ATable as TThsTable).Id.AsInt64));
+  Result := True;
 end;
 
 function TEntityManager.DeleteBatch<T>(AFilter: string; APermissionCheck: Boolean): Boolean;
@@ -692,56 +740,6 @@ begin
   Result := True;
 end;
 
-function TEntityManager.DoDelete<T>(ATable: T; APermissionCheck: Boolean): Boolean;
-begin
-  with Self.NewQuery do
-  try
-    SQL.Text := PrepareDeleteQuery(ATable as TThsTable);
-    ExecSQL;
-    GLogger.RunLog(SQL.Text.Replace(sLineBreak, ''));
-    Result := True;
-  finally
-    Free;
-  end;
-end;
-
-function TEntityManager.AfterDeleteDB<T>(ATable: T): Boolean;
-begin
-  GLogger.RunLog('DELETING ' + (ATable as TThsTable).ClassName + ' id: ' + IntToStr((ATable as TThsTable).Id.AsInt64));
-  Result := True;
-end;
-
-function TEntityManager.BusinessSelectOneBase<T>(var ATable: T; AFilter: string; ALock, APermissionCheck: Boolean): Boolean;
-begin
-  ATable := CallCreateMethod<T>;
-  (ATable as TThsTable).BusinessSelectOne(ATable as TThsTable, AFilter, ALock, APermissionCheck);
-end;
-
-
-{
-function TEntityManager.LogicalSelectList<T>(var ATable: TObjectList<T>; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean; AProcBusinessSelect: TBusinessSelectListEvent): TEntityManager;
-begin
-  Result := Self;
-  try
-    if not Assigned(AProcBusinessSelect) then
-      raise Exception.Create('BusinessSelect event olmak zorunda!!!');
-
-    if not ALock then
-      AWithBegin := False;
-
-    if AWithBegin then
-      Self.StartTrans;
-
-    AProcBusinessSelect(ATable, Self, AFilter, ALock, APermissionCheck);
-  except
-    on E: Exception do
-    begin
-      Self.RollbackTrans;
-      GLogger.ErrorLog(E);
-    end;
-  end;
-end;
-}
 function TEntityManager.LogicalSelectOne<T>(var ATable: T; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean): TEntityManager;
 begin
   Result := Self;
@@ -752,9 +750,8 @@ begin
     if AWithBegin then
       Self.StartTrans;
 
-    Self.BusinessSelectOneBase(ATable, AFilter, ALock, APermissionCheck);
-    Exit;
-//      Self.GetOne<T>(ATable, AFilter, ALock, APermissionCheck);
+    Self.GetOne<T>(ATable, AFilter, ALock, APermissionCheck);
+    (ATable as TThsTable).BusinessSelect(AFilter, ALock, APermissionCheck);
   except
     on E: Exception do
     begin
@@ -764,18 +761,43 @@ begin
   end;
 end;
 
-function TEntityManager.LogicalInsert(ATable: TThsTable; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessInsert: TBusinessOperationEvent): Boolean;
+function TEntityManager.LogicalSelectList<T>(var ATables: TObjectList<T>; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean): TEntityManager;
+var
+  ATable: T;
+begin
+  Result := Self;
+  try
+    if not ALock then
+      AWithBegin := False;
+
+    if AWithBegin then
+      Self.StartTrans;
+
+    Self.GetList<T>(ATables, AFilter, ALock, APermissionCheck);
+
+    for ATable in ATables do
+      (ATable as TThsTable).BusinessSelect(AFilter, ALock, APermissionCheck);
+  except
+    on E: Exception do
+    begin
+      Self.RollbackTrans;
+      GLogger.ErrorLog(E);
+    end;
+  end;
+end;
+
+function TEntityManager.LogicalInsertOne<T>(ATable: T; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
 begin
   Result := False;
   try
-    if not Assigned(AProcBusinessInsert) then
-      raise Exception.Create('BusinessInsert event olmak zorunda!!!');
+    if AWithBegin then
+      StartTrans;
 
-    if AWithBegin then StartTrans;
+    (ATable as TThsTable).BusinessInsert(APermissionCheck);
 
-    AProcBusinessInsert(Self, ATable, APermissionCheck);
+    if AWithCommit then
+      CommitTrans;
 
-    if AWithCommit then CommitTrans;
     Result := True;
   except
     on E: Exception do
@@ -786,18 +808,48 @@ begin
   end;
 end;
 
-function TEntityManager.LogicalUpdate(ATable: TThsTable; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessUpdate: TBusinessOperationEvent): Boolean;
+function TEntityManager.LogicalInsertList<T>(ATables: TObjectList<T>; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
+var
+  ATable: T;
+begin
+  Result := True;
+  try
+    if AWithBegin then
+      StartTrans;
+
+    for ATable in ATables do
+      if Result then
+        Result := (ATable as TThsTable).BusinessInsert(APermissionCheck)
+      else
+      begin
+        Self.RollbackTrans;
+        Exit;
+      end;
+
+    if AWithCommit then
+      CommitTrans;
+  except
+    on E: Exception do
+    begin
+      Self.RollbackTrans;
+      GLogger.ErrorLog(E);
+      ShowException(E, E);
+    end;
+  end;
+end;
+
+function TEntityManager.LogicalUpdateOne<T>(ATable: T; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
 begin
   Result := False;
   try
-    if not Assigned(AProcBusinessUpdate) then
-      raise Exception.Create('BusinessUpdate event olmak zorunda!!!');
+    if AWithBegin then
+      StartTrans;
 
-    if AWithBegin then StartTrans;
+    (ATable as TThsTable).BusinessUpdate(APermissionCheck);
 
-    AProcBusinessUpdate(Self, ATable, APermissionCheck);
+    if AWithCommit then
+      CommitTrans;
 
-    if AWithCommit then CommitTrans;
     Result := True;
   except
     on E: Exception do
@@ -808,18 +860,68 @@ begin
   end;
 end;
 
-function TEntityManager.LogicalDelete(ATable: TThsTable; AWithBegin, AWithCommit, APermissionCheck: Boolean; AProcBusinessDelete: TBusinessOperationEvent): Boolean;
+function TEntityManager.LogicalUpdateList<T>(ATables: TObjectList<T>; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
+var
+  ATable: T;
 begin
   Result := False;
   try
-    if not Assigned(AProcBusinessDelete) then
-      raise Exception.Create('BusinessDelete event olmak zorunda!!!');
+    if AWithBegin then
+      StartTrans;
 
-    if AWithBegin then StartTrans;
+    for ATable in ATables do
+      (ATable as TThsTable).BusinessUpdate(APermissionCheck);
 
-    AProcBusinessDelete(Self, ATable, APermissionCheck);
+    if AWithCommit then
+      CommitTrans;
 
-    if AWithCommit then CommitTrans;
+    Result := True;
+  except
+    on E: Exception do
+    begin
+      Self.RollbackTrans;
+      GLogger.ErrorLog(E);
+    end;
+  end;
+end;
+
+function TEntityManager.LogicalDeleteOne<T>(ATable: T; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
+begin
+  Result := False;
+  try
+    if AWithBegin then
+      StartTrans;
+
+    (ATable as TThsTable).BusinessDelete(APermissionCheck);
+
+    if AWithCommit then
+      CommitTrans;
+
+    Result := True;
+  except
+    on E: Exception do
+    begin
+      Self.RollbackTrans;
+      GLogger.ErrorLog(E);
+    end;
+  end;
+end;
+
+function TEntityManager.LogicalDeleteList<T>(ATables: TObjectList<T>; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
+var
+  ATable: T;
+begin
+  Result := False;
+  try
+    if AWithBegin then
+      StartTrans;
+
+    for ATable in ATables do
+      (ATable as TThsTable).BusinessDelete(APermissionCheck);
+
+    if AWithCommit then
+      CommitTrans;
+
     Result := True;
   except
     on E: Exception do

@@ -18,6 +18,8 @@ type
     FPara: TThsField;
     FFaturaId: TThsField;
     FFaturaDetayId: TThsField;
+    FIrsaliyeId: TThsField;
+    FIrsaliyeDetayId: TThsField;
   public
     property StokKodu: TThsField read FStokKodu write FStokKodu;
     property Tarih: TThsField read FTarih write FTarih;
@@ -28,6 +30,8 @@ type
     property Para: TThsField read FPara write FPara;
     property FaturaId: TThsField read FFaturaId write FFaturaId;
     property FaturaDetayId: TThsField read FFaturaDetayId write FFaturaDetayId;
+    property IrsaliyeId: TThsField read FIrsaliyeId write FIrsaliyeId;
+    property IrsaliyeDetayId: TThsField read FIrsaliyeDetayId write FIrsaliyeDetayId;
 
     constructor Create(); override;
     destructor Destroy; override;
@@ -54,6 +58,8 @@ begin
   FPara := TThsField.Create('para', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
   FFaturaId := TThsField.Create('fatura_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
   FFaturaDetayId := TThsField.Create('fatura_detay_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FIrsaliyeId := TThsField.Create('irsaliye_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FIrsaliyeDetayId := TThsField.Create('irsaliye_detay_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
 end;
 
 destructor TStockTransaction.Destroy;

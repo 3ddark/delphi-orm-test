@@ -45,7 +45,7 @@ procedure TfrmMain.FormCreate(Sender: TObject);
 begin
   TManagerStack.prepareManager(
     'localhost',
-    'ths_erp',
+    'testdb',
     'postgres',
     'qwe',
     ExtractFilePath(Application.ExeName) + 'lib' + PathDelim + 'libpq.dll',
@@ -93,7 +93,7 @@ begin
     LInvL.Kdv.Value := 20;
     LInv.AddLine(LInvL);
 
-    ManagerMain.LogicalInsert(LInv, True, True, False, LInv.BusinessInsert);
+    ManagerMain.LogicalInsertOne(LInv, True, True, False);
   finally
     LInv.DisposeOf;
   end;
@@ -101,33 +101,40 @@ end;
 
 procedure TfrmMain.btnFillTestDataClick(Sender: TObject);
 var
-  ATable: TStock;
+  AStock: TStock;
+  AStocks: TObjectList<TStock>;
 begin
   ManagerMain.StartTrans;
-  ATable := TStock.Create();
+  AStocks := TObjectList<TStock>.Create();
   try
-    ATable.StokKodu.Value := 'PC1';
-    ATable.StokAdi.Value := 'Bilgisayar Paket 1';
-    ManagerMain.Insert(ATable, False);
+    AStock := TStock.Create;
+    AStock.StokKodu.Value := 'PC1';
+    AStock.StokAdi.Value := 'Bilgisayar Paket 1';
+    AStocks.Add(AStock);
 
-    ATable.StokKodu.Value := 'PC2G';
-    ATable.StokAdi.Value := 'Bilgisayar Paket 2 Gaming';
-    ManagerMain.Insert(ATable, False);
+    AStock := TStock.Create;
+    AStock.StokKodu.Value := 'PC2G';
+    AStock.StokAdi.Value := 'Bilgisayar Paket 2 Gaming';
+    AStocks.Add(AStock);
 
-    ATable.StokKodu.Value := 'MONLG1';
-    ATable.StokAdi.Value := 'Monitör LG 19"';
-    ManagerMain.Insert(ATable, False);
+    AStock := TStock.Create;
+    AStock.StokKodu.Value := 'MONLG1';
+    AStock.StokAdi.Value := 'Monitör LG 19"';
+    AStocks.Add(AStock);
 
-    ATable.StokKodu.Value := 'MONLG2';
-    ATable.StokAdi.Value := 'Monitör LG 21"';
-    ManagerMain.Insert(ATable, False);
+    AStock := TStock.Create;
+    AStock.StokKodu.Value := 'MONLG2';
+    AStock.StokAdi.Value := 'Monitör LG 21"';
+    AStocks.Add(AStock);
 
-    ATable.StokKodu.Value := 'MONLG3C';
-    ATable.StokAdi.Value := 'Monitör LG 24" Curved';
-    ManagerMain.Insert(ATable, False);
-    ManagerMain.CommitTrans;
+    AStock := TStock.Create;
+    AStock.StokKodu.Value := 'MONLG3C';
+    AStock.StokAdi.Value := 'Monitör LG 24" Curved';
+    AStocks.Add(AStock);
+
+    ManagerMain.LogicalInsertList<TStock>(AStocks, True, True, True);
   finally
-    ATable.DisposeOf;
+    AStocks.DisposeOf;
   end;
 end;
 
