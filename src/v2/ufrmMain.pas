@@ -177,7 +177,7 @@ begin
     LInvoiceLine.Fiyat.Value := 20000;
     LInvoiceLine.Kdv.Value := 20;
     LInvoice.AddLine(LInvoiceLine);
-    //ManagerMain.LogicalUpdate(LInvoice, False, True, False, TInvoice.BusinessUpdate);
+    ManagerMain.LogicalUpdateOne(LInvoice, False, True, False);
   finally
     LInvoice.DisposeOf;
   end;

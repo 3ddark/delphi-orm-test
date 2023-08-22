@@ -81,20 +81,23 @@ var
 begin
   AInvoiceLine := TInvoiceLine.Create();
   try
-    Result := ManagerMain.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + TInvoice(Self).Id.AsString, ALock, APermissionCheck);
-    TInvoice(Self).InvoiceLines.Free;
-    TInvoice(Self).InvoiceLines := nil;
-    TInvoice(Self).InvoiceLines := LInvLs;
+    Result := ManagerMain.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + Self.Id.AsString, ALock, APermissionCheck);
+    Self.InvoiceLines.Free;
+    Self.InvoiceLines := nil;
+    Self.InvoiceLines := LInvLs;
   finally
     FreeAndNil(AInvoiceLine);
   end;
+
+  for AInvoiceLine in Self.InvoiceLines do
+    AInvoiceLine.Header := Self;
 end;
 
 function TInvoice.BusinessInsert(APermissionCheck: Boolean): Boolean;
 var
   ALine: TInvoiceLine;
 begin
-  Result := True;
+  Result := ManagerMain.Insert(Self, APermissionCheck);
   try
     for ALine in Self.InvoiceLines do
     begin
@@ -112,6 +115,7 @@ function TInvoice.BusinessUpdate(APermissionCheck: Boolean): Boolean;
 var
   ALine: TInvoiceLine;
 begin
+  ManagerMain.Update(Self, APermissionCheck);
   for ALine in Self.InvoiceLines do
   begin
     if ALine.Id.Value <= 0 then

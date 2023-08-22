@@ -16,6 +16,7 @@ type
     FFiyat: TThsField;
     FDovizFiyat: TThsField;
     FPara: TThsField;
+    FFaturaId: TThsField;
   public
     property StokKodu: TThsField read FHesapKodu write FHesapKodu;
     property Tarih: TThsField read FTarih write FTarih;
@@ -24,6 +25,7 @@ type
     property Fiyat: TThsField read FFiyat write FFiyat;
     property DovizFiyat: TThsField read FDovizFiyat write FDovizFiyat;
     property Para: TThsField read FPara write FPara;
+    property FaturaId: TThsField read FFaturaId write FFaturaId;
 
     constructor Create(); override;
     destructor Destroy; override;
@@ -48,6 +50,7 @@ begin
   FFiyat := TThsField.Create('fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
   FDovizFiyat := TThsField.Create('doviz_fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
   FPara := TThsField.Create('para', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FFaturaId := TThsField.Create('fatura_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
 end;
 
 destructor TAccountTransaction.Destroy;
