@@ -86,7 +86,7 @@ end;
 constructor TPerson.Create();
 begin
   Self.SchemaName := 'public';
-  Self.TableName := 'aa_persons';
+  Self.TableName := 'persons';
   Self.TableSourceCode := '1000';
 
   inherited;
@@ -132,7 +132,7 @@ end;
 constructor TPersonAdres.Create(APerson: TPerson);
 begin
   Self.SchemaName := 'public';
-  Self.TableName := 'aa_person_addresses';
+  Self.TableName := 'person_addresses';
   Self.TableSourceCode := '1000';
 
   inherited Create();

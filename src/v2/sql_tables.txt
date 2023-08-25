@@ -1,110 +1,110 @@
-CREATE TABLE IF NOT EXISTS public.a_stocks
+CREATE TABLE IF NOT EXISTS public.stocks
 (
     id bigserial,
-    stok_kodu character varying(32) not null,
-    stok_adi character varying(128) not null,
+    stock_code character varying(32) not null,
+    stock_name character varying(128) not null,
     PRIMARY KEY (id),
-    UNIQUE (stok_kodu)
+    UNIQUE (stock_code)
 )
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS public.a_stocks
+ALTER TABLE IF EXISTS public.stocks
     OWNER to postgres;
 
 
-CREATE TABLE IF NOT EXISTS public.a_invoices
+CREATE TABLE IF NOT EXISTS public.invoices
 (
     id bigserial,
-    fatura_no character varying(16) not null,
-    fatura_tarihi timestamp without time zone NOT NULL,
-    hesap_kodu character varying(16) not null,
-    hesa_ismi character varying(160) not null,
-    fatura_tipi smallint NOT NULL,
-    para character varying(3) COLLATE pg_catalog."default",
+    invoice_no character varying(16) not null,
+    invoice_date timestamp without time zone NOT NULL,
+    account_code character varying(16) not null,
+    account_name character varying(160) not null,
+    document_type smallint NOT NULL,
+    currency character varying(3) COLLATE pg_catalog."default",
     PRIMARY KEY (id)
 )
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS public.a_invoices
+ALTER TABLE IF EXISTS public.invoices
     OWNER to postgres;
 
 
-CREATE TABLE IF NOT EXISTS public.a_invoice_lines
+CREATE TABLE IF NOT EXISTS public.invoice_lines
 (
     id bigserial,
     header_id bigint not null,
-    stok_kodu character varying(32) not null,
-    iskonto numeric(18,3) NOT NULL,
-    miktar numeric(18,6) NOT NULL,
-    fiyat numeric(18,6) NOT NULL,
-    kdv numeric(18,2) NOT NULL,
+    stock_code character varying(32) not null,
+    discount numeric(18,3) NOT NULL,
+    quantity numeric(18,6) NOT NULL,
+    price numeric(18,6) NOT NULL,
+    vat numeric(18,2) NOT NULL,
     PRIMARY KEY (id),
     FOREIGN KEY (header_id)
-        REFERENCES public.a_invoices (id) MATCH SIMPLE
+        REFERENCES public.invoices (id) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE
 )
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS public.a_invoice_lines
+ALTER TABLE IF EXISTS public.invoice_lines
     OWNER to postgres;
 
 
 
-CREATE TABLE IF NOT EXISTS public.a_account_transactions
+CREATE TABLE IF NOT EXISTS public.account_transactions
 (
     id bigserial,
-    hesap_kodu character varying(16),
-    tarih timestamp without time zone NOT NULL,
-    tip smallint NOT NULL,
-    miktar numeric(18,6) NOT NULL,
-    fiyat numeric(18,6) NOT NULL DEFAULT 0,
-    doviz_fiyat numeric(18,6) NOT NULL DEFAULT 0,
-    para character varying(3) COLLATE pg_catalog."default",
-    fatura_id bigint,
+    account_code character varying(16),
+    transaction_date timestamp without time zone NOT NULL,
+    transaction_type smallint NOT NULL,
+    quantity numeric(18,6) NOT NULL,
+    price numeric(18,6) NOT NULL DEFAULT 0,
+    currency_price numeric(18,6) NOT NULL DEFAULT 0,
+    currency character varying(3) COLLATE pg_catalog."default",
+    invoice_id bigint,
     PRIMARY KEY (id),
-	FOREIGN KEY (fatura_id)
-        REFERENCES public.a_invoices (id) MATCH SIMPLE
+	FOREIGN KEY (invoice_id)
+        REFERENCES public.invoices (id) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE
 )
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS public.a_account_transactions
+ALTER TABLE IF EXISTS public.account_transactions
     OWNER to postgres;
 
-CREATE TABLE IF NOT EXISTS public.a_stock_transactions
+CREATE TABLE IF NOT EXISTS public.stock_transactions
 (
     id bigserial,
-    stok_kodu character varying(32),
-    tarih timestamp without time zone NOT NULL,
-    tip smallint NOT NULL,
-    miktar numeric(18,6) NOT NULL,
-    fiyat numeric(18,6) NOT NULL DEFAULT 0,
-    doviz_fiyat numeric(18,6) NOT NULL DEFAULT 0,
-    para character varying(3) COLLATE pg_catalog."default",
-    fatura_id bigint,
-    fatura_detay_id bigint,
-	irsaliye_id bigint,
-   	irsaliye_detay_id bigint,
-    UNIQUE (stok_kodu, fatura_id, fatura_detay_id),
+    stock_code character varying(32),
+    transaction_date timestamp without time zone NOT NULL,
+    direction smallint NOT NULL,
+    quantity numeric(18,6) NOT NULL,
+    price numeric(18,6) NOT NULL DEFAULT 0,
+    currency_price numeric(18,6) NOT NULL DEFAULT 0,
+    currency character varying(3) COLLATE pg_catalog."default",
+    invoice_id bigint,
+    invoice_line_id bigint,
+	waybill_id bigint,
+   	waybill_line_id bigint,
+    UNIQUE (stock_code, invoice_id, invoice_line_id),
     PRIMARY KEY (id),
-	FOREIGN KEY (fatura_id)
-        REFERENCES public.a_invoices (id) MATCH SIMPLE
+	FOREIGN KEY (invoice_id)
+        REFERENCES public.invoices (id) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE,
-	FOREIGN KEY (fatura_detay_id)
-        REFERENCES public.a_invoice_lines (id) MATCH SIMPLE
+	FOREIGN KEY (invoice_line_id)
+        REFERENCES public.invoice_lines (id) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE
 )
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS public.a_stock_transactions
+ALTER TABLE IF EXISTS public.stock_transactions
     OWNER to postgres;
 

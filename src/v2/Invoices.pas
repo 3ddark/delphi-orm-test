@@ -11,20 +11,20 @@ type
 
   TInvoice = class(TThsTable)
   private
-    FFaturaNo: TThsField;
-    FFaturaTarihi: TThsField;
-    FHesapKodu: TThsField;
-    FHesapIsmi: TThsField;
-    FFaturaTipi: TThsField;
-    FPara: TThsField;
+    FInvoiceNo: TThsField;
+    FInvoiceDate: TThsField;
+    FAccountCode: TThsField;
+    FAccountName: TThsField;
+    FDocumentType: TThsField;
+    FCurrency: TThsField;
     FInvoiceLines: TObjectList<TInvoiceLine>;
   public
-    property FaturaNo: TThsField read FFaturaNo write FFaturaNo;
-    property FaturaTarihi: TThsField read FFaturaTarihi write FFaturaTarihi;
-    property HesapKodu: TThsField read FHesapKodu write FHesapKodu;
-    property HesapIsmi: TThsField read FHesapIsmi write FHesapIsmi;
-    property FaturaTipi: TThsField read FFaturaTipi write FFaturaTipi;
-    property Para: TThsField read FPara write FPara;
+    property InvoiceNo: TThsField read FInvoiceNo write FInvoiceNo;
+    property InvoiceDate: TThsField read FInvoiceDate write FInvoiceDate;
+    property AccountCode: TThsField read FAccountCode write FAccountCode;
+    property AccountName: TThsField read FAccountName write FAccountName;
+    property DocumentType: TThsField read FDocumentType write FDocumentType;
+    property Currency: TThsField read FCurrency write FCurrency;
 
     property InvoiceLines: TObjectList<TInvoiceLine> read FInvoiceLines write FInvoiceLines;
 
@@ -46,11 +46,11 @@ type
   TInvoiceLine = class(TThsTable)
   private
     FHeaderId: TThsField;
-    FStokKodu: TThsField;
-    FIskonto: TThsField;
-    FMiktar: TThsField;
-    FFiyat: TThsField;
-    FKdv: TThsField;
+    FStockCode: TThsField;
+    FDiscount: TThsField;
+    FQuantity: TThsField;
+    FPrice: TThsField;
+    FVAT: TThsField;
 
     FHeader: TInvoice;
     function CalculateAmount: Boolean;
@@ -58,11 +58,11 @@ type
     procedure UpdateStockTransaction(APermissionCheck: Boolean);
   public
     property HeaderId: TThsField read FHeaderId write FHeaderId;
-    property StokKodu: TThsField read FStokKodu write FStokKodu;
-    property Iskonto: TThsField read FIskonto write FIskonto;
-    property Miktar: TThsField read FMiktar write FMiktar;
-    property Fiyat: TThsField read FFiyat write FFiyat;
-    property Kdv: TThsField read FKdv write FKdv;
+    property StockCode: TThsField read FStockCode write FStockCode;
+    property Discount: TThsField read FDiscount write FDiscount;
+    property Quantity: TThsField read FQuantity write FQuantity;
+    property Price: TThsField read FPrice write FPrice;
+    property VAT: TThsField read FVAT write FVAT;
 
     property Header: TInvoice read FHeader write FHeader;
 
@@ -141,17 +141,17 @@ end;
 constructor TInvoice.Create();
 begin
   Self.SchemaName := 'public';
-  Self.TableName := 'a_invoices';
+  Self.TableName := 'invoices';
   Self.TableSourceCode := '1000';
 
   inherited;
 
-  FFaturaNo := TThsField.Create('fatura_no', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FFaturaTarihi := TThsField.Create('fatura_tarihi', ftDateTime, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FHesapKodu := TThsField.Create('hesap_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FHesapIsmi := TThsField.Create('hesa_ismi', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FFaturaTipi := TThsField.Create('fatura_tipi', ftSmallint, -1, Self, [fpSelect, fpInsert, fpUpdate]);//0 Return, 1 Sale, 2 Export
-  FPara := TThsField.Create('para', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FInvoiceNo := TThsField.Create('invoice_no', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FInvoiceDate := TThsField.Create('invoice_date', ftDateTime, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FAccountCode := TThsField.Create('account_code', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FAccountName := TThsField.Create('account_name', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FDocumentType := TThsField.Create('document_type', ftSmallint, -1, Self, [fpSelect, fpInsert, fpUpdate]);//0 Return, 1 Sale, 2 Export
+  FCurrency := TThsField.Create('currency', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
 
   FInvoiceLines := TObjectList<TInvoiceLine>.Create;
 end;
@@ -193,17 +193,17 @@ end;
 constructor TInvoiceLine.Create();
 begin
   Self.SchemaName := 'public';
-  Self.TableName := 'a_invoice_lines';
+  Self.TableName := 'invoice_lines';
   Self.TableSourceCode := '1000';
 
   inherited;
 
   FHeaderId := TThsField.Create('header_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FStokKodu := TThsField.Create('stok_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FIskonto := TThsField.Create('iskonto', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FMiktar := TThsField.Create('miktar', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FFiyat := TThsField.Create('fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FKdv := TThsField.Create('kdv', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FStockCode := TThsField.Create('stock_code', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FDiscount := TThsField.Create('discount', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FQuantity := TThsField.Create('quantity', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FPrice := TThsField.Create('price', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FVAT := TThsField.Create('vat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
 end;
 
 destructor TInvoiceLine.Destroy;
@@ -232,15 +232,15 @@ var
 begin
   LStockTransaction := TStockTransaction.Create();
   try
-    LStockTransaction.StokKodu.Value := Self.StokKodu.Value;
-    LStockTransaction.Tarih.Value := Self.Header.FaturaTarihi.Value;
-    LStockTransaction.Tip.Value := Ord(sttCikis);
-    LStockTransaction.Miktar.Value := Self.Miktar.Value;
-    LStockTransaction.Fiyat.Value := Self.Fiyat.Value;
-    LStockTransaction.DovizFiyat.Value := Self.StokKodu.Value;
-    LStockTransaction.Para.Value := Self.Header.Para.Value;
-    LStockTransaction.FaturaId.Value := Self.Header.Id.Value;
-    LStockTransaction.FaturaDetayId.Value := Self.Id.Value;
+    LStockTransaction.StockCode.Value := Self.StockCode.Value;
+    LStockTransaction.TransactionDate.Value := Self.Header.InvoiceDate.Value;
+    LStockTransaction.Direction.Value := Ord(sttDirectionOut);
+    LStockTransaction.Quantity.Value := Self.Quantity.Value;
+    LStockTransaction.Price.Value := Self.Price.Value;
+    LStockTransaction.CurrencyPrice.Value := 0;
+    LStockTransaction.Currency.Value := Self.Header.Currency.Value;
+    LStockTransaction.InvoiceId.Value := Self.Header.Id.Value;
+    LStockTransaction.InvoiceLineId.Value := Self.Id.Value;
 
     ManagerMain.Insert(LStockTransaction, APermissionCheck);
   finally
@@ -254,18 +254,18 @@ var
 begin
   LStockTransaction := TStockTransaction.Create();
   try
-    ManagerMain.GetOne(LStockTransaction, LStockTransaction.FaturaId.QryName + '=' + Self.FHeaderId.AsString + ' and ' +
-                                       LStockTransaction.FaturaDetayId.QryName + '=' + Self.Id.AsString,
-                                       True, False);
-    LStockTransaction.StokKodu.Value := Self.StokKodu.Value;
-    LStockTransaction.Tarih.Value := Self.Header.FaturaTarihi.Value;
-    LStockTransaction.Tip.Value := Ord(sttCikis);
-    LStockTransaction.Miktar.Value := Self.Miktar.Value;
-    LStockTransaction.Fiyat.Value := Self.Fiyat.Value;
-    LStockTransaction.DovizFiyat.Value := Self.StokKodu.Value;
-    LStockTransaction.Para.Value := Self.Header.Para.Value;
-    LStockTransaction.FaturaId.Value := Self.Header.Id.Value;
-    LStockTransaction.FaturaDetayId.Value := Self.Id.Value;
+    ManagerMain.GetOne(LStockTransaction, LStockTransaction.InvoiceId.QryName + '=' + Self.FHeaderId.AsString + ' and ' +
+                                          LStockTransaction.InvoiceLineId.QryName + '=' + Self.Id.AsString,
+                                          True, False);
+    LStockTransaction.StockCode.Value := Self.StockCode.Value;
+    LStockTransaction.TransactionDate.Value := Self.Header.InvoiceDate.Value;
+    LStockTransaction.Direction.Value := Ord(sttDirectionOut);
+    LStockTransaction.Quantity.Value := Self.Quantity.Value;
+    LStockTransaction.Price.Value := Self.Price.Value;
+    LStockTransaction.CurrencyPrice.Value := 0;
+    LStockTransaction.Currency.Value := Self.Header.Currency.Value;
+    LStockTransaction.InvoiceId.Value := Self.Header.Id.Value;
+    LStockTransaction.InvoiceLineId.Value := Self.Id.Value;
 
     ManagerMain.Update(LStockTransaction, APermissionCheck);
   finally

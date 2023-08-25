@@ -37,11 +37,6 @@ implementation
 {$R *.dfm}
 
 procedure TfrmMain.FormCreate(Sender: TObject);
-//var
-//  n1: Integer;
-//  LPerson: TPerson;
-//  LPersons: TArray<TTable>;
-//  LAdres: TPersonAdres;
 begin
   TManagerStack.prepareManager(
     'localhost',
@@ -51,24 +46,6 @@ begin
     ExtractFilePath(Application.ExeName) + 'lib' + PathDelim + 'libpq.dll',
     5432
   );
-
-//  LPerson := TPerson.Create;
-//  try
-//    FManager.LogicalSelect(LPerson.Id.QryName + '=10', True, True, False, TPerson.BusinessSelect);
-//    FManager.GetOne(LPerson, 10, False);
-//    LPerson.PersonName.Value := UpperCase(LPerson.PersonName.AsString);
-//    FManager.Update(LPerson);
-//    LPerson.PersonName.Value :=  LowerCase(LPerson.PersonName.AsString);
-//    LPerson.PersonAge.Value := 27;
-//    LPerson.Salary.Value := 350;
-//    FManager.CustomUpdate(LPerson, [LPerson.PersonName, LPerson.PersonAge]);
-//    FManager.GetList(TPerson, LPersons, 'id > 0', False);
-//  finally
-//    LPerson.DisposeOf;
-//    for n1 := 0 to Length(LPersons)-1 do
-//      LPersons[n1].DisposeOf;
-//    SetLength(LPersons, 0);
-//  end;
 end;
 
 procedure TfrmMain.btnAddBusinessClick(Sender: TObject);
@@ -78,19 +55,19 @@ var
 begin
   LInv := TInvoice.Create;
   try
-    LInv.FaturaNo.Value := 'FTR23000001234';
-    LInv.FaturaTarihi.Value := EncodeDate(2023, 7, 19);
-    LInv.HesapKodu.Value := '120-001-007';
-    LInv.HesapIsmi.Value := 'ABC Ltd Şti';
-    LInv.FaturaTipi.Value := 1;
-    LInv.Para.Value := 'TRY';
+    LInv.InvoiceNo.Value := 'FTR23000001234';
+    LInv.InvoiceDate.Value := EncodeDate(2023, 7, 19);
+    LInv.AccountCode.Value := '120-001-007';
+    LInv.AccountName.Value := 'ABC Ltd Şti';
+    LInv.DocumentType.Value := 1;
+    LInv.Currency.Value := 'TRY';
 
     LInvL := TInvoiceLine.Create;
-    LInvL.StokKodu.Value := 'PC1';
-    LInvL.Iskonto.Value := 10;
-    LInvL.Miktar.Value := 2;
-    LInvL.Fiyat.Value := 100;
-    LInvL.Kdv.Value := 20;
+    LInvL.StockCode.Value := 'PC1';
+    LInvL.Discount.Value := 10;
+    LInvL.Quantity.Value := 2;
+    LInvL.Price.Value := 100;
+    LInvL.VAT.Value := 20;
     LInv.AddLine(LInvL);
 
     ManagerMain.LogicalInsertOne(LInv, True, True, False);
@@ -108,28 +85,28 @@ begin
   AStocks := TObjectList<TStock>.Create();
   try
     AStock := TStock.Create;
-    AStock.StokKodu.Value := 'PC1';
-    AStock.StokAdi.Value := 'Bilgisayar Paket 1';
+    AStock.StockCode.Value := 'PC1';
+    AStock.StockName.Value := 'Computer Packet 1';
     AStocks.Add(AStock);
 
     AStock := TStock.Create;
-    AStock.StokKodu.Value := 'PC2G';
-    AStock.StokAdi.Value := 'Bilgisayar Paket 2 Gaming';
+    AStock.StockCode.Value := 'PC2G';
+    AStock.StockName.Value := 'Computer Packet 2 Gaming';
     AStocks.Add(AStock);
 
     AStock := TStock.Create;
-    AStock.StokKodu.Value := 'MONLG1';
-    AStock.StokAdi.Value := 'Monitör LG 19"';
+    AStock.StockCode.Value := 'MONLG1';
+    AStock.StockName.Value := 'Monitor LG 19"';
     AStocks.Add(AStock);
 
     AStock := TStock.Create;
-    AStock.StokKodu.Value := 'MONLG2';
-    AStock.StokAdi.Value := 'Monitör LG 21"';
+    AStock.StockCode.Value := 'MONLG2';
+    AStock.StockName.Value := 'Monitor LG 21"';
     AStocks.Add(AStock);
 
     AStock := TStock.Create;
-    AStock.StokKodu.Value := 'MONLG3C';
-    AStock.StokAdi.Value := 'Monitör LG 24" Curved';
+    AStock.StockCode.Value := 'MONLG3C';
+    AStock.StockName.Value := 'Monitor LG 24" Curved';
     AStocks.Add(AStock);
 
     ManagerMain.LogicalInsertList<TStock>(AStocks, True, True, True);
@@ -145,12 +122,13 @@ var
 begin
   LStock := TStock.Create;
   try
-    LFilter := LStock.StokKodu.QryName + '=' + QuotedStr('PC2G');
+    LFilter := LStock.StockCode.QryName + '=' + QuotedStr('PC2G');
   finally
     LStock.DisposeOf;
     LStock := nil;
   end;
   ManagerMain.GetOne(LStock, LFilter, True);
+  LStock.DisposeOf;
 end;
 
 procedure TfrmMain.btnResetTablesClick(Sender: TObject);
@@ -168,14 +146,14 @@ var
 begin
   ManagerMain.LogicalSelectOne(LInvoice, '1=1', True, True, False);
   try
-    LInvoice.HesapKodu.Value := '120-001-015';
+    LInvoice.AccountCode.Value := '120-001-015';
 
     LInvoiceLine := TInvoiceLine.Create();
-    LInvoiceLine.StokKodu.Value := 'PC2G';
-    LInvoiceLine.Iskonto.Value := 20;
-    LInvoiceLine.Miktar.Value := 1;
-    LInvoiceLine.Fiyat.Value := 20000;
-    LInvoiceLine.Kdv.Value := 20;
+    LInvoiceLine.StockCode.Value := 'PC2G';
+    LInvoiceLine.Discount.Value := 20;
+    LInvoiceLine.Quantity.Value := 1;
+    LInvoiceLine.Price.Value := 20000;
+    LInvoiceLine.VAT.Value := 20;
     LInvoice.AddLine(LInvoiceLine);
     ManagerMain.LogicalUpdateOne(LInvoice, False, True, False);
   finally

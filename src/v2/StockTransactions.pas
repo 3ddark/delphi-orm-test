@@ -5,33 +5,33 @@ interface
 uses Data.DB, Ths.Orm.Table, Ths.Orm.Manager;
 
 type
-  TStockTransactionType = (sttGiris, sttCikis);
+  TStockTransactionType = (sttDirectionIn, sttDirectionOut);
 
   TStockTransaction = class(TThsTable)
   private
-    FStokKodu: TThsField;
-    FTarih: TThsField;
-    FTip: TThsField;
-    FMiktar: TThsField;
-    FFiyat: TThsField;
-    FDovizFiyat: TThsField;
-    FPara: TThsField;
-    FFaturaId: TThsField;
-    FFaturaDetayId: TThsField;
-    FIrsaliyeId: TThsField;
-    FIrsaliyeDetayId: TThsField;
+    FStockCode: TThsField;
+    FTransactionDate: TThsField;
+    FDirection: TThsField;
+    FQuantity: TThsField;
+    FPrice: TThsField;
+    FCurrencyPrice: TThsField;
+    FCurrency: TThsField;
+    FInvoiceId: TThsField;
+    FInvoiceLineId: TThsField;
+    FWaybillId: TThsField;
+    FWaybillLineId: TThsField;
   public
-    property StokKodu: TThsField read FStokKodu write FStokKodu;
-    property Tarih: TThsField read FTarih write FTarih;
-    property Tip: TThsField read FTip write FTip;
-    property Miktar: TThsField read FMiktar write FMiktar;
-    property Fiyat: TThsField read FFiyat write FFiyat;
-    property DovizFiyat: TThsField read FDovizFiyat write FDovizFiyat;
-    property Para: TThsField read FPara write FPara;
-    property FaturaId: TThsField read FFaturaId write FFaturaId;
-    property FaturaDetayId: TThsField read FFaturaDetayId write FFaturaDetayId;
-    property IrsaliyeId: TThsField read FIrsaliyeId write FIrsaliyeId;
-    property IrsaliyeDetayId: TThsField read FIrsaliyeDetayId write FIrsaliyeDetayId;
+    property StockCode: TThsField read FStockCode write FStockCode;
+    property TransactionDate: TThsField read FTransactionDate write FTransactionDate;
+    property Direction: TThsField read FDirection write FDirection;
+    property Quantity: TThsField read FQuantity write FQuantity;
+    property Price: TThsField read FPrice write FPrice;
+    property CurrencyPrice: TThsField read FCurrencyPrice write FCurrencyPrice;
+    property Currency: TThsField read FCurrency write FCurrency;
+    property InvoiceId: TThsField read FInvoiceId write FInvoiceId;
+    property InvoiceLineId: TThsField read FInvoiceLineId write FInvoiceLineId;
+    property WaybillId: TThsField read FWaybillId write FWaybillId;
+    property WaybillLineId: TThsField read FWaybillLineId write FWaybillLineId;
 
     constructor Create(); override;
     destructor Destroy; override;
@@ -44,22 +44,22 @@ implementation
 constructor TStockTransaction.Create();
 begin
   Self.SchemaName := 'public';
-  Self.TableName := 'a_stock_transactions';
+  Self.TableName := 'stock_transactions';
   Self.TableSourceCode := '1000';
 
   inherited;
 
-  FStokKodu := TThsField.Create('stok_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FTarih := TThsField.Create('tarih', ftDateTime, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FTip := TThsField.Create('tip', ftSmallint, 0, Self, [fpSelect, fpInsert, fpUpdate]);  //0 Giriş 1 Çıkış
-  FMiktar := TThsField.Create('miktar', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FFiyat := TThsField.Create('fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FDovizFiyat := TThsField.Create('doviz_fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FPara := TThsField.Create('para', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FFaturaId := TThsField.Create('fatura_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FFaturaDetayId := TThsField.Create('fatura_detay_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FIrsaliyeId := TThsField.Create('irsaliye_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FIrsaliyeDetayId := TThsField.Create('irsaliye_detay_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FStockCode := TThsField.Create('stock_code', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FTransactionDate := TThsField.Create('transaction_date', ftDateTime, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FDirection := TThsField.Create('direction', ftSmallint, 0, Self, [fpSelect, fpInsert, fpUpdate]);  //0 Giriş 1 Çıkış
+  FQuantity := TThsField.Create('quantity', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FPrice := TThsField.Create('price', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FCurrencyPrice := TThsField.Create('currency_price', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FCurrency := TThsField.Create('currency', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FInvoiceId := TThsField.Create('invoice_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FInvoiceLineId := TThsField.Create('invoice_line_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FWaybillId := TThsField.Create('waybill_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FWaybillLineId := TThsField.Create('waybill_line_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
 end;
 
 destructor TStockTransaction.Destroy;

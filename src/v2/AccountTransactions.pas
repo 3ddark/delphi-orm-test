@@ -5,27 +5,27 @@ interface
 uses Data.DB, Ths.Orm.Table, Ths.Orm.Manager;
 
 type
-  TAccountTransactionType = (attAlacak, aatBorc);
+  TAccountTransactionType = (attCredit, aatDebit);
 
   TAccountTransaction = class(TThsTable)
   private
-    FHesapKodu: TThsField;
-    FTarih: TThsField;
-    FTip: TThsField;
-    FMiktar: TThsField;
-    FFiyat: TThsField;
-    FDovizFiyat: TThsField;
-    FPara: TThsField;
-    FFaturaId: TThsField;
+    FAccountCode: TThsField;
+    FTransactionDate: TThsField;
+    FTransactionType: TThsField;
+    FQuantity: TThsField;
+    FPrice: TThsField;
+    FcurrencyPrice: TThsField;
+    FCurrency: TThsField;
+    FInvoiceId: TThsField;
   public
-    property StokKodu: TThsField read FHesapKodu write FHesapKodu;
-    property Tarih: TThsField read FTarih write FTarih;
-    property Tip: TThsField read FTip write FTip;
-    property Miktar: TThsField read FMiktar write FMiktar;
-    property Fiyat: TThsField read FFiyat write FFiyat;
-    property DovizFiyat: TThsField read FDovizFiyat write FDovizFiyat;
-    property Para: TThsField read FPara write FPara;
-    property FaturaId: TThsField read FFaturaId write FFaturaId;
+    property AccountCode: TThsField read FAccountCode write FAccountCode;
+    property TransactionDate: TThsField read FTransactionDate write FTransactionDate;
+    property TransactionType: TThsField read FTransactionType write FTransactionType;
+    property Quantity: TThsField read FQuantity write FQuantity;
+    property Price: TThsField read FPrice write FPrice;
+    property currencyPrice: TThsField read FcurrencyPrice write FcurrencyPrice;
+    property Currency: TThsField read FCurrency write FCurrency;
+    property InvoiceId: TThsField read FInvoiceId write FInvoiceId;
 
     constructor Create(); override;
     destructor Destroy; override;
@@ -38,19 +38,19 @@ implementation
 constructor TAccountTransaction.Create();
 begin
   Self.SchemaName := 'public';
-  Self.TableName := 'a_account_transactions';
+  Self.TableName := 'account_transactions';
   Self.TableSourceCode := '1000';
 
   inherited;
 
-  FHesapKodu := TThsField.Create('hesap_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FTarih := TThsField.Create('tarih', ftDateTime, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FTip := TThsField.Create('tip', ftSmallint, 0, Self, [fpSelect, fpInsert, fpUpdate]);  //0 Alacak 1 Borc
-  FMiktar := TThsField.Create('miktar', ftFloat, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FFiyat := TThsField.Create('fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FDovizFiyat := TThsField.Create('doviz_fiyat', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
-  FPara := TThsField.Create('para', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FFaturaId := TThsField.Create('fatura_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FAccountCode := TThsField.Create('account_code', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FTransactionDate := TThsField.Create('transaction_date', ftDateTime, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FTransactionType := TThsField.Create('transaction_type', ftSmallint, 0, Self, [fpSelect, fpInsert, fpUpdate]);  //0 Alacak 1 Borc
+  FQuantity := TThsField.Create('quantity', ftFloat, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FPrice := TThsField.Create('price', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FcurrencyPrice := TThsField.Create('currency_price', ftBCD, 0, Self, [fpSelect, fpInsert, fpUpdate]);
+  FCurrency := TThsField.Create('currency', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FInvoiceId := TThsField.Create('invoice_id', ftLargeint, 0, Self, [fpSelect, fpInsert, fpUpdate]);
 end;
 
 destructor TAccountTransaction.Destroy;

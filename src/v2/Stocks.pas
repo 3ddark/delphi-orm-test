@@ -7,11 +7,11 @@ uses Data.DB, Ths.Orm.Table;
 type
   TStock = class(TThsTable)
   private
-    FStokKodu: TThsField;
-    FStokAdi: TThsField;
+    FStockCode: TThsField;
+    FStockName: TThsField;
   public
-    property StokKodu: TThsField read FStokKodu write FStokKodu;
-    property StokAdi: TThsField read FStokAdi write FStokAdi;
+    property StockCode: TThsField read FStockCode write FStockCode;
+    property StockName: TThsField read FStockName write FStockName;
 
     constructor Create(); override;
     destructor Destroy; override;
@@ -24,13 +24,13 @@ implementation
 constructor TStock.Create();
 begin
   Self.SchemaName := 'public';
-  Self.TableName := 'a_stocks';
+  Self.TableName := 'stocks';
   Self.TableSourceCode := '1000';
 
   inherited;
 
-  FStokKodu := TThsField.Create('stok_kodu', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
-  FStokAdi := TThsField.Create('stok_adi', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FStockCode := TThsField.Create('stock_code', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
+  FStockName := TThsField.Create('stock_name', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
 end;
 
 destructor TStock.Destroy;
