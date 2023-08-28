@@ -693,7 +693,7 @@ function TEntityManager.DoDelete<T>(ATable: T; APermissionCheck: Boolean): Boole
 begin
   with Self.NewQuery do
   try
-    SQL.Text := PrepareDeleteQuery(ATable as TThsTable);
+    SQL.Text := PrepareDeleteQuery((ATable as TThsTable));
     ExecSQL;
     GLogger.RunLog(SQL.Text.Replace(sLineBreak, ''));
     Result := True;
@@ -726,12 +726,12 @@ begin
 
     LQry := Self.NewQuery;
     try
-      LQry.SQL.Text := Self.PrepareDeleteQuery((ATable as TThsTable)) + IfThen(AFilter <> '', ' and ' + AFilter, '');
+      LQry.SQL.Text := Self.PrepareDeleteQuery((ATable as TThsTable)) + IfThen(AFilter <> '', ' and ' + AFilter, '') + ';';
       LQry.Prepare;
       if LQry.Prepared then
       begin
         LQry.ExecSQL;
-        GLogger.RunLog('BATCH DELETING ' + (ATable as TThsTable).ClassName + ' filter: ' + AFilter);
+        GLogger.RunLog(ReplaceStr(LQry.SQL.Text, sLineBreak, EmptyStr) + ' - BATCH DELETING');
         TThsTable(ATable).Free;
         TThsTable(ATable) := nil;
         Result := True;
@@ -1284,7 +1284,10 @@ end;
 
 function TEntityManager.PrepareDeleteQuery(ATable: TThsTable): string;
 begin
-  Result := 'DELETE FROM ' + ATable.TableName + ' WHERE ' + ATable.Id.QryName + '=' + ATable.Id.AsString;
+  if ATable.Id.AsInt64 > 0 then
+    Result := 'DELETE FROM ' + ATable.TableName + ' WHERE ' + ATable.Id.QryName + '=' + ATable.Id.AsString
+  else
+    Result := 'DELETE FROM ' + ATable.TableName + ' WHERE 1=1 ';
 end;
 
 function TEntityManager.Clone<T>(ASrc: T): T;

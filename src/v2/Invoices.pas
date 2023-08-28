@@ -31,9 +31,9 @@ type
     constructor Create(); override;
     destructor Destroy; override;
 
-    function AddLine(AInvoiceLine: TInvoiceLine): Boolean;
-    function UpdateLine(AInvoiceLine: TInvoiceLine): Boolean; overload;
-    function RemoveLine(AInvoiceLine: TInvoiceLine): Boolean; overload;
+    function AddLine(const AInvoiceLine: TInvoiceLine): Boolean;
+    function UpdateLine(const AInvoiceLine: TInvoiceLine): Boolean; overload;
+    function RemoveLine(const AInvoiceLine: TInvoiceLine): Boolean; overload;
 
     function BusinessSelect(AFilter: string; ALock, APermissionCheck: Boolean): Boolean; override;
     function BusinessInsert(APermissionCheck: Boolean): Boolean; override;
@@ -79,15 +79,21 @@ begin
     AInvoiceLine := TInvoiceLine.Create();
     try
       Result := ManagerMain.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + Self.Id.AsString, ALock, APermissionCheck);
-      Self.InvoiceLines.Free;
-      Self.InvoiceLines := nil;
-      Self.InvoiceLines := LInvLs;
+      if Result then
+      begin
+        Self.InvoiceLines.Free;
+        Self.InvoiceLines := nil;
+        Self.InvoiceLines := LInvLs;
+      end;
     finally
       FreeAndNil(AInvoiceLine);
     end;
 
-    for AInvoiceLine in Self.InvoiceLines do
-      AInvoiceLine.Header := Self;
+    if Result then
+    begin
+      for AInvoiceLine in Self.InvoiceLines do
+        AInvoiceLine.Header := Self;
+    end;
   except
     Result := False;
   end;
@@ -99,12 +105,14 @@ var
 begin
   Result := ManagerMain.Insert(Self, APermissionCheck);
   try
-    for ALine in Self.InvoiceLines do
+    if Result then
     begin
-      ALine.HeaderId.Value := Self.Id.Value;
-      ManagerMain.Insert(ALine, False);
-
-      ALine.AddStockTransaction(False);
+      for ALine in Self.InvoiceLines do
+      begin
+        ALine.HeaderId.Value := Self.Id.Value;
+        if ManagerMain.Insert(ALine, False) then
+          ALine.AddStockTransaction(False);
+      end;
     end;
   except
     Result := False;
@@ -117,18 +125,21 @@ var
 begin
   Result := ManagerMain.Update(Self, APermissionCheck);
   try
-    for ALine in Self.InvoiceLines do
+    if Result then
     begin
-      if ALine.Id.Value <= 0 then
+      for ALine in Self.InvoiceLines do
       begin
-        ALine.HeaderId.Value := Self.Id.Value;
-        ManagerMain.Insert(ALine, False);
-        ALine.AddStockTransaction(False);
-      end
-      else
-      begin
-        ManagerMain.Update(ALine, False);
-        ALine.UpdateStockTransaction(False);
+        if ALine.Id.Value <= 0 then
+        begin
+          ALine.HeaderId.Value := Self.Id.Value;
+          if ManagerMain.Insert(ALine, False) then
+            ALine.AddStockTransaction(False);
+        end
+        else
+        begin
+          if ManagerMain.Update(ALine, False) then
+            ALine.UpdateStockTransaction(False);
+        end;
       end;
     end;
   except
@@ -138,7 +149,7 @@ end;
 
 function TInvoice.BusinessDelete(APermissionCheck: Boolean): Boolean;
 begin
-  Result := True;
+  Result := ManagerMain.Delete(Self, APermissionCheck);
 end;
 
 constructor TInvoice.Create();
@@ -156,32 +167,32 @@ begin
   FDocumentType := TThsField.Create('document_type', ftSmallint, -1, Self, [fpSelect, fpInsert, fpUpdate]);//0 Return, 1 Sale, 2 Export
   FCurrency := TThsField.Create('currency', ftString, '', Self, [fpSelect, fpInsert, fpUpdate]);
 
-  FInvoiceLines := TObjectList<TInvoiceLine>.Create;
+  Self.FInvoiceLines := TObjectList<TInvoiceLine>.Create(True);
 end;
 
 destructor TInvoice.Destroy;
 begin
-  FInvoiceLines.DisposeOf;
+  Self.FInvoiceLines.Free;
   inherited;
 end;
 
-function TInvoice.AddLine(AInvoiceLine: TInvoiceLine): Boolean;
+function TInvoice.AddLine(const AInvoiceLine: TInvoiceLine): Boolean;
 begin
   AInvoiceLine.FHeader := Self;
   AInvoiceLine.CalculateAmount;
-  FInvoiceLines.Add(AInvoiceLine);
+  Self.FInvoiceLines.Add(AInvoiceLine);
   Result := True;
 end;
 
-function TInvoice.UpdateLine(AInvoiceLine: TInvoiceLine): Boolean;
+function TInvoice.UpdateLine(const AInvoiceLine: TInvoiceLine): Boolean;
 begin
   AInvoiceLine.CalculateAmount;
   Result := True;
 end;
 
-function TInvoice.RemoveLine(AInvoiceLine: TInvoiceLine): Boolean;
+function TInvoice.RemoveLine(const AInvoiceLine: TInvoiceLine): Boolean;
 begin
-  FInvoiceLines.Remove(AInvoiceLine);
+  Self.FInvoiceLines.Remove(AInvoiceLine);
   Result := True;
 end;
 
@@ -205,7 +216,7 @@ end;
 
 destructor TInvoiceLine.Destroy;
 begin
-  FHeader := nil;
+  Self.FHeader := nil;
   inherited;
 end;
 
