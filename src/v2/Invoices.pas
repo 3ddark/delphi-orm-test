@@ -35,8 +35,6 @@ type
     function UpdateLine(AInvoiceLine: TInvoiceLine): Boolean; overload;
     function RemoveLine(AInvoiceLine: TInvoiceLine): Boolean; overload;
 
-    function Clone: TInvoice; reintroduce; overload;
-
     function BusinessSelect(AFilter: string; ALock, APermissionCheck: Boolean): Boolean; override;
     function BusinessInsert(APermissionCheck: Boolean): Boolean; override;
     function BusinessUpdate(APermissionCheck: Boolean): Boolean; override;
@@ -68,8 +66,6 @@ type
 
     constructor Create(); override;
     destructor Destroy; override;
-
-    function Clone: TInvoiceLine; reintroduce; overload;
   end;
 
 implementation
@@ -182,12 +178,6 @@ begin
   Result := True;
 end;
 
-function TInvoice.Clone: TInvoice;
-begin
-  Result := TInvoice.Create();
-  Result.CloneData(Self);
-end;
-
 { TInvoiceLine }
 
 constructor TInvoiceLine.Create();
@@ -218,12 +208,6 @@ function TInvoiceLine.CalculateAmount: Boolean;
 begin
 //  FAmount := Self.FFiyat.AsFloat * (100-Self.FIskonto.AsFloat) / 100 * Self.FMiktar.AsFloat * ((Self.FKdv.AsFloat / 100) + 1);
   Result := True;
-end;
-
-function TInvoiceLine.Clone: TInvoiceLine;
-begin
-  Result := TInvoiceLine.Create();
-  Result.CloneData(Self);
 end;
 
 procedure TInvoiceLine.AddStockTransaction(APermissionCheck: Boolean);

@@ -29,8 +29,6 @@ type
 
     constructor Create(); override;
     destructor Destroy; override;
-
-    function Clone: TAccountTransaction; reintroduce; overload;
   end;
 
 implementation
@@ -57,12 +55,6 @@ destructor TAccountTransaction.Destroy;
 begin
 
   inherited;
-end;
-
-function TAccountTransaction.Clone: TAccountTransaction;
-begin
-  Result := TAccountTransaction.Create();
-  Result.CloneData(Self);
 end;
 
 end.

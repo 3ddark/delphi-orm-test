@@ -90,9 +90,7 @@ type
     property Fields: TArray<TThsField> read FFields write FFields;
 
     procedure Clear; virtual;
-    function Clone: TThsTable; virtual; abstract;
     function Validate: Boolean; virtual;
-    procedure CloneData(ASrcTable: TThsTable);
 
     function BusinessSelect(AFilter: string; ALock, APermissionCheck: Boolean): Boolean; virtual;
     function BusinessInsert(APermissionCheck: Boolean): Boolean; virtual;
@@ -266,21 +264,6 @@ begin
   AField.FSize := FSize;
   AField.FIsNullable := FIsNullable;
   AField.FOtherFieldName := FOtherFieldName;
-end;
-
-procedure TThsTable.CloneData(ASrcTable: TThsTable);
-var
-  AFieldSrc, AFieldDes: TThsField;
-begin
-  for AFieldSrc in ASrcTable.Fields do
-    for AFieldDes in Self.Fields do
-      if  (AFieldSrc.FieldName = AFieldDes.FieldName)
-      and (AFieldSrc.FieldName = AFieldDes.FieldName)
-      then
-      begin
-        AFieldDes.Value := AFieldSrc.Value;
-        Break;
-      end;
 end;
 
 constructor TThsTable.Create;

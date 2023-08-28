@@ -35,8 +35,6 @@ type
 
     constructor Create(); override;
     destructor Destroy; override;
-
-    function Clone: TStockTransaction; reintroduce; overload;
   end;
 
 implementation
@@ -66,12 +64,6 @@ destructor TStockTransaction.Destroy;
 begin
 
   inherited;
-end;
-
-function TStockTransaction.Clone: TStockTransaction;
-begin
-  Result := TStockTransaction.Create();
-  Result.CloneData(Self);
 end;
 
 end.

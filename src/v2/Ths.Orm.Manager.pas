@@ -80,6 +80,10 @@ type
     function LogicalDeleteOne<T: Class>(ATable: T; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
     function LogicalDeleteList<T: Class>(ATables: TObjectList<T>; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
 
+    function Clone<T: Class>(ASrc: T): T;
+
+    procedure SetPostgresServerVariable(AVarName, AValue: string);
+
     procedure Listen(ATableName: string); virtual;
     procedure Unlisten(ATableName: string); virtual;
     procedure Notify(ATableName: string); virtual;
@@ -132,6 +136,23 @@ begin
   begin
     Result := rM.Invoke(rT.AsInstance.MetaclassType, rParams).AsType<T>;
   end;
+end;
+
+function TEntityManager.Clone<T>(ASrc: T): T;
+var
+  AFieldSrc, AFieldDes: TThsField;
+begin
+  Result := CallCreateMethod<T>;
+
+  for AFieldSrc in (ASrc as TThsTable).Fields do
+    for AFieldDes in (Result as TThsTable).Fields do
+      if  (AFieldSrc.FieldName = AFieldDes.FieldName)
+      and (AFieldSrc.FieldName = AFieldDes.FieldName)
+      then
+      begin
+        AFieldDes.Value := AFieldSrc.Value;
+        Break;
+      end;
 end;
 
 constructor TEntityManager.Create(AHostName, ADatabase, AUserName, AUserPass, ALibraryPath: string; APort: Integer);
@@ -1244,6 +1265,11 @@ end;
 function TEntityManager.PrepareDeleteQuery(ATable: TThsTable): string;
 begin
   Result := 'DELETE FROM ' + ATable.TableName + ' WHERE ' + ATable.Id.QryName + '=' + ATable.Id.AsString;
+end;
+
+procedure TEntityManager.SetPostgresServerVariable(AVarName, AValue: string);
+begin
+  Connection.ExecuteDirect('SET ' + AVarName + '=' + QuotedStr(AValue));
 end;
 
 procedure TEntityManager.StartTrans(AConnection: TZAbstractConnection);

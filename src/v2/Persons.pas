@@ -28,8 +28,6 @@ type
     constructor Create(); override;
     destructor Destroy; override;
 
-    function Clone: TPerson; reintroduce; overload;
-
     function BusinessSelect(AFilter: string; ALock, APermissionCheck: Boolean): Boolean; override;
     function BusinessInsert(APermissionCheck: Boolean): Boolean; override;
     function BusinessUpdate(APermissionCheck: Boolean): Boolean; override;
@@ -52,8 +50,6 @@ type
 
     constructor Create(APerson: TPerson = nil); reintroduce; overload;
     destructor Destroy; override;
-
-    function Clone: TPersonAdres; reintroduce; overload;
   end;
 
 
@@ -103,12 +99,6 @@ begin
   inherited;
 end;
 
-function TPerson.Clone: TPerson;
-begin
-  Result := TPerson.Create();
-  Result.CloneData(Self);
-end;
-
 procedure TPerson.SetAdres(const Value: TPersonAdres);
 begin
   FAdres := Value;
@@ -148,12 +138,6 @@ destructor TPersonAdres.Destroy;
 begin
   Person := nil;
   inherited;
-end;
-
-function TPersonAdres.Clone: TPersonAdres;
-begin
-  Result := TPersonAdres.Create();
-  Result.CloneData(Self);
 end;
 
 procedure TPersonAdres.SetCity(const Value: TThsField);

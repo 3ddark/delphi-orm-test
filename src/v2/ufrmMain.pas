@@ -117,7 +117,7 @@ end;
 
 procedure TfrmMain.btnGetOneByCodeFilterClick(Sender: TObject);
 var
-  LStock: TStock;
+  LStock, LStockClone: TStock;
   LFilter: string;
 begin
   LStock := TStock.Create;
@@ -128,7 +128,11 @@ begin
     LStock := nil;
   end;
   ManagerMain.GetOne(LStock, LFilter, True);
+
+  LStockClone := ManagerMain.Clone(LStock);
+
   LStock.DisposeOf;
+  LStockClone.DisposeOf;
 end;
 
 procedure TfrmMain.btnResetTablesClick(Sender: TObject);
