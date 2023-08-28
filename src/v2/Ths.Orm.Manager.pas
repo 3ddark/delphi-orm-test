@@ -71,8 +71,8 @@ type
     function BeforeDeleteDB<T: Class>(ATable: T): Boolean;
     function AfterDeleteDB<T: Class>(ATable: T): Boolean;
 
-    function LogicalSelectOne<T: Class>(var ATable: T; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean): TEntityManager;
-    function LogicalSelectList<T: Class>(var ATables: TObjectList<T>; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean): TEntityManager;
+    function LogicalSelectOne<T: Class>(var ATable: T; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean): Boolean;
+    function LogicalSelectList<T: Class>(var ATables: TObjectList<T>; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean): Boolean;
     function LogicalInsertOne<T: Class>(ATable: T; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
     function LogicalInsertList<T: Class>(ATables: TObjectList<T>; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
     function LogicalUpdateOne<T: Class>(ATable: T; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
@@ -136,23 +136,6 @@ begin
   begin
     Result := rM.Invoke(rT.AsInstance.MetaclassType, rParams).AsType<T>;
   end;
-end;
-
-function TEntityManager.Clone<T>(ASrc: T): T;
-var
-  AFieldSrc, AFieldDes: TThsField;
-begin
-  Result := CallCreateMethod<T>;
-
-  for AFieldSrc in (ASrc as TThsTable).Fields do
-    for AFieldDes in (Result as TThsTable).Fields do
-      if  (AFieldSrc.FieldName = AFieldDes.FieldName)
-      and (AFieldSrc.FieldName = AFieldDes.FieldName)
-      then
-      begin
-        AFieldDes.Value := AFieldSrc.Value;
-        Break;
-      end;
 end;
 
 constructor TEntityManager.Create(AHostName, ADatabase, AUserName, AUserPass, ALibraryPath: string; APort: Integer);
@@ -253,6 +236,7 @@ begin
   except
     on E: Exception do
     begin
+      Result := False;
       GLogger.ErrorLog(E);
     end;
   end;
@@ -316,6 +300,7 @@ begin
   except
     on E: Exception do
     begin
+      Result := False;
       GLogger.ErrorLog(E);
     end;
   end;
@@ -323,32 +308,48 @@ end;
 
 function TEntityManager.GetOne<T>(var ATable: T; AFilter: string; ALock, APermissionCheck: Boolean): Boolean;
 begin
-  Result := False;
   try
-    ATable := CallCreateMethod<T>;
-    if not Self.IsAuthorized((ATable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
-      Exit;
-  finally
-    TThsTable(ATable).Free;
-    TThsTable(ATable) := nil;
-  end;
+    Result := False;
+    try
+      ATable := CallCreateMethod<T>;
+      if not Self.IsAuthorized((ATable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
+        Exit;
+    finally
+      TThsTable(ATable).Free;
+      TThsTable(ATable) := nil;
+    end;
 
-  Result := GetOneBase(ATable, AFilter, ALock);
+    Result := GetOneBase(ATable, AFilter, ALock);
+  except
+    on E: Exception do
+    begin
+      Result := False;
+      GLogger.ErrorLog(E);
+    end;
+  end;
 end;
 
 function TEntityManager.GetOneCustom<T>(var ATable: T; AFields: TArray<TThsField>; AFilter: string; ALock, APermissionCheck: Boolean): Boolean;
 var
   LTable: T;
 begin
-  Result := False;
   try
-    LTable := CallCreateMethod<T>;
-    if not Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
-      Exit;
-    Result := GetOneCustomBase(ATable, AFields, AFilter, ALock);
-  finally
-    TThsTable(LTable).Free;
-    TThsTable(LTable) := nil;
+    Result := False;
+    try
+      LTable := CallCreateMethod<T>;
+      if not Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
+        Exit;
+      Result := GetOneCustomBase(ATable, AFields, AFilter, ALock);
+    finally
+      TThsTable(LTable).Free;
+      TThsTable(LTable) := nil;
+    end;
+  except
+    on E: Exception do
+    begin
+      Result := False;
+      GLogger.ErrorLog(E);
+    end;
   end;
 end;
 
@@ -356,16 +357,24 @@ function TEntityManager.GetOne<T>(var ATable: T; AID: Int64; ALock: Boolean; APe
 var
   LTable: T;
 begin
-  Result := False;
   try
-    LTable := CallCreateMethod<T>;
-    if not Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
-      Exit;
+    Result := False;
+    try
+      LTable := CallCreateMethod<T>;
+      if not Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
+        Exit;
 
-    Result := GetOneBase(ATable, 'id=' + AID.ToString, ALock)
-  finally
-    TThsTable(LTable).Free;
-    TThsTable(LTable) := nil;
+      Result := GetOneBase(ATable, 'id=' + AID.ToString, ALock)
+    finally
+      TThsTable(LTable).Free;
+      TThsTable(LTable) := nil;
+    end;
+  except
+    on E: Exception do
+    begin
+      Result := False;
+      GLogger.ErrorLog(E);
+    end;
   end;
 end;
 
@@ -373,16 +382,24 @@ function TEntityManager.GetOneCustom<T>(var ATable: T; AFields: TArray<TThsField
 var
   LTable: T;
 begin
-  Result := False;
   try
-    LTable := CallCreateMethod<T>;
-    if not Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
-      Exit;
+    Result := False;
+    try
+      LTable := CallCreateMethod<T>;
+      if not Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
+        Exit;
 
-    Result := GetOneCustomBase(ATable, AFields, 'id=' + AID.ToString, ALock);
-  finally
-    TThsTable(LTable).Free;
-    TThsTable(LTable) := nil;
+      Result := GetOneCustomBase(ATable, AFields, 'id=' + AID.ToString, ALock);
+    finally
+      TThsTable(LTable).Free;
+      TThsTable(LTable) := nil;
+    end;
+  except
+    on E: Exception do
+    begin
+      Result := False;
+      GLogger.ErrorLog(E);
+    end;
   end;
 end;
 
@@ -393,49 +410,42 @@ var
   LQry: TZQuery;
 begin
   Result := False;
+  LQry := Self.NewQuery;
+  ATable := CallCreateMethod<T>;
   try
-    LQry := Self.NewQuery;
-    ATable := CallCreateMethod<T>;
-    try
-      if ((ATable as TThsTable).TableName = '') then
-        Exit;
+    if ((ATable as TThsTable).TableName = '') then
+      Exit;
 
-      LQry.SQL.Text := Self.PrepareSelectQuery((ATable as TThsTable)) + ' WHERE ' + IfThen(AFilter = '', '1=1', AFilter);
-      LQry.SQL.Text := LQry.SQL.Text + IfThen(ALock, ' FOR UPDATE OF ' + (ATable as TThsTable).TableName + ' NOWAIT;', ';');
+    LQry.SQL.Text := Self.PrepareSelectQuery((ATable as TThsTable)) + ' WHERE ' + IfThen(AFilter = '', '1=1', AFilter);
+    LQry.SQL.Text := LQry.SQL.Text + IfThen(ALock, ' FOR UPDATE OF ' + (ATable as TThsTable).TableName + ' NOWAIT;', ';');
 
-      LQry.Prepare;
-      if LQry.Prepared then
+    LQry.Prepare;
+    if LQry.Prepared then
+    begin
+      LQry.Open;
+      GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
+      if LQry.RecordCount > 1 then
+        raise Exception.Create('Verilen parametre ile birden fazla kayıt bulundu!!!');
+
+      if LQry.RecordCount = 1 then
+        Result := True;
+      for AFieldDB in (ATable as TThsTable).Fields do
       begin
-        LQry.Open;
-        GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
-        if LQry.RecordCount > 1 then
-          raise Exception.Create('Verilen parametre ile birden fazla kayıt bulundu!!!');
-
-        if LQry.RecordCount = 1 then
-          Result := True;
-        for AFieldDB in (ATable as TThsTable).Fields do
+        if fpSelect in AFieldDB.FieldIslemTipleri then
         begin
-          if fpSelect in AFieldDB.FieldIslemTipleri then
+          for AField in LQry.Fields do
           begin
-            for AField in LQry.Fields do
+            if AFieldDB.FieldName = AField.FieldName then
             begin
-              if AFieldDB.FieldName = AField.FieldName then
-              begin
-                AFieldDB.Value := AField.Value;
-                Break;
-              end;
+              AFieldDB.Value := AField.Value;
+              Break;
             end;
           end;
         end;
       end;
-    finally
-      LQry.DisposeOf;
     end;
-  except
-    on E: Exception do
-    begin
-      GLogger.ErrorLog(E);
-    end;
+  finally
+    LQry.DisposeOf;
   end;
 end;
 
@@ -446,49 +456,42 @@ var
   LQry: TZQuery;
 begin
   Result := False;
+  LQry := Self.NewQuery;
+  ATable := CallCreateMethod<T>;
   try
-    LQry := Self.NewQuery;
-    ATable := CallCreateMethod<T>;
-    try
-      if ((ATable as TThsTable).TableName = '') then
-        Exit;
+    if ((ATable as TThsTable).TableName = '') then
+      Exit;
 
-      LQry.SQL.Text := Self.PrepareSelectCustomQuery((ATable as TThsTable), AFields) + ' WHERE ' + IfThen(AFilter = '', '1=1', AFilter);
-      LQry.SQL.Text := LQry.SQL.Text + IfThen(ALock, ' FOR UPDATE OF ' + (ATable as TThsTable).TableName + ' NOWAIT;', ';');
+    LQry.SQL.Text := Self.PrepareSelectCustomQuery((ATable as TThsTable), AFields) + ' WHERE ' + IfThen(AFilter = '', '1=1', AFilter);
+    LQry.SQL.Text := LQry.SQL.Text + IfThen(ALock, ' FOR UPDATE OF ' + (ATable as TThsTable).TableName + ' NOWAIT;', ';');
 
-      LQry.Prepare;
-      if LQry.Prepared then
+    LQry.Prepare;
+    if LQry.Prepared then
+    begin
+      LQry.Open;
+      GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
+      if LQry.RecordCount > 1 then
+        raise Exception.Create('Verilen parametre ile birden fazla kayıt bulundu!!!');
+
+      if LQry.RecordCount = 1 then
+        Result := True;
+      for AFieldDB in (ATable as TThsTable).Fields do
       begin
-        LQry.Open;
-        GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
-        if LQry.RecordCount > 1 then
-          raise Exception.Create('Verilen parametre ile birden fazla kayıt bulundu!!!');
-
-        if LQry.RecordCount = 1 then
-          Result := True;
-        for AFieldDB in (ATable as TThsTable).Fields do
+        if fpSelect in AFieldDB.FieldIslemTipleri then
         begin
-          if fpSelect in AFieldDB.FieldIslemTipleri then
+          for AField in LQry.Fields do
           begin
-            for AField in LQry.Fields do
+            if AFieldDB.FieldName = AField.FieldName then
             begin
-              if AFieldDB.FieldName = AField.FieldName then
-              begin
-                AFieldDB.Value := AField.Value;
-                Break;
-              end;
+              AFieldDB.Value := AField.Value;
+              Break;
             end;
           end;
         end;
       end;
-    finally
-      LQry.DisposeOf;
     end;
-  except
-    on E: Exception do
-    begin
-      GLogger.ErrorLog(E);
-    end;
+  finally
+    LQry.DisposeOf;
   end;
 end;
 
@@ -516,7 +519,6 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
-      ShowException(E, E);
     end;
   end;
 end;
@@ -573,7 +575,6 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
-      ShowException(E, E);
     end;
   end;
 end;
@@ -684,7 +685,6 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
-      ShowException(E, E);
     end;
   end;
 end;
@@ -734,6 +734,7 @@ begin
         GLogger.RunLog('BATCH DELETING ' + (ATable as TThsTable).ClassName + ' filter: ' + AFilter);
         TThsTable(ATable).Free;
         TThsTable(ATable) := nil;
+        Result := True;
       end;
     finally
       LQry.DisposeOf;
@@ -741,6 +742,7 @@ begin
   except
     on E: Exception do
     begin
+      Result := False;
       GLogger.ErrorLog(E);
     end;
   end;
@@ -751,19 +753,31 @@ var
   ATable: T;
   LPermissionCheck: Boolean;
 begin
-  LPermissionCheck := APermissionCheck;
-  for ATable in ATables do
-  begin
-    Self.Delete(ATable, LPermissionCheck);
-    if APermissionCheck then
-      LPermissionCheck := False;
+  Self.StartTrans();
+  try
+    LPermissionCheck := APermissionCheck;
+    Result := LPermissionCheck;
+    for ATable in ATables do
+    begin
+      if Result then
+      begin
+        Result := Self.Delete(ATable, LPermissionCheck);
+        if APermissionCheck then
+          LPermissionCheck := False;
+      end;
+    end;
+    Self.CommitTrans();
+  except
+    on E: Exception do
+    begin
+      Self.RollbackTrans();
+    end;
   end;
-  Result := True;
 end;
 
-function TEntityManager.LogicalSelectOne<T>(var ATable: T; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean): TEntityManager;
+function TEntityManager.LogicalSelectOne<T>(var ATable: T; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean): Boolean;
 begin
-  Result := Self;
+  Result := False;
   try
     if not ALock then
       AWithBegin := False;
@@ -771,22 +785,23 @@ begin
     if AWithBegin then
       Self.StartTrans;
 
-    Self.GetOne<T>(ATable, AFilter, ALock, APermissionCheck);
-    (ATable as TThsTable).BusinessSelect(AFilter, ALock, APermissionCheck);
+    Result := Self.GetOne<T>(ATable, AFilter, ALock, APermissionCheck);
+    if Result then
+      Result := (ATable as TThsTable).BusinessSelect(AFilter, ALock, APermissionCheck);
   except
     on E: Exception do
     begin
-      Self.RollbackTrans;
+      Result := False;
       GLogger.ErrorLog(E);
     end;
   end;
 end;
 
-function TEntityManager.LogicalSelectList<T>(var ATables: TObjectList<T>; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean): TEntityManager;
+function TEntityManager.LogicalSelectList<T>(var ATables: TObjectList<T>; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean): Boolean;
 var
   ATable: T;
 begin
-  Result := Self;
+  Result := False;
   try
     if not ALock then
       AWithBegin := False;
@@ -794,13 +809,15 @@ begin
     if AWithBegin then
       Self.StartTrans;
 
-    Self.GetList<T>(ATables, AFilter, ALock, APermissionCheck);
+    Result := Self.GetList<T>(ATables, AFilter, ALock, APermissionCheck);
 
     for ATable in ATables do
-      (ATable as TThsTable).BusinessSelect(AFilter, ALock, APermissionCheck);
+      if Result then
+        Result := (ATable as TThsTable).BusinessSelect(AFilter, ALock, APermissionCheck);
   except
     on E: Exception do
     begin
+      Result := False;
       Self.RollbackTrans;
       GLogger.ErrorLog(E);
     end;
@@ -814,15 +831,14 @@ begin
     if AWithBegin then
       StartTrans;
 
-    (ATable as TThsTable).BusinessInsert(APermissionCheck);
+    Result := (ATable as TThsTable).BusinessInsert(APermissionCheck);
 
     if AWithCommit then
       CommitTrans;
-
-    Result := True;
   except
     on E: Exception do
     begin
+      Result := False;
       Self.RollbackTrans;
       GLogger.ErrorLog(E);
     end;
@@ -852,9 +868,9 @@ begin
   except
     on E: Exception do
     begin
+      Result := False;
       Self.RollbackTrans;
       GLogger.ErrorLog(E);
-      ShowException(E, E);
     end;
   end;
 end;
@@ -875,6 +891,7 @@ begin
   except
     on E: Exception do
     begin
+      Result := False;
       Self.RollbackTrans;
       GLogger.ErrorLog(E);
     end;
@@ -900,6 +917,7 @@ begin
   except
     on E: Exception do
     begin
+      Result := False;
       Self.RollbackTrans;
       GLogger.ErrorLog(E);
     end;
@@ -922,6 +940,7 @@ begin
   except
     on E: Exception do
     begin
+      Result := False;
       Self.RollbackTrans;
       GLogger.ErrorLog(E);
     end;
@@ -947,6 +966,7 @@ begin
   except
     on E: Exception do
     begin
+      Result := False;
       Self.RollbackTrans;
       GLogger.ErrorLog(E);
     end;
@@ -957,7 +977,7 @@ procedure TEntityManager.Listen(ATableName: string);
 begin
   try
     if ATableName = '' then
-      raise Exception.Create('Tablo adı olmak zorunda "LISTEN işlemini yapamazsın!!!"');
+      raise Exception.Create('Table name required. You cant do "LISTEN" process!!!"');
 
     with Self.NewQuery do
     try
@@ -979,7 +999,7 @@ procedure TEntityManager.Unlisten(ATableName: string);
 begin
   try
     if ATableName = '' then
-      raise Exception.Create('Tablo adı olmak zorunda "UNLISTEN işlemini yapamazsın!!!"');
+      raise Exception.Create('Table name required. You cant do "UNLISTEN" process!!!"');
 
     with Self.NewQuery do
     try
@@ -1001,7 +1021,7 @@ procedure TEntityManager.Notify(ATableName: string);
 begin
   try
     if ATableName = '' then
-      raise Exception.Create('Tablo adı olmak zorunda "NOTIFY işlemini yapamazsın!!!"');
+      raise Exception.Create('Table name required. You cant do "NOTIFY" process!!!"');
 
     with Self.NewQuery do
     try
@@ -1265,6 +1285,27 @@ end;
 function TEntityManager.PrepareDeleteQuery(ATable: TThsTable): string;
 begin
   Result := 'DELETE FROM ' + ATable.TableName + ' WHERE ' + ATable.Id.QryName + '=' + ATable.Id.AsString;
+end;
+
+function TEntityManager.Clone<T>(ASrc: T): T;
+var
+  AFieldSrc, AFieldDes: TThsField;
+begin
+  Result := CallCreateMethod<T>;
+
+  for AFieldSrc in (ASrc as TThsTable).Fields do
+  begin
+    for AFieldDes in (Result as TThsTable).Fields do
+    begin
+      if  (AFieldSrc.FieldName = AFieldDes.FieldName)
+      and (AFieldSrc.FieldName = AFieldDes.FieldName)
+      then
+      begin
+        AFieldDes.Value := AFieldSrc.Value;
+        Break;
+      end;
+    end;
+  end;
 end;
 
 procedure TEntityManager.SetPostgresServerVariable(AVarName, AValue: string);

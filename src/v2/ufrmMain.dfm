@@ -10,10 +10,8 @@ object frmMain: TfrmMain
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = True
   Position = poDesktopCenter
   OnCreate = FormCreate
-  PixelsPerInch = 96
   TextHeight = 13
   object btnResetTables: TButton
     Left = 32

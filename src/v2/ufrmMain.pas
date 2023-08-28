@@ -148,18 +148,20 @@ var
   LInvoice: TInvoice;
   LInvoiceLine: TInvoiceLine;
 begin
-  ManagerMain.LogicalSelectOne(LInvoice, '1=1', True, True, False);
   try
-    LInvoice.AccountCode.Value := '120-001-015';
+    if ManagerMain.LogicalSelectOne(LInvoice, '1=1', True, True, False) then
+    begin
+      LInvoice.AccountCode.Value := '120-001-015';
 
-    LInvoiceLine := TInvoiceLine.Create();
-    LInvoiceLine.StockCode.Value := 'PC2G';
-    LInvoiceLine.Discount.Value := 20;
-    LInvoiceLine.Quantity.Value := 1;
-    LInvoiceLine.Price.Value := 20000;
-    LInvoiceLine.VAT.Value := 20;
-    LInvoice.AddLine(LInvoiceLine);
-    ManagerMain.LogicalUpdateOne(LInvoice, False, True, False);
+      LInvoiceLine := TInvoiceLine.Create();
+      LInvoiceLine.StockCode.Value := 'PC2G';
+      LInvoiceLine.Discount.Value := 20;
+      LInvoiceLine.Quantity.Value := 1;
+      LInvoiceLine.Price.Value := 20000;
+      LInvoiceLine.VAT.Value := 20;
+      LInvoice.AddLine(LInvoiceLine);
+      ManagerMain.LogicalUpdateOne(LInvoice, False, True, False);
+    end;
   finally
     LInvoice.DisposeOf;
   end;

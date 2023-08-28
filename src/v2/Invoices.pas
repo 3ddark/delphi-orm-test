@@ -75,18 +75,22 @@ var
   LInvLs: TObjectList<TInvoiceLine>;
   AInvoiceLine: TInvoiceLine;
 begin
-  AInvoiceLine := TInvoiceLine.Create();
   try
-    Result := ManagerMain.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + Self.Id.AsString, ALock, APermissionCheck);
-    Self.InvoiceLines.Free;
-    Self.InvoiceLines := nil;
-    Self.InvoiceLines := LInvLs;
-  finally
-    FreeAndNil(AInvoiceLine);
-  end;
+    AInvoiceLine := TInvoiceLine.Create();
+    try
+      Result := ManagerMain.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + Self.Id.AsString, ALock, APermissionCheck);
+      Self.InvoiceLines.Free;
+      Self.InvoiceLines := nil;
+      Self.InvoiceLines := LInvLs;
+    finally
+      FreeAndNil(AInvoiceLine);
+    end;
 
-  for AInvoiceLine in Self.InvoiceLines do
-    AInvoiceLine.Header := Self;
+    for AInvoiceLine in Self.InvoiceLines do
+      AInvoiceLine.Header := Self;
+  except
+    Result := False;
+  end;
 end;
 
 function TInvoice.BusinessInsert(APermissionCheck: Boolean): Boolean;
@@ -111,22 +115,25 @@ function TInvoice.BusinessUpdate(APermissionCheck: Boolean): Boolean;
 var
   ALine: TInvoiceLine;
 begin
-  ManagerMain.Update(Self, APermissionCheck);
-  for ALine in Self.InvoiceLines do
-  begin
-    if ALine.Id.Value <= 0 then
+  Result := ManagerMain.Update(Self, APermissionCheck);
+  try
+    for ALine in Self.InvoiceLines do
     begin
-      ALine.HeaderId.Value := Self.Id.Value;
-      ManagerMain.Insert(ALine, False);
-      ALine.AddStockTransaction(False);
-    end
-    else
-    begin
-      ManagerMain.Update(ALine, False);
-      ALine.UpdateStockTransaction(False);
+      if ALine.Id.Value <= 0 then
+      begin
+        ALine.HeaderId.Value := Self.Id.Value;
+        ManagerMain.Insert(ALine, False);
+        ALine.AddStockTransaction(False);
+      end
+      else
+      begin
+        ManagerMain.Update(ALine, False);
+        ALine.UpdateStockTransaction(False);
+      end;
     end;
+  except
+    Result := False;
   end;
-  Result := True;
 end;
 
 function TInvoice.BusinessDelete(APermissionCheck: Boolean): Boolean;
