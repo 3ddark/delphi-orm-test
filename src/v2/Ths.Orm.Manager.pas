@@ -425,7 +425,7 @@ begin
       LQry.Open;
       GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
       if LQry.RecordCount > 1 then
-        raise Exception.Create('Verilen parametre ile birden fazla kayıt bulundu!!!');
+        raise Exception.Create('Found one more than records!!!');
 
       if LQry.RecordCount = 1 then
         Result := True;
@@ -471,7 +471,7 @@ begin
       LQry.Open;
       GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
       if LQry.RecordCount > 1 then
-        raise Exception.Create('Verilen parametre ile birden fazla kayıt bulundu!!!');
+        raise Exception.Create('Found one more than records!!!');
 
       if LQry.RecordCount = 1 then
         Result := True;
@@ -1292,7 +1292,6 @@ var
   AFieldSrc, AFieldDes: TThsField;
 begin
   Result := CallCreateMethod<T>;
-
   for AFieldSrc in (ASrc as TThsTable).Fields do
   begin
     for AFieldDes in (Result as TThsTable).Fields do
