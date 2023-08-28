@@ -250,13 +250,14 @@ end;
 
 procedure TInvoiceLine.UpdateStockTransaction(APermissionCheck: Boolean);
 var
-  LStockTransaction: TStockTransaction;
+  LStockTransaction, LStockTransaction2: TStockTransaction;
 begin
-  LStockTransaction := TStockTransaction.Create();
+  LStockTransaction2 := TStockTransaction.Create();
   try
-    ManagerMain.GetOne(LStockTransaction, LStockTransaction.InvoiceId.QryName + '=' + Self.FHeaderId.AsString + ' and ' +
-                                          LStockTransaction.InvoiceLineId.QryName + '=' + Self.Id.AsString,
+    ManagerMain.GetOne(LStockTransaction, LStockTransaction2.InvoiceId.QryName + '=' + Self.FHeaderId.AsString + ' and ' +
+                                          LStockTransaction2.InvoiceLineId.QryName + '=' + Self.Id.AsString,
                                           True, False);
+    LStockTransaction2.DisposeOf;
     LStockTransaction.StockCode.Value := Self.StockCode.Value;
     LStockTransaction.TransactionDate.Value := Self.Header.InvoiceDate.Value;
     LStockTransaction.Direction.Value := Ord(sttDirectionOut);
