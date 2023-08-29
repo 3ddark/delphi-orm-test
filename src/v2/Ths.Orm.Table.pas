@@ -100,7 +100,7 @@ type
 
 implementation
 
-uses Ths.Orm.ManagerStack;
+uses Ths.Orm.ManagerStack, Ths.Orm.Manager;
 
 constructor  TThsField.Create(
   AFieldName: string;
@@ -274,7 +274,7 @@ begin
   SetLength(FFields, 0);
 
   Id := TThsField.Create('id', ftInteger, 0, Self, [fpSelect, fpUpdate]);
-  Id.Value := ManagerMain.GetNewRecordId
+  Id.Value := ManagerApp.GetNewRecordId
 end;
 
 function TThsTable.GetTableName: string;
@@ -299,22 +299,22 @@ end;
 
 function TThsTable.BusinessSelect(AFilter: string; ALock, APermissionCheck: Boolean): Boolean;
 begin
-  Result := ManagerMain.GetOne(Self, AFilter, ALock, APermissionCheck);
+  Result := ManagerApp.GetOne(Self, AFilter, ALock, APermissionCheck);
 end;
 
 function TThsTable.BusinessInsert(APermissionCheck: Boolean): Boolean;
 begin
-  Result := ManagerMain.Insert(Self, APermissionCheck);
+  Result := ManagerApp.Insert(Self, APermissionCheck);
 end;
 
 function TThsTable.BusinessUpdate(APermissionCheck: Boolean): Boolean;
 begin
-  Result := ManagerMain.Update(Self, APermissionCheck);
+  Result := ManagerApp.Update(Self, APermissionCheck);
 end;
 
 function TThsTable.BusinessDelete(APermissionCheck: Boolean): Boolean;
 begin
-  Result := ManagerMain.Delete(Self, APermissionCheck);
+  Result := ManagerApp.Delete(Self, APermissionCheck);
 end;
 
 procedure TThsTable.Clear;

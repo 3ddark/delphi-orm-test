@@ -13,8 +13,6 @@ type
   TEntityManager = class;
   TPermissionTypes = (prtRead, prtAdd, prtUpdate, prtDelete, prtSpecial);
 
-  TBusinessOperationEvent = procedure(AManager: TEntityManager; ATable: TThsTable; APermissionCheck: Boolean) of Object;
-
   TEntityManager = class
   private
     FId: Int64;
@@ -24,12 +22,12 @@ type
 
     function CallCreateMethod<T>: T;
 
-    function PrepareSelectQuery(ATable: TThsTable): string;
-    function PrepareSelectCustomQuery(ATable: TThsTable; AFields: TArray<TThsField>): string;
-    function PrepareInsertQuery(ATable: TThsTable): string;
-    function PrepareUpdateQuery(ATable: TThsTable): string;
-    function PrepareUpdateCustomQuery(ATable: TThsTable; AFields: TArray<TThsField>): string;
-    function PrepareDeleteQuery(ATable: TThsTable): string;
+    function PrepareSelectQuery<T: Class>(ATable: T): string;
+    function PrepareSelectCustomQuery<T: Class>(ATable: T; AFields: TArray<TThsField>): string;
+    function PrepareInsertQuery<T: Class>(ATable: T): string;
+    function PrepareUpdateQuery<T: Class>(ATable: T): string;
+    function PrepareUpdateCustomQuery<T: Class>(ATable: T; AFields: TArray<TThsField>): string;
+    function PrepareDeleteQuery<T: Class>(ATable: T): string;
 
     function GetOneBase<T: Class>(var ATable: T; AFilter: string; ALock: Boolean): Boolean;
     function GetOneCustomBase<T: Class>(var ATable: T; AFields: TArray<TThsField>; AFilter: string; ALock: Boolean): Boolean;
@@ -197,7 +195,7 @@ begin
 
     LQry := Self.NewQuery;
     try
-      LQry.SQL.Text := Self.PrepareSelectQuery(ATable as TThsTable) + ' WHERE ' + IfThen(AFilter = '', '1=1', AFilter);
+      LQry.SQL.Text := Self.PrepareSelectQuery(ATable) + ' WHERE ' + IfThen(AFilter = '', '1=1', AFilter);
       TThsTable(ATable).Free;
       TThsTable(ATable) := nil;
       LQry.Prepare;
@@ -262,7 +260,7 @@ begin
 
     LQry := Self.NewQuery;
     try
-      LQry.SQL.Text := Self.PrepareSelectCustomQuery(ATable as TThsTable, AFields) + ' WHERE ' + AFilter;
+      LQry.SQL.Text := Self.PrepareSelectCustomQuery(ATable, AFields) + ' WHERE ' + AFilter;
       TThsTable(ATable).Free;
       TThsTable(ATable) := nil;
       LQry.Prepare;
@@ -422,7 +420,7 @@ begin
     if ((ATable as TThsTable).TableName = '') then
       Exit;
 
-    LQry.SQL.Text := Self.PrepareSelectQuery((ATable as TThsTable)) + ' WHERE ' + IfThen(AFilter = '', '1=1', AFilter);
+    LQry.SQL.Text := Self.PrepareSelectQuery(ATable) + ' WHERE ' + IfThen(AFilter = '', '1=1', AFilter);
     LQry.SQL.Text := LQry.SQL.Text + IfThen(ALock, ' FOR UPDATE OF ' + (ATable as TThsTable).TableName + ' NOWAIT;', ';');
 
     LQry.Prepare;
@@ -468,7 +466,7 @@ begin
     if ((ATable as TThsTable).TableName = '') then
       Exit;
 
-    LQry.SQL.Text := Self.PrepareSelectCustomQuery((ATable as TThsTable), AFields) + ' WHERE ' + IfThen(AFilter = '', '1=1', AFilter);
+    LQry.SQL.Text := Self.PrepareSelectCustomQuery(ATable, AFields) + ' WHERE ' + IfThen(AFilter = '', '1=1', AFilter);
     LQry.SQL.Text := LQry.SQL.Text + IfThen(ALock, ' FOR UPDATE OF ' + (ATable as TThsTable).TableName + ' NOWAIT;', ';');
 
     LQry.Prepare;
@@ -537,7 +535,7 @@ begin
   Result := False;
   LQry := Self.NewQuery;
   try
-    LQry.SQL.Text := PrepareInsertQuery(ATable as TThsTable);
+    LQry.SQL.Text := PrepareInsertQuery(ATable);
     LQry.Prepare;
     if LQry.Prepared then
     begin
@@ -594,7 +592,7 @@ begin
   LQry := Self.NewQuery;
   Result := False;
   try
-    LQry.SQL.Text := PrepareUpdateQuery(ATable as TThsTable);
+    LQry.SQL.Text := PrepareUpdateQuery(ATable);
     LQry.Prepare;
     if LQry.Prepared then
     begin
@@ -650,7 +648,7 @@ begin
   Result := False;
   LQry := Self.NewQuery;
   try
-    LQry.SQL.Text := PrepareUpdateCustomQuery(ATable as TThsTable, AFields);
+    LQry.SQL.Text := PrepareUpdateCustomQuery(ATable, AFields);
     LQry.Prepare;
     if LQry.Prepared then
     begin
@@ -703,7 +701,7 @@ function TEntityManager.DoDelete<T>(ATable: T; APermissionCheck: Boolean): Boole
 begin
   with Self.NewQuery do
   try
-    SQL.Text := PrepareDeleteQuery((ATable as TThsTable));
+    SQL.Text := PrepareDeleteQuery(ATable);
     ExecSQL;
     GLogger.RunLog(SQL.Text.Replace(sLineBreak, ''));
     Result := True;
@@ -736,7 +734,7 @@ begin
 
     LQry := Self.NewQuery;
     try
-      LQry.SQL.Text := Self.PrepareDeleteQuery((ATable as TThsTable)) + IfThen(AFilter <> '', ' and ' + AFilter, '') + ';';
+      LQry.SQL.Text := Self.PrepareDeleteQuery(ATable) + IfThen(AFilter <> '', ' and ' + AFilter, '') + ';';
       LQry.Prepare;
       if LQry.Prepared then
       begin
@@ -1112,38 +1110,44 @@ begin
 *)
 end;
 
-function TEntityManager.PrepareSelectQuery(ATable: TThsTable): string;
+function TEntityManager.PrepareSelectQuery<T>(ATable: T): string;
 var
   AFieldDB: TThsField;
   LFields: string;
+  LTable: TThsTable;
 begin
+  LTable := ATable as TThsTable;
   LFields := '';
-  for AFieldDB in ATable.Fields do
+  for AFieldDB in LTable.Fields do
     if fpSelect in AFieldDB.FieldIslemTipleri then
       LFields := LFields + AFieldDB.QryName + ',';
-  Result := 'SELECT ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' FROM ' + IfThen(ATable.SchemaName = '', '', ATable.SchemaName + '.') + ATable.TableName;
+  Result := 'SELECT ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' FROM ' + IfThen(LTable.SchemaName = '', '', LTable.SchemaName + '.') + LTable.TableName;
 end;
 
-function TEntityManager.PrepareSelectCustomQuery(ATable: TThsTable; AFields: TArray<TThsField>): string;
+function TEntityManager.PrepareSelectCustomQuery<T>(ATable: T; AFields: TArray<TThsField>): string;
 var
   AFieldDB: TThsField;
   LFields: string;
+  LTable: TThsTable;
 begin
+  LTable := ATable as TThsTable;
   LFields := '';
   for AFieldDB in AFields do
     if fpSelect in AFieldDB.FieldIslemTipleri then
       LFields := LFields + AFieldDB.QryName + ',';
-  Result := 'SELECT ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' FROM ' + IfThen(ATable.SchemaName = '', '', ATable.SchemaName + '.') + ATable.TableName;
+  Result := 'SELECT ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' FROM ' + IfThen(LTable.SchemaName = '', '', LTable.SchemaName + '.') + LTable.TableName;
 end;
 
-function TEntityManager.PrepareInsertQuery(ATable: TThsTable): string;
+function TEntityManager.PrepareInsertQuery<T>(ATable: T): string;
 var
   AFieldDB: TThsField;
   LFields, LValues: string;
+  LTable: TThsTable;
 begin
+  LTable := ATable as TThsTable;
   LFields := '';
   LValues := '';
-  for AFieldDB in ATable.Fields do
+  for AFieldDB in LTable.Fields do
     if fpInsert in AFieldDB.FieldIslemTipleri then
     begin
       LFields := LFields + AFieldDB.FieldName + ',';
@@ -1184,18 +1188,20 @@ begin
         LValues := LValues + FloatToStr(AFieldDB.AsFloat) + ','
     end;
 
-  Result := 'INSERT INTO ' + ATable.TableName + '(' + LeftStr(Trim(LFields), Length(LFields)-1) + ')' +
+  Result := 'INSERT INTO ' + LTable.TableName + '(' + LeftStr(Trim(LFields), Length(LFields)-1) + ')' +
               'VALUES (' + LeftStr(Trim(LValues), Length(LValues)-1) + ') RETURNING id;';
 end;
 
-function TEntityManager.PrepareUpdateQuery(ATable: TThsTable): string;
+function TEntityManager.PrepareUpdateQuery<T>(ATable: T): string;
 var
   AFieldDB: TThsField;
   LQryText, LFields: string;
+  LTable: TThsTable;
 begin
-  LQryText := 'INSERT INTO ' + ATable.TableName;
+  LTable := ATable as TThsTable;
+  LQryText := 'INSERT INTO ' + LTable.TableName;
   LFields := '';
-  for AFieldDB in ATable.Fields do
+  for AFieldDB in LTable.Fields do
     if fpUpdate in AFieldDB.FieldIslemTipleri then
     begin
       if (AFieldDB.DataType = ftString)
@@ -1235,15 +1241,17 @@ begin
         LFields := LFields + AFieldDB.FieldName + '=' + FloatToStr(AFieldDB.AsFloat) + ','
     end;
 
-  Result := 'UPDATE ' + ATable.TableName + ' SET ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' WHERE id=' + ATable.Id.AsString + ';';
+  Result := 'UPDATE ' + LTable.TableName + ' SET ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' WHERE id=' + LTable.Id.AsString + ';';
 end;
 
-function TEntityManager.PrepareUpdateCustomQuery(ATable: TThsTable; AFields: TArray<TThsField>): string;
+function TEntityManager.PrepareUpdateCustomQuery<T>(ATable: T; AFields: TArray<TThsField>): string;
 var
   AFieldDB: TThsField;
   LQryText, LFields: string;
+  LTable: TThsTable;
 begin
-  LQryText := 'INSERT INTO ' + ATable.TableName;
+  LTable := ATable as TThsTable;
+  LQryText := 'INSERT INTO ' + LTable.TableName;
   LFields := '';
   for AFieldDB in AFields do
     if fpUpdate in AFieldDB.FieldIslemTipleri then
@@ -1285,15 +1293,18 @@ begin
         LFields := LFields + AFieldDB.FieldName + '=' + FloatToStr(AFieldDB.AsFloat) + ','
     end;
 
-  Result := 'UPDATE ' + ATable.TableName + ' SET ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' WHERE id=' + ATable.Id.AsString + ';';
+  Result := 'UPDATE ' + LTable.TableName + ' SET ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' WHERE id=' + LTable.Id.AsString + ';';
 end;
 
-function TEntityManager.PrepareDeleteQuery(ATable: TThsTable): string;
+function TEntityManager.PrepareDeleteQuery<T>(ATable: T): string;
+var
+  LTable: TThsTable;
 begin
-  if ATable.Id.AsInt64 > 0 then
-    Result := 'DELETE FROM ' + ATable.TableName + ' WHERE ' + ATable.Id.QryName + '=' + ATable.Id.AsString
+  LTable := ATable as TThsTable;
+  if LTable.Id.AsInt64 > 0 then
+    Result := 'DELETE FROM ' + LTable.TableName + ' WHERE ' + LTable.Id.QryName + '=' + LTable.Id.AsString
   else
-    Result := 'DELETE FROM ' + ATable.TableName + ' WHERE 1=1 ';
+    Result := 'DELETE FROM ' + LTable.TableName + ' WHERE 1=1 ';
 end;
 
 function TEntityManager.Clone<T>(ASrc: T): T;

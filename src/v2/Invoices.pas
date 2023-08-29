@@ -78,7 +78,7 @@ begin
   try
     AInvoiceLine := TInvoiceLine.Create();
     try
-      Result := ManagerMain.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + Self.Id.AsString, ALock, APermissionCheck);
+      Result := ManagerApp.GetList<TInvoiceLine>(LInvLs, AInvoiceLine.FHeaderId.QryName + '=' + Self.Id.AsString, ALock, APermissionCheck);
       if Result then
       begin
         Self.InvoiceLines.Free;
@@ -103,14 +103,14 @@ function TInvoice.BusinessInsert(APermissionCheck: Boolean): Boolean;
 var
   ALine: TInvoiceLine;
 begin
-  Result := ManagerMain.Insert(Self, APermissionCheck);
+  Result := ManagerApp.Insert(Self, APermissionCheck);
   try
     if Result then
     begin
       for ALine in Self.InvoiceLines do
       begin
         ALine.HeaderId.Value := Self.Id.Value;
-        if ManagerMain.Insert(ALine, False) then
+        if ManagerApp.Insert(ALine, False) then
           ALine.AddStockTransaction(False);
       end;
     end;
@@ -123,7 +123,7 @@ function TInvoice.BusinessUpdate(APermissionCheck: Boolean): Boolean;
 var
   ALine: TInvoiceLine;
 begin
-  Result := ManagerMain.Update(Self, APermissionCheck);
+  Result := ManagerApp.Update(Self, APermissionCheck);
   try
     if Result then
     begin
@@ -132,12 +132,12 @@ begin
         if ALine.Id.Value <= 0 then
         begin
           ALine.HeaderId.Value := Self.Id.Value;
-          if ManagerMain.Insert(ALine, False) then
+          if ManagerApp.Insert(ALine, False) then
             ALine.AddStockTransaction(False);
         end
         else
         begin
-          if ManagerMain.Update(ALine, False) then
+          if ManagerApp.Update(ALine, False) then
             ALine.UpdateStockTransaction(False);
         end;
       end;
@@ -149,7 +149,7 @@ end;
 
 function TInvoice.BusinessDelete(APermissionCheck: Boolean): Boolean;
 begin
-  Result := ManagerMain.Delete(Self, APermissionCheck);
+  Result := ManagerApp.Delete(Self, APermissionCheck);
 end;
 
 constructor TInvoice.Create();
@@ -244,7 +244,7 @@ begin
     LStockTransaction.InvoiceId.Value := Self.Header.Id.Value;
     LStockTransaction.InvoiceLineId.Value := Self.Id.Value;
 
-    ManagerMain.Insert(LStockTransaction, APermissionCheck);
+    ManagerApp.Insert(LStockTransaction, APermissionCheck);
   finally
     LStockTransaction.DisposeOf;
   end;
@@ -256,7 +256,7 @@ var
 begin
   LStockTransaction2 := TStockTransaction.Create();
   try
-    ManagerMain.GetOne(LStockTransaction, LStockTransaction2.InvoiceId.QryName + '=' + Self.FHeaderId.AsString + ' and ' +
+    ManagerApp.GetOne(LStockTransaction, LStockTransaction2.InvoiceId.QryName + '=' + Self.FHeaderId.AsString + ' and ' +
                                           LStockTransaction2.InvoiceLineId.QryName + '=' + Self.Id.AsString,
                                           True, False);
     LStockTransaction2.DisposeOf;
@@ -270,7 +270,7 @@ begin
     LStockTransaction.InvoiceId.Value := Self.Header.Id.Value;
     LStockTransaction.InvoiceLineId.Value := Self.Id.Value;
 
-    ManagerMain.Update(LStockTransaction, APermissionCheck);
+    ManagerApp.Update(LStockTransaction, APermissionCheck);
   finally
     LStockTransaction.DisposeOf;
   end;

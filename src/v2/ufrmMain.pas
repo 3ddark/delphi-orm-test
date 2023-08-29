@@ -70,7 +70,7 @@ begin
     LInvL.VAT.Value := 20;
     LInv.AddLine(LInvL);
 
-    ManagerMain.LogicalInsertOne(LInv, True, True, False);
+    ManagerApp.LogicalInsertOne(LInv, True, True, False);
   finally
     LInv.DisposeOf;
   end;
@@ -81,7 +81,7 @@ var
   AStock: TStock;
   AStocks: TObjectList<TStock>;
 begin
-  ManagerMain.StartTrans;
+  ManagerApp.StartTrans;
   AStocks := TObjectList<TStock>.Create();
   try
     AStock := TStock.Create;
@@ -109,7 +109,7 @@ begin
     AStock.StockName.Value := 'Monitor LG 24" Curved';
     AStocks.Add(AStock);
 
-    ManagerMain.LogicalInsertList<TStock>(AStocks, True, True, True);
+    ManagerApp.LogicalInsertList<TStock>(AStocks, True, True, True);
   finally
     AStocks.DisposeOf;
   end;
@@ -127,9 +127,9 @@ begin
     LStock.DisposeOf;
     LStock := nil;
   end;
-  ManagerMain.GetOne(LStock, LFilter, True);
+  ManagerApp.GetOne(LStock, LFilter, True);
 
-  LStockClone := ManagerMain.Clone(LStock);
+  LStockClone := ManagerApp.Clone(LStock);
 
   LStock.DisposeOf;
   LStockClone.DisposeOf;
@@ -137,10 +137,10 @@ end;
 
 procedure TfrmMain.btnResetTablesClick(Sender: TObject);
 begin
-  ManagerMain.StartTrans;
-  ManagerMain.DeleteBatch<TInvoice>('', False);
-  ManagerMain.DeleteBatch<TStock>('', False);
-  ManagerMain.CommitTrans;
+  ManagerApp.StartTrans;
+  ManagerApp.DeleteBatch<TInvoice>('', False);
+  ManagerApp.DeleteBatch<TStock>('', False);
+  ManagerApp.CommitTrans;
 end;
 
 procedure TfrmMain.btnUpdateBusinessClick(Sender: TObject);
@@ -149,7 +149,7 @@ var
   LInvoiceLine: TInvoiceLine;
 begin
   try
-    if ManagerMain.LogicalSelectOne(LInvoice, '1=1', True, True, False) then
+    if ManagerApp.LogicalSelectOne(LInvoice, '1=1', True, True, False) then
     begin
       LInvoice.AccountCode.Value := '120-001-015';
 
@@ -160,7 +160,7 @@ begin
       LInvoiceLine.Price.Value := 20000;
       LInvoiceLine.VAT.Value := 20;
       LInvoice.AddLine(LInvoiceLine);
-      ManagerMain.LogicalUpdateOne(LInvoice, False, True, False);
+      ManagerApp.LogicalUpdateOne(LInvoice, False, True, False);
     end;
   finally
     LInvoice.DisposeOf;
