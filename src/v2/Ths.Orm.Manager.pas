@@ -238,6 +238,7 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
@@ -302,6 +303,7 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
@@ -325,6 +327,7 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
@@ -349,6 +352,7 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
@@ -374,6 +378,7 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
@@ -399,6 +404,7 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
@@ -519,6 +525,7 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
@@ -575,6 +582,7 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
@@ -630,6 +638,7 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
@@ -685,6 +694,7 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
@@ -744,6 +754,7 @@ begin
     begin
       Result := False;
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
@@ -771,6 +782,7 @@ begin
     on E: Exception do
     begin
       Self.RollbackTrans();
+      raise;
     end;
   end;
 end;
@@ -792,7 +804,6 @@ begin
     on E: Exception do
     begin
       Result := False;
-      GLogger.ErrorLog(E);
     end;
   end;
 end;
@@ -818,8 +829,6 @@ begin
     on E: Exception do
     begin
       Result := False;
-      Self.RollbackTrans;
-      GLogger.ErrorLog(E);
     end;
   end;
 end;
@@ -840,7 +849,6 @@ begin
     begin
       Result := False;
       Self.RollbackTrans;
-      GLogger.ErrorLog(E);
     end;
   end;
 end;
@@ -870,7 +878,6 @@ begin
     begin
       Result := False;
       Self.RollbackTrans;
-      GLogger.ErrorLog(E);
     end;
   end;
 end;
@@ -893,7 +900,6 @@ begin
     begin
       Result := False;
       Self.RollbackTrans;
-      GLogger.ErrorLog(E);
     end;
   end;
 end;
@@ -919,7 +925,6 @@ begin
     begin
       Result := False;
       Self.RollbackTrans;
-      GLogger.ErrorLog(E);
     end;
   end;
 end;
@@ -942,7 +947,6 @@ begin
     begin
       Result := False;
       Self.RollbackTrans;
-      GLogger.ErrorLog(E);
     end;
   end;
 end;
@@ -968,7 +972,6 @@ begin
     begin
       Result := False;
       Self.RollbackTrans;
-      GLogger.ErrorLog(E);
     end;
   end;
 end;
@@ -991,6 +994,7 @@ begin
     on E: Exception do
     begin
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
@@ -1013,6 +1017,7 @@ begin
     on E: Exception do
     begin
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
@@ -1035,6 +1040,7 @@ begin
     on E: Exception do
     begin
       GLogger.ErrorLog(E);
+      raise;
     end;
   end;
 end;
