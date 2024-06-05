@@ -18,8 +18,6 @@ type
     FId: Int64;
     FConnection: TZConnection;
 
-    function NewQuery: TZQuery;
-
     function CallCreateMethod<T>: T;
 
     function PrepareSelectQuery<T: Class>(ATable: T): string;
@@ -93,6 +91,8 @@ type
     procedure RollbackTrans(AConnection: TZAbstractConnection = nil);
 
     function GetToday(): TDateTime;
+    function NewQuery: TZQuery;
+    function PrepareSelectGridQuery(ATable: TThsTable; AFieldDBs: TArray<TGridColumn>): string;
   end;
 
 implementation
@@ -1136,6 +1136,18 @@ begin
     if fpSelect in AFieldDB.FieldIslemTipleri then
       LFields := LFields + AFieldDB.QryName + ',';
   Result := 'SELECT ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' FROM ' + IfThen(LTable.SchemaName = '', '', LTable.SchemaName + '.') + LTable.TableName;
+end;
+
+function TEntityManager.PrepareSelectGridQuery(ATable: TThsTable; AFieldDBs: TArray<TGridColumn>): string;
+var
+  AFieldDB: TGridColumn;
+  LFields: string;
+begin
+  LFields := '';
+  for AFieldDB in AFieldDBs do
+    if fpSelect in AFieldDB.Field.FieldIslemTipleri then
+      LFields := LFields + AFieldDB.Field.FieldName + ' "' + AFieldDB.Title + '",';
+  Result := 'SELECT ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' FROM ' + IfThen(ATable.SchemaName = '', '', ATable.SchemaName + '.') + ATable.TableName;
 end;
 
 function TEntityManager.PrepareInsertQuery<T>(ATable: T): string;

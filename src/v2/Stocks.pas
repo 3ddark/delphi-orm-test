@@ -2,7 +2,9 @@
 
 interface
 
-uses Data.DB, Ths.Orm.Table;
+uses
+  System.SysUtils, System.Generics.Collections, Data.DB,
+  Ths.Orm.Table, Ths.Orm.Manager, Ths.Orm.ManagerStack;
 
 type
   TStock = class(TThsTable)
@@ -15,6 +17,8 @@ type
 
     constructor Create(); override;
     destructor Destroy; override;
+
+    class function GetSelectSQL: string; override;
   end;
 
 implementation
@@ -35,6 +39,22 @@ destructor TStock.Destroy;
 begin
 
   inherited;
+end;
+
+class function TStock.GetSelectSQL: string;
+var
+  LTable: TStock;
+begin
+  LTable := TStock.Create;
+  try
+    Result := ManagerApp.PrepareSelectGridQuery(LTable, [
+      TGridColumn.NewItem('ID', LTable.Id),
+      TGridColumn.NewItem('Stock Code', LTable.FStockCode),
+      TGridColumn.NewItem('Stock Name', LTable.FStockName)
+    ]);
+  finally
+    LTable.Free;
+  end;
 end;
 
 end.

@@ -10,8 +10,10 @@ object frmMain: TfrmMain
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
+  OldCreateOrder = True
   Position = poDesktopCenter
   OnCreate = FormCreate
+  PixelsPerInch = 96
   TextHeight = 13
   object btnResetTables: TButton
     Left = 32
@@ -28,7 +30,7 @@ object frmMain: TfrmMain
     Width = 147
     Height = 25
     Caption = 'Add Business'
-    TabOrder = 3
+    TabOrder = 4
     OnClick = btnAddBusinessClick
   end
   object btnFillTestData: TButton
@@ -46,7 +48,7 @@ object frmMain: TfrmMain
     Width = 147
     Height = 25
     Caption = 'Update Business'
-    TabOrder = 4
+    TabOrder = 6
     OnClick = btnUpdateBusinessClick
   end
   object btnGetOneByCodeFilter: TButton
@@ -57,5 +59,23 @@ object frmMain: TfrmMain
     Caption = 'GetOne By Code Filter'
     TabOrder = 1
     OnClick = btnGetOneByCodeFilterClick
+  end
+  object btnGridListInvoices: TButton
+    Left = 224
+    Top = 49
+    Width = 169
+    Height = 25
+    Caption = 'DBGrid List Invoices'
+    TabOrder = 3
+    OnClick = btnGridListInvoicesClick
+  end
+  object btnGridListStocks: TButton
+    Left = 224
+    Top = 90
+    Width = 169
+    Height = 25
+    Caption = 'DBGrid List Stocks'
+    TabOrder = 5
+    OnClick = btnGridListStocksClick
   end
 end

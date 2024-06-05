@@ -11,7 +11,9 @@ uses
   Invoices in 'Invoices.pas',
   AccountTransactions in 'AccountTransactions.pas',
   Stocks in 'Stocks.pas',
-  Ths.Orm.ManagerStack in 'Ths.Orm.ManagerStack.pas';
+  Ths.Orm.ManagerStack in 'Ths.Orm.ManagerStack.pas',
+  ufrmGrid in 'UI\DBGrid\Base\ufrmGrid.pas',
+  ufrmInvoices in 'UI\DBGrid\ufrmInvoices.pas';
 
 {$R *.res}
 

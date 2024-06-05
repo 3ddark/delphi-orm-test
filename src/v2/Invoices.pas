@@ -3,8 +3,9 @@
 interface
 
 uses
-  System.SysUtils, Data.DB, Ths.Orm.Table, Ths.Orm.Manager, System.Generics.Collections,
-  Ths.Orm.ManagerStack, StockTransactions;
+  System.SysUtils, System.Generics.Collections, Data.DB,
+  Ths.Orm.Table, Ths.Orm.Manager, Ths.Orm.ManagerStack,
+  StockTransactions;
 
 type
   TInvoiceLine = class;
@@ -39,6 +40,8 @@ type
     function BusinessInsert(APermissionCheck: Boolean): Boolean; override;
     function BusinessUpdate(APermissionCheck: Boolean): Boolean; override;
     function BusinessDelete(APermissionCheck: Boolean): Boolean; override;
+
+    class function GetSelectSQL: string; override;
   end;
 
   TInvoiceLine = class(TThsTable)
@@ -174,6 +177,22 @@ destructor TInvoice.Destroy;
 begin
   Self.FInvoiceLines.Free;
   inherited;
+end;
+
+class function TInvoice.GetSelectSQL: string;
+var
+  LTable: TInvoice;
+begin
+  LTable := TInvoice.Create;
+  try
+    Result := ManagerApp.PrepareSelectGridQuery(LTable, [
+      TGridColumn.NewItem('Invoice No', LTable.FInvoiceNo),
+      TGridColumn.NewItem('Invoice Date', LTable.FInvoiceDate),
+      TGridColumn.NewItem('Account', LTable.FAccountCode)
+    ]);
+  finally
+    LTable.Free;
+  end;
 end;
 
 function TInvoice.AddLine(const AInvoiceLine: TInvoiceLine): Boolean;

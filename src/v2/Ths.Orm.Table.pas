@@ -65,6 +65,15 @@ type
     function QryName: string;
   end;
 
+  TGridColumn = record
+    Title: string;
+    Field: TThsField;
+  end;
+
+  TGridColumnHelper = record helper for TGridColumn
+  public
+    class function NewItem(ATitle: string; AFieldDB: TThsField): TGridColumn; static;
+  end;
 
   IThsTable = interface
   end;
@@ -96,6 +105,8 @@ type
     function BusinessInsert(APermissionCheck: Boolean): Boolean; virtual;
     function BusinessUpdate(APermissionCheck: Boolean): Boolean; virtual;
     function BusinessDelete(APermissionCheck: Boolean): Boolean; virtual;
+
+    class function GetSelectSQL: string; virtual;
   end;
 
 implementation
@@ -277,6 +288,11 @@ begin
   Id.Value := ManagerApp.GetNewRecordId
 end;
 
+class function TThsTable.GetSelectSQL: string;
+begin
+  Result := '';
+end;
+
 function TThsTable.GetTableName: string;
 begin
   Result := FTableName;
@@ -365,6 +381,12 @@ end;
 function TThsTable.Validate: Boolean;
 begin
   Result := True;
+end;
+
+class function TGridColumnHelper.NewItem(ATitle: string; AFieldDB: TThsField): TGridColumn;
+begin
+  Result.Title := ATitle;
+  Result.Field := AFieldDB;
 end;
 
 end.

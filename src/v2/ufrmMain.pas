@@ -5,11 +5,8 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.StdCtrls, Data.DB, System.Generics.Collections,
-  Ths.Orm.ManagerStack,
-  Ths.Orm.Table,
-  Ths.Orm.Manager,
-  Persons, Stocks, Invoices;
+  Vcl.StdCtrls, Data.DB, System.Generics.Collections, ufrmGrid,
+  Ths.Orm.ManagerStack, Ths.Orm.Table, Ths.Orm.Manager;
 
 type
   TfrmMain = class(TForm)
@@ -18,12 +15,16 @@ type
     btnFillTestData: TButton;
     btnUpdateBusiness: TButton;
     btnGetOneByCodeFilter: TButton;
+    btnGridListInvoices: TButton;
+    btnGridListStocks: TButton;
     procedure FormCreate(Sender: TObject);
     procedure btnResetTablesClick(Sender: TObject);
     procedure btnFillTestDataClick(Sender: TObject);
     procedure btnAddBusinessClick(Sender: TObject);
     procedure btnUpdateBusinessClick(Sender: TObject);
     procedure btnGetOneByCodeFilterClick(Sender: TObject);
+    procedure btnGridListInvoicesClick(Sender: TObject);
+    procedure btnGridListStocksClick(Sender: TObject);
   private
   public
     { Public declarations }
@@ -35,6 +36,11 @@ var
 implementation
 
 {$R *.dfm}
+
+uses
+  Stocks,
+  Persons,
+  Invoices, ufrmInvoices;
 
 procedure TfrmMain.FormCreate(Sender: TObject);
 begin
@@ -133,6 +139,16 @@ begin
 
   LStock.DisposeOf;
   LStockClone.DisposeOf;
+end;
+
+procedure TfrmMain.btnGridListInvoicesClick(Sender: TObject);
+begin
+  TfrmInvoices<TInvoice>.Create(Self, TInvoice.Create, TInvoice.GetSelectSQL).ShowModal;
+end;
+
+procedure TfrmMain.btnGridListStocksClick(Sender: TObject);
+begin
+  TfrmGrid<TStock>.Create(Self, TStock.Create, TStock.GetSelectSQL).ShowModal;
 end;
 
 procedure TfrmMain.btnResetTablesClick(Sender: TObject);
