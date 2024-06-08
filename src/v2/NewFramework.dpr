@@ -13,7 +13,8 @@ uses
   Stocks in 'Stocks.pas',
   Ths.Orm.ManagerStack in 'Ths.Orm.ManagerStack.pas',
   ufrmGrid in 'UI\DBGrid\Base\ufrmGrid.pas',
-  ufrmInvoices in 'UI\DBGrid\ufrmInvoices.pas';
+  ufrmInvoices in 'UI\DBGrid\ufrmInvoices.pas',
+  ufrmStockTransactions in 'ufrmStockTransactions.pas' {frmStockTransactions};
 
 {$R *.res}
 
@@ -22,5 +23,6 @@ begin
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
   Application.CreateForm(TfrmMain, frmMain);
+  Application.CreateForm(TfrmStockTransactions, frmStockTransactions);
   Application.Run;
 end.

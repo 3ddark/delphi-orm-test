@@ -4,26 +4,31 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
-  System.Classes, System.Generics.Collections,
+  System.Classes, System.Generics.Collections, System.StrUtils,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB,
-  Vcl.ComCtrls, Vcl.Grids, Vcl.DBGrids,
-  ZAbstractRODataset, ZDataset,
+  Vcl.ComCtrls, Vcl.Grids, Vcl.DBGrids, Vcl.Menus,
+  FireDAC.Comp.Client,
   Ths.Orm.Manager;
 
 type
   TfrmGrid<T> = class(TForm)
-    grd: TDBGrid;
     FDataSource: TDataSource;
     status: TStatusBar;
   private
-    FQry: TZQuery;
+    FQry: TFDQuery;
     FTable: T;
-    procedure SetQry(const Value: TZQuery);
+    FMniRemoveGridSort: TMenuItem;
+    FGrd: TDBGrid;
+    procedure SetQry(const Value: TFDQuery);
     procedure SetTable(const Value: T);
-  protected
+    procedure SetMniRemoveGridSort(const Value: TMenuItem);
+    procedure SetGrd(const Value: TDBGrid);
   public
-    property Qry: TZQuery read FQry write SetQry;
+    property Qry: TFDQuery read FQry write SetQry;
     property Table: T read FTable write SetTable;
+    property Grd: TDBGrid read FGrd write SetGrd;
+
+    property MniRemoveGridSort: TMenuItem read FMniRemoveGridSort write SetMniRemoveGridSort;
 
     constructor Create(AOwner: TComponent; ATable: T; ASQL: string; Dummy: Integer  = 0); reintroduce; overload;
     destructor Destroy; override;
@@ -40,6 +45,8 @@ type
     procedure grdKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure grdTitleClick(Column: TColumn);
     procedure grdDrawColumnCell(Sender: TObject; const Rect: TRect; DataCol: Integer; Column: TColumn; State: TGridDrawState);
+
+    procedure SortGridTitle(Sender: TObject);
   end;
 
 implementation
@@ -82,6 +89,8 @@ begin
   grd.OnKeyUp := grdKeyUp;
   grd.OnTitleClick := grdTitleClick;
   grd.OnDrawColumnCell := grdDrawColumnCell;
+
+  MniRemoveGridSort := TMenuItem.Create(nil);
 end;
 
 destructor TfrmGrid<T>.Destroy;
@@ -90,7 +99,9 @@ begin
   FQry.Free;
   FDataSource.Free;
 
-  PObject(@FTable).DisposeOf;
+  MniRemoveGridSort.Free;
+
+  PObject(@FTable).Free;
 
   inherited;
 end;
@@ -148,21 +159,21 @@ begin
 end;
 
 procedure TfrmGrid<T>.grdTitleClick(Column: TColumn);
-var
-  LSortType: TSortType;
 begin
-  if Qry.SortType = stAscending then
-    LSortType := stDescending
-  else if Qry.SortType = stDescending then
-    LSortType := stAscending
-  else if Qry.SortType = stIgnored then
-    LSortType := stAscending;
-
-  Qry.SortedFields := '"' + Column.Field.FieldName + '"';
-  Qry.SortType := LSortType;
+  SortGridTitle(Column);
 end;
 
-procedure TfrmGrid<T>.SetQry(const Value: TZQuery);
+procedure TfrmGrid<T>.SetGrd(const Value: TDBGrid);
+begin
+  FGrd := Value;
+end;
+
+procedure TfrmGrid<T>.SetMniRemoveGridSort(const Value: TMenuItem);
+begin
+  FMniRemoveGridSort := Value;
+end;
+
+procedure TfrmGrid<T>.SetQry(const Value: TFDQuery);
 begin
   FQry := Value;
 end;
@@ -170,6 +181,104 @@ end;
 procedure TfrmGrid<T>.SetTable(const Value: T);
 begin
   FTable := Value;
+end;
+
+procedure TfrmGrid<T>.SortGridTitle(Sender: TObject);
+var
+  sl: TStringList;
+  LOrderList: string;
+  LOrderedColumn, LIsCTRLKeyPress: Boolean;
+  nIndex: Integer;
+  LColumn: TColumn;
+  AQuery: TFDQuery;
+begin
+  if Sender is TColumn then
+    LColumn := Sender as TColumn
+  else
+    Exit;
+
+  LOrderedColumn := False;
+  LIsCTRLKeyPress := False;
+  sl := TStringList.Create;
+  try
+    AQuery := TFDQuery(grd.DataSource.DataSet);
+    begin
+//      if isCtrlDown then
+//        LIsCTRLKeyPress := True;
+
+      //sort düzenle
+      sl.Delimiter := ';';
+      if AQuery.IndexFieldNames <> '' then
+        sl.DelimitedText := AQuery.IndexFieldNames;
+
+      if LIsCTRLKeyPress then
+      begin
+        //CTRL tuşuna basılmışsa
+        for nIndex := 0 to sl.Count-1 do
+          if (LColumn.FieldName + ':A' = sl.Strings[nIndex]) or (LColumn.FieldName + ':D' = sl.Strings[nIndex]) then
+            LOrderedColumn := True;
+
+        if LOrderedColumn then
+        begin
+          //listede zaten varsa ASC DESC değişimi yap
+          for nIndex := 0 to sl.Count-1 do
+          begin
+            if (LColumn.FieldName + ':A' = sl.Strings[nIndex]) then
+              sl.Strings[nIndex] := LColumn.FieldName + ':D'
+            else if (LColumn.FieldName + ':D' = sl.Strings[nIndex]) then
+              sl.Strings[nIndex] := LColumn.FieldName + ':A';
+          end;
+        end
+        else
+        begin
+          //listede yoksa direkt ASC olarak ekle
+          if sl.Count > 0 then
+            sl.Add(LColumn.FieldName + ':A');
+        end;
+      end
+      else
+      begin
+        //CTRL tuşuna basılmamışsa hepsini sil ve direkt olarak ekle
+        if sl.Count = 0 then
+          LOrderList := LColumn.FieldName + ':A'
+        else
+        begin
+          for nIndex := 0 to sl.Count-1 do
+            if (LColumn.FieldName + ':A' = sl.Strings[nIndex]) or (LColumn.FieldName + ':D' = sl.Strings[nIndex]) then
+              LOrderedColumn := True;
+
+          if LOrderedColumn then
+          begin
+            for nIndex := 0 to sl.Count-1 do
+              if (LColumn.FieldName + ':A' = sl.Strings[nIndex]) then
+                LOrderList := LColumn.FieldName + ':D'
+              else if (LColumn.FieldName + ':D' = sl.Strings[nIndex]) then
+                LOrderList := LColumn.FieldName + ':A';
+          end
+          else
+            LOrderList := LColumn.FieldName + ':A';
+        end;
+        sl.Clear;
+        sl.Add(LOrderList);
+      end;
+
+      LOrderList := '';
+
+      for nIndex := 0 to sl.Count-1 do
+      begin
+        LOrderList := LOrderList + sl.Strings[nIndex] + ';';
+        if nIndex = sl.Count-1 then
+          LOrderList := LeftStr(LOrderList, Length(LOrderList)-1);
+      end;
+
+      if LOrderList <> '' then
+        MniRemoveGridSort.Visible := True;
+
+      AQuery.IndexFieldNames := LOrderList;
+    end;
+  finally
+    sl.Free;
+  end;
 end;
 
 end.

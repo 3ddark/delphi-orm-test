@@ -95,7 +95,7 @@ end;
 
 destructor TPerson.Destroy;
 begin
-  FAdres.DisposeOf;
+  FAdres.Free;
   inherited;
 end;
 

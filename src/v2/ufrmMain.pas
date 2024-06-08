@@ -17,6 +17,7 @@ type
     btnGetOneByCodeFilter: TButton;
     btnGridListInvoices: TButton;
     btnGridListStocks: TButton;
+    btnGridExample: TButton;
     procedure FormCreate(Sender: TObject);
     procedure btnResetTablesClick(Sender: TObject);
     procedure btnFillTestDataClick(Sender: TObject);
@@ -25,6 +26,7 @@ type
     procedure btnGetOneByCodeFilterClick(Sender: TObject);
     procedure btnGridListInvoicesClick(Sender: TObject);
     procedure btnGridListStocksClick(Sender: TObject);
+    procedure btnGridExampleClick(Sender: TObject);
   private
   public
     { Public declarations }
@@ -40,7 +42,8 @@ implementation
 uses
   Stocks,
   Persons,
-  Invoices, ufrmInvoices;
+  Invoices, ufrmInvoices,
+  ufrmStockTransactions;
 
 procedure TfrmMain.FormCreate(Sender: TObject);
 begin
@@ -78,7 +81,7 @@ begin
 
     ManagerApp.LogicalInsertOne(LInv, True, True, False);
   finally
-    LInv.DisposeOf;
+    LInv.Free;
   end;
 end;
 
@@ -117,7 +120,7 @@ begin
 
     ManagerApp.LogicalInsertList<TStock>(AStocks, True, True, True);
   finally
-    AStocks.DisposeOf;
+    AStocks.Free;
   end;
 end;
 
@@ -130,15 +133,25 @@ begin
   try
     LFilter := LStock.StockCode.QryName + '=' + QuotedStr('PC2G');
   finally
-    LStock.DisposeOf;
+    LStock.Free;
     LStock := nil;
   end;
-  ManagerApp.GetOne(LStock, LFilter, True);
 
-  LStockClone := ManagerApp.Clone(LStock);
+  try
+    LStockClone := nil;
+    if ManagerApp.GetOne(LStock, LFilter, True) then
+      LStockClone := ManagerApp.Clone(LStock);
+  finally
+    if LStock <> nil then
+      LStock.Free;
+    if LStockClone <> nil then
+      FreeAndNil(LStockClone);
+  end;
+end;
 
-  LStock.DisposeOf;
-  LStockClone.DisposeOf;
+procedure TfrmMain.btnGridExampleClick(Sender: TObject);
+begin
+  TfrmStockTransactions.Create(Self).ShowModal;
 end;
 
 procedure TfrmMain.btnGridListInvoicesClick(Sender: TObject);
@@ -179,7 +192,7 @@ begin
       ManagerApp.LogicalUpdateOne(LInvoice, False, True, False);
     end;
   finally
-    LInvoice.DisposeOf;
+    LInvoice.Free;
   end;
 end;
 

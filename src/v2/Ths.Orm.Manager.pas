@@ -4,19 +4,25 @@ interface
 
 uses
   System.SysUtils, Classes, StrUtils, System.Variants, Data.DB,
-  System.Rtti, System.Generics.Collections,
-  ZAbstractRODataset, ZAbstractDataset, ZDataset,
-  ZAbstractConnection, ZConnection,
+  System.Rtti, System.TypInfo, System.Generics.Collections,
+  FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Stan.Error, FireDAC.UI.Intf,
+  FireDAC.Phys.Intf, FireDAC.Stan.Def, FireDAC.Stan.Pool, FireDAC.Stan.Async,
+  FireDAC.Phys, FireDAC.VCLUI.Wait, FireDAC.Stan.Param, FireDAC.DatS,
+  FireDAC.DApt.Intf, FireDAC.DApt, FireDAC.Comp.DataSet, FireDAC.Comp.Client,
+  FireDAC.Phys.PGDef, FireDAC.Phys.PG,
   Ths.Orm.Table;
 
 type
+  TDatabaseType = (Postgres, MsSQL, MySQL, Firebird, SQLite);
+
   TEntityManager = class;
   TPermissionTypes = (prtRead, prtAdd, prtUpdate, prtDelete, prtSpecial);
 
   TEntityManager = class
   private
     FId: Int64;
-    FConnection: TZConnection;
+    FConnection: TFDConnection;
+    FPhys: TFDPhysDriverLink;
 
     function CallCreateMethod<T>: T;
 
@@ -30,11 +36,19 @@ type
     function GetOneBase<T: Class>(var ATable: T; AFilter: string; ALock: Boolean): Boolean;
     function GetOneCustomBase<T: Class>(var ATable: T; AFields: TArray<TThsField>; AFilter: string; ALock: Boolean): Boolean;
   public
-    property Connection: TZConnection read FConnection;
+    property Connection: TFDConnection read FConnection;
+
+    procedure ConnBeforeConnect(Sender: TObject);
+    procedure ConnBeforeDisconnect(Sender: TObject);
+    procedure ConnAfterConnect(Sender: TObject);
+    procedure ConnAfterDisconnect(Sender: TObject);
+    procedure ConnOnStartTransaction(Sender: TObject);
+    procedure ConnOnCommit(Sender: TObject);
+    procedure ConnOnRollback(Sender: TObject);
 
     function GetNewRecordId: Int64;
 
-    constructor Create(AHostName, ADatabase, AUserName, AUserPass, ALibraryPath: string; APort: Integer); virtual;
+    constructor Create(AHostName, ADatabase, AUserName, AUserPass, ALibraryPath: string; APort: Integer; ADatabaseType: TDatabaseType = TDatabaseType.Postgres); virtual;
     destructor Destroy; override;
 
     function GetList<T: Class>(var AList: TObjectList<T>; AFilter: string; ALock: Boolean; APermissionCheck: Boolean=True): Boolean;
@@ -86,12 +100,12 @@ type
 
     function IsAuthorized(ATableSourceCode: string; APermissionType: TPermissionTypes; APermissionCheck: Boolean; AShowException: Boolean=True): Boolean;
 
-    procedure StartTrans(AConnection: TZAbstractConnection = nil);
-    procedure CommitTrans(AConnection: TZAbstractConnection = nil);
-    procedure RollbackTrans(AConnection: TZAbstractConnection = nil);
+    procedure StartTrans(AConnection: TFDConnection = nil);
+    procedure CommitTrans(AConnection: TFDConnection = nil);
+    procedure RollbackTrans(AConnection: TFDConnection = nil);
 
     function GetToday(): TDateTime;
-    function NewQuery: TZQuery;
+    function NewQuery: TFDQuery;
     function PrepareSelectGridQuery(ATable: TThsTable; AFieldDBs: TArray<TGridColumn>): string;
   end;
 
@@ -101,8 +115,6 @@ uses Logger;
 
 function TEntityManager.CallCreateMethod<T>: T;
 var
-  AModel: TObject;
-
   rC: TRttiContext;
   rT: TRttiType;
   rM: TRttiMethod;
@@ -115,7 +127,8 @@ begin
   rPrms := rM.GetParameters;
   SetLength(rParams, Length(rPrms));
   for n1 := 0 to Length(rPrms) - 1 do
-    case rPrms[n1].ParamType.TypeKind of // do whatever you need to initialize parameters
+  begin
+    case rPrms[n1].ParamType.TypeKind of
       tkClass:
         rParams[n1] := TValue.From<TObject>(nil);
       tkString, tkLString:
@@ -129,42 +142,76 @@ begin
       tkFloat:
         rParams[n1] := TValue.From<Double>(0);
     end;
-
-  if rM.IsConstructor then
-  begin
-    Result := rM.Invoke(rT.AsInstance.MetaclassType, rParams).AsType<T>;
   end;
+
+//  if rM.IsConstructor then
+    Result := rM.Invoke(rT.AsInstance.MetaclassType, rParams).AsType<T>;
 end;
 
-constructor TEntityManager.Create(AHostName, ADatabase, AUserName, AUserPass, ALibraryPath: string; APort: Integer);
+constructor TEntityManager.Create(AHostName, ADatabase, AUserName, AUserPass, ALibraryPath: string; APort: Integer; ADatabaseType: TDatabaseType);
 begin
-  FConnection := TZConnection.Create(nil);
-
-  FConnection.LibraryLocation := ALibraryPath;
-  FConnection.Protocol := 'postgresql-9';
-  FConnection.ClientCodepage := 'UTF8';
-  FConnection.HostName := AHostName;
-  FConnection.Database := ADatabase;
-  FConnection.User := AUserName;
-  FConnection.Password := AUserPass;
-  FConnection.Port := APort;
+  FConnection := TFDConnection.Create(nil);
   FConnection.LoginPrompt := False;
-  FConnection.LibLocation := ALibraryPath;
 
-  with Self.NewQuery do
-  try
-    SQL.Text := 'SELECT pg_backend_pid()';
-    Open;
-    GLogger.DBConnectionPID := Fields.Fields[0].AsString;
-    Close;
-  finally
-    Free;
+  FConnection.BeforeConnect       := ConnBeforeConnect;
+  FConnection.BeforeDisconnect    := ConnBeforeDisconnect;
+  FConnection.AfterConnect        := ConnAfterConnect;
+  FConnection.AfterDisconnect     := ConnAfterDisconnect;
+  FConnection.BeforeStartTransaction := ConnOnStartTransaction;
+  FConnection.AfterCommit         := ConnOnCommit;
+  FConnection.AfterRollback       := ConnOnRollback;
+
+  FPhys := nil;
+  if ADatabaseType = TDatabaseType.Postgres then
+  begin
+    FConnection.DriverName := 'PG';
+    with FConnection.Params as TFDPhysPGConnectionDefParams do
+    begin
+      Server := AHostName;
+      Database := ADatabase;
+      UserName := AUserName;
+      Password := AUserPass;
+      Port := APort;
+      CharacterSet := TFDPGCharacterSet.csUTF8;
+    end;
+
+    FPhys := TFDPhysPgDriverLink.Create(nil);
+    FPhys.VendorLib := ALibraryPath;
+
+    with Self.NewQuery do
+    try
+      SQL.Text := 'SELECT pg_backend_pid()';
+      Open;
+      GLogger.DBConnectionPID := Fields.Fields[0].AsString;
+      Close;
+    finally
+      Free;
+    end
   end
+  else if ADatabaseType = TDatabaseType.MsSQL then
+  begin
+    raise Exception.Create('Not implemented yet');
+  end
+  else if ADatabaseType = TDatabaseType.MySQL then
+  begin
+    raise Exception.Create('Not implemented yet');
+  end
+  else if ADatabaseType = TDatabaseType.Firebird then
+  begin
+    raise Exception.Create('Not implemented yet');
+  end
+  else if ADatabaseType = TDatabaseType.SQLite then
+  begin
+    raise Exception.Create('Not implemented yet');
+  end;
 end;
 
 destructor TEntityManager.Destroy;
 begin
   FreeAndNil(FConnection);
+  if FPhys <> nil then
+    FreeAndNil(FPhys);
+
   inherited;
 end;
 
@@ -179,7 +226,7 @@ var
   ATable: T;
   AFieldDB: TThsField;
   AField: TField;
-  LQry: TZQuery;
+  LQry: TFDQuery;
 begin
   Result := False;
   try
@@ -229,12 +276,11 @@ begin
         end;
       end;
     finally
-      LQry.DisposeOf;
+      LQry.Free;
     end;
   except
     on E: Exception do
     begin
-      Result := False;
       GLogger.ErrorLog(E);
       raise;
     end;
@@ -246,7 +292,7 @@ var
   ATable: T;
   AFieldDB: TThsField;
   AField: TField;
-  LQry: TZQuery;
+  LQry: TFDQuery;
 begin
   Result := False;
   try
@@ -294,12 +340,11 @@ begin
         end;
       end;
     finally
-      LQry.DisposeOf;
+      LQry.Free;
     end;
   except
     on E: Exception do
     begin
-      Result := False;
       GLogger.ErrorLog(E);
       raise;
     end;
@@ -323,7 +368,6 @@ begin
   except
     on E: Exception do
     begin
-      Result := False;
       GLogger.ErrorLog(E);
       raise;
     end;
@@ -334,10 +378,10 @@ function TEntityManager.GetOneCustom<T>(var ATable: T; AFields: TArray<TThsField
 var
   LTable: T;
 begin
+  Result := False;
   try
-    Result := False;
+    LTable := CallCreateMethod<T>;
     try
-      LTable := CallCreateMethod<T>;
       if not Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
         Exit;
       Result := GetOneCustomBase(ATable, AFields, AFilter, ALock);
@@ -348,7 +392,6 @@ begin
   except
     on E: Exception do
     begin
-      Result := False;
       GLogger.ErrorLog(E);
       raise;
     end;
@@ -359,10 +402,10 @@ function TEntityManager.GetOne<T>(var ATable: T; AID: Int64; ALock: Boolean; APe
 var
   LTable: T;
 begin
+  Result := False;
   try
-    Result := False;
+    LTable := CallCreateMethod<T>;
     try
-      LTable := CallCreateMethod<T>;
       if not Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
         Exit;
 
@@ -374,7 +417,6 @@ begin
   except
     on E: Exception do
     begin
-      Result := False;
       GLogger.ErrorLog(E);
       raise;
     end;
@@ -385,10 +427,10 @@ function TEntityManager.GetOneCustom<T>(var ATable: T; AFields: TArray<TThsField
 var
   LTable: T;
 begin
+  Result := False;
   try
-    Result := False;
+    LTable := CallCreateMethod<T>;
     try
-      LTable := CallCreateMethod<T>;
       if not Self.IsAuthorized((LTable as TThsTable).TableSourceCode, TPermissionTypes.prtRead, APermissionCheck) then
         Exit;
 
@@ -400,7 +442,6 @@ begin
   except
     on E: Exception do
     begin
-      Result := False;
       GLogger.ErrorLog(E);
       raise;
     end;
@@ -411,45 +452,55 @@ function TEntityManager.GetOneBase<T>(var ATable: T; AFilter: string; ALock: Boo
 var
   AFieldDB: TThsField;
   AField: TField;
-  LQry: TZQuery;
+  LQry: TFDQuery;
 begin
   Result := False;
   LQry := Self.NewQuery;
   ATable := CallCreateMethod<T>;
   try
-    if ((ATable as TThsTable).TableName = '') then
-      Exit;
+    try
+      if ((ATable as TThsTable).TableName = '') then
+        Exit;
 
-    LQry.SQL.Text := Self.PrepareSelectQuery(ATable) + ' WHERE ' + IfThen(AFilter = '', '1=1', AFilter);
-    LQry.SQL.Text := LQry.SQL.Text + IfThen(ALock, ' FOR UPDATE OF ' + (ATable as TThsTable).TableName + ' NOWAIT;', ';');
+      LQry.SQL.Text := Self.PrepareSelectQuery(ATable) + ' WHERE ' + IfThen(AFilter = '', '1=1', AFilter);
+      //LQry.SQL.Text := LQry.SQL.Text + IfThen(ALock, ' FOR UPDATE OF ' + (ATable as TThsTable).TableName + ' NOWAIT;', ';');
+      //Burası kilit yapılınca nasıl olacak????? Postgres için yukarıdaki kod fakat firedac ile hata veriyor. Diğer database sistemlerine nasıl olacak.
 
-    LQry.Prepare;
-    if LQry.Prepared then
-    begin
-      LQry.Open;
-      GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
-      if LQry.RecordCount > 1 then
-        raise Exception.Create('Found one more than records!!!');
 
-      if LQry.RecordCount = 1 then
-        Result := True;
-      for AFieldDB in (ATable as TThsTable).Fields do
+      LQry.Prepare;
+      if LQry.Prepared then
       begin
-        if fpSelect in AFieldDB.FieldIslemTipleri then
+        LQry.Open;
+        GLogger.RunLog(LQry.SQL.Text.Replace(sLineBreak, ''));
+        if LQry.RecordCount > 1 then
+          raise Exception.Create('Found one more than records!!!');
+
+        if LQry.RecordCount = 1 then
+          Result := True;
+        for AFieldDB in (ATable as TThsTable).Fields do
         begin
-          for AField in LQry.Fields do
+          if fpSelect in AFieldDB.FieldIslemTipleri then
           begin
-            if AFieldDB.FieldName = AField.FieldName then
+            for AField in LQry.Fields do
             begin
-              AFieldDB.Value := AField.Value;
-              Break;
+              if AFieldDB.FieldName = AField.FieldName then
+              begin
+                AFieldDB.Value := AField.Value;
+                Break;
+              end;
             end;
           end;
         end;
       end;
+    finally
+      LQry.Free;
     end;
-  finally
-    LQry.DisposeOf;
+  except
+    on E: Exception do
+    begin
+      if ATable <> nil then
+        FreeAndNil(ATable);
+    end;
   end;
 end;
 
@@ -457,7 +508,7 @@ function TEntityManager.GetOneCustomBase<T>(var ATable: T; AFields: TArray<TThsF
 var
   AFieldDB: TThsField;
   AField: TField;
-  LQry: TZQuery;
+  LQry: TFDQuery;
 begin
   Result := False;
   LQry := Self.NewQuery;
@@ -467,7 +518,8 @@ begin
       Exit;
 
     LQry.SQL.Text := Self.PrepareSelectCustomQuery(ATable, AFields) + ' WHERE ' + IfThen(AFilter = '', '1=1', AFilter);
-    LQry.SQL.Text := LQry.SQL.Text + IfThen(ALock, ' FOR UPDATE OF ' + (ATable as TThsTable).TableName + ' NOWAIT;', ';');
+    //LQry.SQL.Text := LQry.SQL.Text + IfThen(ALock, ' FOR UPDATE OF ' + (ATable as TThsTable).TableName + ' NOWAIT;', ';');
+    //Burası kilit yapılınca nasıl olacak????? Postgres için yukarıdaki kod fakat firedac ile hata veriyor. Diğer database sistemlerine nasıl olacak.
 
     LQry.Prepare;
     if LQry.Prepared then
@@ -495,7 +547,7 @@ begin
       end;
     end;
   finally
-    LQry.DisposeOf;
+    LQry.Free;
   end;
 end;
 
@@ -521,7 +573,6 @@ begin
   except
     on E: Exception do
     begin
-      Result := False;
       GLogger.ErrorLog(E);
       raise;
     end;
@@ -530,7 +581,7 @@ end;
 
 function TEntityManager.DoInsert<T>(ATable: T; APermissionCheck: Boolean): Boolean;
 var
-  LQry: TZQuery;
+  LQry: TFDQuery;
 begin
   Result := False;
   LQry := Self.NewQuery;
@@ -546,7 +597,7 @@ begin
       Result := True;
     end;
   finally
-    LQry.DisposeOf;
+    LQry.Free;
   end;
 end;
 
@@ -578,7 +629,6 @@ begin
   except
     on E: Exception do
     begin
-      Result := False;
       GLogger.ErrorLog(E);
       raise;
     end;
@@ -587,7 +637,7 @@ end;
 
 function TEntityManager.DoUpdate<T>(ATable: T; APermissionCheck: Boolean): Boolean;
 var
-  LQry: TZQuery;
+  LQry: TFDQuery;
 begin
   LQry := Self.NewQuery;
   Result := False;
@@ -602,7 +652,7 @@ begin
       Result := True;
     end;
   finally
-    LQry.DisposeOf;
+    LQry.Free;
   end;
 end;
 
@@ -634,7 +684,6 @@ begin
   except
     on E: Exception do
     begin
-      Result := False;
       GLogger.ErrorLog(E);
       raise;
     end;
@@ -643,7 +692,7 @@ end;
 
 function TEntityManager.DoCustomUpdate<T>(ATable: T; AFields: TArray<TThsField>; APermissionCheck: Boolean): Boolean;
 var
-  LQry: TZQuery;
+  LQry: TFDQuery;
 begin
   Result := False;
   LQry := Self.NewQuery;
@@ -658,7 +707,7 @@ begin
       Result := True;
     end;
   finally
-    LQry.DisposeOf;
+    LQry.Free;
   end;
 end;
 
@@ -690,7 +739,6 @@ begin
   except
     on E: Exception do
     begin
-      Result := False;
       GLogger.ErrorLog(E);
       raise;
     end;
@@ -719,7 +767,7 @@ end;
 function TEntityManager.DeleteBatch<T>(AFilter: string; APermissionCheck: Boolean): Boolean;
 var
   ATable: T;
-  LQry: TZQuery;
+  LQry: TFDQuery;
 begin
   Result := False;
   try
@@ -745,12 +793,11 @@ begin
         Result := True;
       end;
     finally
-      LQry.DisposeOf;
+      LQry.Free;
     end;
   except
     on E: Exception do
     begin
-      Result := False;
       GLogger.ErrorLog(E);
       raise;
     end;
@@ -787,7 +834,6 @@ end;
 
 function TEntityManager.LogicalSelectOne<T>(var ATable: T; AFilter: string; ALock, AWithBegin, APermissionCheck: Boolean): Boolean;
 begin
-  Result := False;
   try
     if not ALock then
       AWithBegin := False;
@@ -810,7 +856,6 @@ function TEntityManager.LogicalSelectList<T>(var ATables: TObjectList<T>; AFilte
 var
   ATable: T;
 begin
-  Result := False;
   try
     if not ALock then
       AWithBegin := False;
@@ -833,7 +878,6 @@ end;
 
 function TEntityManager.LogicalInsertOne<T>(ATable: T; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
 begin
-  Result := False;
   try
     if AWithBegin then
       StartTrans;
@@ -882,7 +926,6 @@ end;
 
 function TEntityManager.LogicalUpdateOne<T>(ATable: T; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
 begin
-  Result := False;
   try
     if AWithBegin then
       StartTrans;
@@ -906,7 +949,6 @@ function TEntityManager.LogicalUpdateList<T>(ATables: TObjectList<T>; AWithBegin
 var
   ATable: T;
 begin
-  Result := False;
   try
     if AWithBegin then
       StartTrans;
@@ -929,7 +971,6 @@ end;
 
 function TEntityManager.LogicalDeleteOne<T>(ATable: T; AWithBegin, AWithCommit, APermissionCheck: Boolean): Boolean;
 begin
-  Result := False;
   try
     if AWithBegin then
       StartTrans;
@@ -953,7 +994,6 @@ function TEntityManager.LogicalDeleteList<T>(ATables: TObjectList<T>; AWithBegin
 var
   ATable: T;
 begin
-  Result := False;
   try
     if AWithBegin then
       StartTrans;
@@ -1043,9 +1083,9 @@ begin
   end;
 end;
 
-function TEntityManager.NewQuery: TZQuery;
+function TEntityManager.NewQuery: TFDQuery;
 begin
-  Result := TZQuery.Create(nil);
+  Result := TFDQuery.Create(nil);
   Result.Connection := FConnection;
 end;
 
@@ -1341,12 +1381,12 @@ end;
 
 procedure TEntityManager.SetPostgresServerVariable(AVarName, AValue: string);
 begin
-  Connection.ExecuteDirect('SET ' + AVarName + '=' + QuotedStr(AValue));
+  Connection.ExecSQL('SET ' + AVarName + '=' + QuotedStr(AValue));
 end;
 
-procedure TEntityManager.StartTrans(AConnection: TZAbstractConnection);
+procedure TEntityManager.StartTrans(AConnection: TFDConnection);
 var
-  LConnection: TZAbstractConnection;
+  LConnection: TFDConnection;
 begin
   LConnection := Connection;
   if Assigned(AConnection) then
@@ -1358,9 +1398,9 @@ begin
   end;
 end;
 
-procedure TEntityManager.CommitTrans(AConnection: TZAbstractConnection);
+procedure TEntityManager.CommitTrans(AConnection: TFDConnection);
 var
-  LConnection: TZAbstractConnection;
+  LConnection: TFDConnection;
 begin
   LConnection := Connection;
   if Assigned(AConnection) then
@@ -1372,9 +1412,44 @@ begin
   end;
 end;
 
-procedure TEntityManager.RollbackTrans(AConnection: TZAbstractConnection);
+procedure TEntityManager.ConnAfterConnect(Sender: TObject);
+begin
+//
+end;
+
+procedure TEntityManager.ConnAfterDisconnect(Sender: TObject);
+begin
+//
+end;
+
+procedure TEntityManager.ConnBeforeConnect(Sender: TObject);
+begin
+//
+end;
+
+procedure TEntityManager.ConnBeforeDisconnect(Sender: TObject);
+begin
+//
+end;
+
+procedure TEntityManager.ConnOnCommit(Sender: TObject);
+begin
+//
+end;
+
+procedure TEntityManager.ConnOnRollback(Sender: TObject);
+begin
+//
+end;
+
+procedure TEntityManager.ConnOnStartTransaction(Sender: TObject);
+begin
+//
+end;
+
+procedure TEntityManager.RollbackTrans(AConnection: TFDConnection);
 var
-  LConnection: TZAbstractConnection;
+  LConnection: TFDConnection;
 begin
   LConnection := Connection;
   if Assigned(AConnection) then
@@ -1388,12 +1463,13 @@ end;
 
 function TEntityManager.GetToday: TDateTime;
 var
-  LQry: TZQuery;
+  LQry: TFDQuery;
 begin
   Result := 0;
   LQry := Self.NewQuery;
   try
     LQry.Close;
+    
     LQry.SQL.Text := 'SELECT CURRENT_DATE;';
     LQry.Open;
     while NOT LQry.EOF do
@@ -1402,7 +1478,7 @@ begin
       LQry.Next;
     end;
   finally
-    LQry.DisposeOf;
+    LQry.Free;
   end;
 end;
 

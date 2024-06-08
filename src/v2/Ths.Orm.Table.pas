@@ -308,7 +308,7 @@ var
   AField: TThsField;
 begin
   for AField in Fields do
-    AField.DisposeOf;
+    AField.Free;
   SetLength(FFields, 0);
   inherited;
 end;

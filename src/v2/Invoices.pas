@@ -265,7 +265,7 @@ begin
 
     ManagerApp.Insert(LStockTransaction, APermissionCheck);
   finally
-    LStockTransaction.DisposeOf;
+    LStockTransaction.Free;
   end;
 end;
 
@@ -278,7 +278,7 @@ begin
     ManagerApp.GetOne(LStockTransaction, LStockTransaction2.InvoiceId.QryName + '=' + Self.FHeaderId.AsString + ' and ' +
                                           LStockTransaction2.InvoiceLineId.QryName + '=' + Self.Id.AsString,
                                           True, False);
-    LStockTransaction2.DisposeOf;
+    LStockTransaction2.Free;
     LStockTransaction.StockCode.Value := Self.StockCode.Value;
     LStockTransaction.TransactionDate.Value := Self.Header.InvoiceDate.Value;
     LStockTransaction.Direction.Value := Ord(sttDirectionOut);
@@ -291,7 +291,7 @@ begin
 
     ManagerApp.Update(LStockTransaction, APermissionCheck);
   finally
-    LStockTransaction.DisposeOf;
+    LStockTransaction.Free;
   end;
 end;
 
