@@ -1,4 +1,4 @@
-unit ufrmGrid;
+﻿unit ufrmGrid;
 
 interface
 
@@ -15,20 +15,43 @@ type
     FDataSource: TDataSource;
     status: TStatusBar;
   private
-    FQry: TFDQuery;
     FTable: T;
-    FMniRemoveGridSort: TMenuItem;
+    FQry: TFDQuery;
     FGrd: TDBGrid;
+
+    FGridPopMenu: TPopupMenu;
+    FmniPreview: TMenuItem;
+    FmniExportExcel: TMenuItem;
+    FmniPrint: TMenuItem;
+    FmniRemoveGridSort: TMenuItem;
+
     procedure SetQry(const Value: TFDQuery);
     procedure SetTable(const Value: T);
-    procedure SetMniRemoveGridSort(const Value: TMenuItem);
     procedure SetGrd(const Value: TDBGrid);
+
+    procedure SetPopupMenu(const Value: TPopupMenu);
+    procedure SetmniExportExcel(const Value: TMenuItem);
+    procedure SetmniPreview(const Value: TMenuItem);
+    procedure SetmniPrint(const Value: TMenuItem);
+    procedure SetmniRemoveGridSort(const Value: TMenuItem);
   public
     property Qry: TFDQuery read FQry write SetQry;
     property Table: T read FTable write SetTable;
     property Grd: TDBGrid read FGrd write SetGrd;
 
-    property MniRemoveGridSort: TMenuItem read FMniRemoveGridSort write SetMniRemoveGridSort;
+    property GridPopMenu: TPopupMenu read FGridPopMenu write SetPopupMenu;
+    property mniExportExcel: TMenuItem read FmniExportExcel write SetmniExportExcel;
+    property mniPreview: TMenuItem read FmniPreview write SetmniPreview;
+    property mniPrint: TMenuItem read FmniPrint write SetmniPrint;
+    property mniRemoveGridSort: TMenuItem read FmniRemoveGridSort write SetmniRemoveGridSort;
+
+    function AddMenu(ATitle, AMenuName: string; AClickEvent: TNotifyEvent; AShortCut: TShortCut = 0; AParentMenu: TMenuItem = nil): TMenuItem;
+    procedure AddPopupMenuSpliter(AParentMenu: TMenuItem = nil);
+    procedure MenuExportExcelClick(Sender: TObject);
+    procedure MenuPreviewClick(Sender: TObject);
+    procedure MenuPrintClick(Sender: TObject);
+    procedure MenuRemoveSortClick(Sender: TObject);
+    procedure MenuMsgClick(Sender: TObject);
 
     constructor Create(AOwner: TComponent; ATable: T; ASQL: string; Dummy: Integer  = 0); reintroduce; overload;
     destructor Destroy; override;
@@ -53,6 +76,46 @@ implementation
 
 uses Ths.Orm.ManagerStack;
 
+function TfrmGrid<T>.AddMenu(ATitle, AMenuName: string; AClickEvent: TNotifyEvent; AShortCut: TShortCut; AParentMenu: TMenuItem): TMenuItem;
+begin
+  if AParentMenu <> nil then
+  begin
+    Result := TMenuItem.Create(AParentMenu);
+    Result.Caption := ATitle;
+    Result.Name := AMenuName;
+    Result.ShortCut := AShortCut;
+    Result.OnClick := AClickEvent;
+    AParentMenu.Add(Result);
+  end
+  else
+  begin
+    Result := TMenuItem.Create(Self.GridPopMenu);
+    Result.Caption := ATitle;
+    Result.Name := AMenuName;
+    Result.ShortCut := AShortCut;
+    Result.OnClick := AClickEvent;
+    Self.GridPopMenu.Items.Add(Result);
+  end;
+end;
+
+procedure TfrmGrid<T>.AddPopupMenuSpliter(AParentMenu: TMenuItem);
+var
+  LMenu: TMenuItem;
+begin
+  if Assigned(AParentMenu) then
+  begin
+    LMenu := TMenuItem.Create(AParentMenu);
+    LMenu.Caption := '-';
+    AParentMenu.Add(LMenu);
+  end
+  else
+  begin
+    LMenu := TMenuItem.Create(GridPopMenu);
+    LMenu.Caption := '-';
+    GridPopMenu.Items.Add(LMenu);
+  end;
+end;
+
 constructor TfrmGrid<T>.Create(AOwner: TComponent; ATable: T; ASQL: string; Dummy: Integer);
 begin
   inherited CreateNew(AOwner, Dummy);
@@ -76,6 +139,15 @@ begin
   status := TStatusBar.Create(Self);
   status.Parent := Self;
 
+  GridPopMenu := TPopupMenu.Create(Self);
+  mniPreview := AddMenu('Preview', 'mniPreview', MenuPreviewClick);
+  AddPopupMenuSpliter();
+  mniExportExcel := AddMenu('Export Excel', 'mniExportExcel', MenuExportExcelClick);
+  mniPrint := AddMenu('Print', 'mniPrint', MenuPrintClick);
+  mniRemoveGridSort := AddMenu('Remove Sort', 'mniRemoveGridSort', MenuRemoveSortClick);
+  AddMenu('Message', 'mniMsg', MenuMsgClick);
+
+
   grd := TDBGrid.Create(Self);
   grd.Align := alClient;
   grd.DataSource := FDataSource;
@@ -89,8 +161,7 @@ begin
   grd.OnKeyUp := grdKeyUp;
   grd.OnTitleClick := grdTitleClick;
   grd.OnDrawColumnCell := grdDrawColumnCell;
-
-  MniRemoveGridSort := TMenuItem.Create(nil);
+  grd.PopupMenu := Self.GridPopMenu;
 end;
 
 destructor TfrmGrid<T>.Destroy;
@@ -98,8 +169,6 @@ begin
   FQry.Close;
   FQry.Free;
   FDataSource.Free;
-
-  MniRemoveGridSort.Free;
 
   PObject(@FTable).Free;
 
@@ -163,16 +232,6 @@ begin
   SortGridTitle(Column);
 end;
 
-procedure TfrmGrid<T>.SetGrd(const Value: TDBGrid);
-begin
-  FGrd := Value;
-end;
-
-procedure TfrmGrid<T>.SetMniRemoveGridSort(const Value: TMenuItem);
-begin
-  FMniRemoveGridSort := Value;
-end;
-
 procedure TfrmGrid<T>.SetQry(const Value: TFDQuery);
 begin
   FQry := Value;
@@ -181,6 +240,61 @@ end;
 procedure TfrmGrid<T>.SetTable(const Value: T);
 begin
   FTable := Value;
+end;
+
+procedure TfrmGrid<T>.SetGrd(const Value: TDBGrid);
+begin
+  FGrd := Value;
+end;
+
+procedure TfrmGrid<T>.SetPopupMenu(const Value: TPopupMenu);
+begin
+  FGridPopMenu := Value;
+end;
+
+procedure TfrmGrid<T>.SetmniExportExcel(const Value: TMenuItem);
+begin
+  FmniExportExcel := Value;
+end;
+
+procedure TfrmGrid<T>.SetmniPreview(const Value: TMenuItem);
+begin
+  FmniPreview := Value;
+end;
+
+procedure TfrmGrid<T>.SetmniPrint(const Value: TMenuItem);
+begin
+  FmniPrint := Value;
+end;
+
+procedure TfrmGrid<T>.SetmniRemoveGridSort(const Value: TMenuItem);
+begin
+  FmniRemoveGridSort := Value;
+end;
+
+procedure TfrmGrid<T>.MenuExportExcelClick(Sender: TObject);
+begin
+  ShowMessage('not implemented yet');
+end;
+
+procedure TfrmGrid<T>.MenuPreviewClick(Sender: TObject);
+begin
+  ShowMessage('not implemented yet');
+end;
+
+procedure TfrmGrid<T>.MenuPrintClick(Sender: TObject);
+begin
+  ShowMessage('not implemented yet');
+end;
+
+procedure TfrmGrid<T>.MenuRemoveSortClick(Sender: TObject);
+begin
+  ShowMessage('not implemented yet');
+end;
+
+procedure TfrmGrid<T>.MenuMsgClick(Sender: TObject);
+begin
+  ShowMessage('Hello from MenuItem ' + Sender.ClassName);
 end;
 
 procedure TfrmGrid<T>.SortGridTitle(Sender: TObject);
@@ -272,7 +386,7 @@ begin
       end;
 
       if LOrderList <> '' then
-        MniRemoveGridSort.Visible := True;
+        mniRemoveGridSort.Visible := True;
 
       AQuery.IndexFieldNames := LOrderList;
     end;
