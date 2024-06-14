@@ -2,7 +2,7 @@ object frmMain: TfrmMain
   Left = 0
   Top = 0
   Caption = 'ORM Test'
-  ClientHeight = 184
+  ClientHeight = 204
   ClientWidth = 609
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -10,8 +10,10 @@ object frmMain: TfrmMain
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
+  OldCreateOrder = True
   Position = poDesktopCenter
   OnCreate = FormCreate
+  PixelsPerInch = 96
   TextHeight = 13
   object btnResetTables: TButton
     Left = 32
@@ -28,7 +30,7 @@ object frmMain: TfrmMain
     Width = 147
     Height = 25
     Caption = 'Add Business'
-    TabOrder = 4
+    TabOrder = 5
     OnClick = btnAddBusinessClick
   end
   object btnFillTestData: TButton
@@ -37,7 +39,7 @@ object frmMain: TfrmMain
     Width = 147
     Height = 25
     Caption = 'Fill Test Data'
-    TabOrder = 2
+    TabOrder = 3
     OnClick = btnFillTestDataClick
   end
   object btnUpdateBusiness: TButton
@@ -46,7 +48,7 @@ object frmMain: TfrmMain
     Width = 147
     Height = 25
     Caption = 'Update Business'
-    TabOrder = 6
+    TabOrder = 7
     OnClick = btnUpdateBusinessClick
   end
   object btnGetOneByCodeFilter: TButton
@@ -64,7 +66,7 @@ object frmMain: TfrmMain
     Width = 169
     Height = 25
     Caption = 'DBGrid List Invoices'
-    TabOrder = 3
+    TabOrder = 2
     OnClick = btnGridListInvoicesClick
   end
   object btnGridListStocks: TButton
@@ -73,7 +75,7 @@ object frmMain: TfrmMain
     Width = 169
     Height = 25
     Caption = 'DBGrid List Stocks'
-    TabOrder = 5
+    TabOrder = 4
     OnClick = btnGridListStocksClick
   end
   object btnGridExample: TButton
@@ -82,7 +84,7 @@ object frmMain: TfrmMain
     Width = 169
     Height = 25
     Caption = 'DBGrid Example'
-    TabOrder = 7
+    TabOrder = 6
     OnClick = btnGridExampleClick
   end
 end

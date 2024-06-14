@@ -4,9 +4,10 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
-  System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.StdCtrls, Data.DB, System.Generics.Collections, ufrmGrid,
-  Ths.Orm.ManagerStack, Ths.Orm.Table, Ths.Orm.Manager;
+  System.Classes, System.IOUtils, Vcl.Graphics, Vcl.Controls, Vcl.Forms,
+  Vcl.Dialogs, Vcl.StdCtrls, Data.DB, System.Generics.Collections,
+  Ths.Orm.ManagerStack, Ths.Orm.Table, Ths.Orm.Manager,
+  ufrmGrid, Vcl.Menus;
 
 type
   TfrmMain = class(TForm)
@@ -52,7 +53,7 @@ begin
     'testdb',
     'postgres',
     'qwe',
-    ExtractFilePath(Application.ExeName) + 'lib' + PathDelim + 'libpq.dll',
+    TPath.Combine(TPath.Combine(ExtractFilePath(ParamStr(0)), 'lib'), 'libpq.dll'),
     5432
   );
 end;

@@ -1186,7 +1186,7 @@ begin
   LFields := '';
   for AFieldDB in AFieldDBs do
     if fpSelect in AFieldDB.Field.FieldIslemTipleri then
-      LFields := LFields + AFieldDB.Field.FieldName + ' "' + AFieldDB.Title + '",';
+      LFields := LFields + AFieldDB.Field.FieldName + {' "' + AFieldDB.Title + '",'} ',';
   Result := 'SELECT ' + LeftStr(Trim(LFields), Length(LFields)-1) + ' FROM ' + IfThen(ATable.SchemaName = '', '', ATable.SchemaName + '.') + ATable.TableName;
 end;
 

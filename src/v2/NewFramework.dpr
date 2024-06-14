@@ -14,7 +14,9 @@ uses
   Ths.Orm.ManagerStack in 'Ths.Orm.ManagerStack.pas',
   ufrmGrid in 'UI\DBGrid\Base\ufrmGrid.pas',
   ufrmInvoices in 'UI\DBGrid\ufrmInvoices.pas',
-  ufrmStockTransactions in 'ufrmStockTransactions.pas' {frmStockTransactions};
+  ufrmStockTransactions in 'ufrmStockTransactions.pas' {frmStockTransactions},
+  Vcl.Themes,
+  Vcl.Styles;
 
 {$R *.res}
 
@@ -22,7 +24,7 @@ begin
   ReportMemoryLeaksOnShutdown := True;
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
+  TStyleManager.TrySetStyle('Aqua Light Slate');
   Application.CreateForm(TfrmMain, frmMain);
-  Application.CreateForm(TfrmStockTransactions, frmStockTransactions);
   Application.Run;
 end.

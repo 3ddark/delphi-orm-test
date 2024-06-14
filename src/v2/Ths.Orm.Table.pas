@@ -3,11 +3,10 @@
 interface
 
 uses
-  SysUtils,
-  Classes,
-  Dialogs,
-  StrUtils,
-  DateUtils,
+  System.SysUtils,
+  System.Classes,
+  System.StrUtils,
+  System.DateUtils,
   System.Variants,
   Data.DB;
 
