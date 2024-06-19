@@ -10,9 +10,7 @@ object frmStockTransactions: TfrmStockTransactions
   Font.Height = -12
   Font.Name = 'Segoe UI'
   Font.Style = []
-  OldCreateOrder = True
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 15
   object pnlHeader: TPanel
     Left = 0
@@ -20,8 +18,9 @@ object frmStockTransactions: TfrmStockTransactions
     Width = 624
     Height = 73
     Align = alTop
-    Caption = 'Header'
+    BevelOuter = bvNone
     TabOrder = 0
+    ExplicitWidth = 622
     object ComboBox1: TComboBox
       Left = 88
       Top = 26
@@ -37,8 +36,10 @@ object frmStockTransactions: TfrmStockTransactions
     Width = 624
     Height = 73
     Align = alBottom
-    Caption = 'Footer'
+    BevelOuter = bvNone
     TabOrder = 1
+    ExplicitTop = 360
+    ExplicitWidth = 622
     object Edit1: TEdit
       Left = 152
       Top = 32

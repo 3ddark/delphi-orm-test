@@ -67,7 +67,7 @@ type
     property mniPrint: TMenuItem read FmniPrint write SetmniPrint;
     property mniRemoveGridSort: TMenuItem read FmniRemoveGridSort write SetmniRemoveGridSort;
 
-    constructor Create(AOwner: TComponent; ATable: T; ASQL: string; Dummy: Integer = 0); reintroduce; overload;
+    constructor Create(AOwner: TComponent; ATable: T; ASQL: string; ACreateNewBase: Boolean = False); reintroduce; overload;
     destructor Destroy; override;
   published
     //***form***
@@ -160,9 +160,10 @@ begin
   RefreshStatucRecorCount();
 end;
 
-constructor TfrmGrid<T>.Create(AOwner: TComponent; ATable: T; ASQL: string; Dummy: Integer);
+constructor TfrmGrid<T>.Create(AOwner: TComponent; ATable: T; ASQL: string; ACreateNewBase: Boolean);
 begin
-  inherited CreateNew(AOwner, Dummy);
+  if ACreateNewBase then
+    CreateNew(Owner);
   FTable := ATable;
   FQry := ManagerApp.NewQuery;
   FQry.AfterOpen := AfterDatasetOpen;
@@ -228,9 +229,6 @@ begin
 end;
 
 procedure TfrmGrid<T>.FormKeyPress(Sender: TObject; var Key: Char);
-var
-  LKeyboardState: TKeyboardState;
-  LShiftState: TShiftState;
 begin
   if Key = Chr(VK_ESCAPE) then
   begin
@@ -427,7 +425,7 @@ begin
   Self.Constraints.MaxWidth := Monitor.Width;
   Self.Constraints.MinHeight := 480;
   Self.Constraints.MaxHeight := Monitor.Height;
-  Self.Color := clRed;
+
   //form event
   Self.OnCreate := FormCreate;
   Self.OnShow := FormShow;
@@ -451,7 +449,7 @@ begin
   Header.BevelOuter := bvNone;
   Header.Height := 70;
   Header.ParentColor := True;
-  Header.Visible := True;
+  Header.Visible := False;
 
   Footer := TPanel.Create(Container);
   Footer.Parent := Container;
@@ -459,7 +457,7 @@ begin
   Footer.BevelOuter := bvNone;
   Footer.Height := 70;
   Footer.ParentColor := True;
-  Footer.Visible := True;
+  Footer.Visible := False;
 
   status := TStatusBar.Create(Self);
   status.Align := alBottom;

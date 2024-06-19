@@ -18,7 +18,6 @@ type
     { Private declarations }
   public
     constructor Create(AOwner: TComponent); reintroduce; overload;
-    constructor Create(AOwner: TComponent; ATable: TStockTransaction; ASQL: string; Dummy: Integer = 0); reintroduce; overload;
   end;
 
 var
@@ -28,15 +27,13 @@ implementation
 
 {$R *.dfm}
 
-constructor TfrmStockTransactions.Create(AOwner: TComponent; ATable: TStockTransaction;
-  ASQL: string; Dummy: Integer);
-begin
-  inherited Create(AOwner, ATable, ASQL, Dummy);
-end;
-
 constructor TfrmStockTransactions.Create(AOwner: TComponent);
 begin
-  Create(AOwner, TStockTransaction.Create, TStockTransaction.GetSelectSQL);
+  inherited;
+  inherited Create(AOwner, TStockTransaction.Create, TStockTransaction.GetSelectSQL);
+
+  pnlHeader.Parent := Header;
+  pnlFooter.Parent := Footer;
 end;
 
 procedure TfrmStockTransactions.FormShow(Sender: TObject);

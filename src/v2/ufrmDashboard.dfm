@@ -1,7 +1,7 @@
-object frmMain: TfrmMain
+object frmDashboard: TfrmDashboard
   Left = 0
   Top = 0
-  Caption = 'ORM Test'
+  Caption = 'ORM Test Dashboard'
   ClientHeight = 204
   ClientWidth = 609
   Color = clBtnFace
@@ -10,10 +10,8 @@ object frmMain: TfrmMain
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = True
   Position = poDesktopCenter
   OnCreate = FormCreate
-  PixelsPerInch = 96
   TextHeight = 13
   object btnResetTables: TButton
     Left = 32

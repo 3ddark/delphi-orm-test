@@ -1,4 +1,4 @@
-﻿unit ufrmMain;
+﻿unit ufrmDashboard;
 
 interface
 
@@ -10,7 +10,7 @@ uses
   ufrmGrid, Vcl.Menus;
 
 type
-  TfrmMain = class(TForm)
+  TfrmDashboard = class(TForm)
     btnResetTables: TButton;
     btnAddBusiness: TButton;
     btnFillTestData: TButton;
@@ -34,7 +34,7 @@ type
   end;
 
 var
-  frmMain: TfrmMain;
+  frmDashboard: TfrmDashboard;
 
 implementation
 
@@ -46,7 +46,7 @@ uses
   Invoices, ufrmInvoices,
   ufrmStockTransactions;
 
-procedure TfrmMain.FormCreate(Sender: TObject);
+procedure TfrmDashboard.FormCreate(Sender: TObject);
 begin
   TManagerStack.prepareManager(
     'localhost',
@@ -58,7 +58,7 @@ begin
   );
 end;
 
-procedure TfrmMain.btnAddBusinessClick(Sender: TObject);
+procedure TfrmDashboard.btnAddBusinessClick(Sender: TObject);
 var
   LInv: TInvoice;
   LInvL: TInvoiceLine;
@@ -86,7 +86,7 @@ begin
   end;
 end;
 
-procedure TfrmMain.btnFillTestDataClick(Sender: TObject);
+procedure TfrmDashboard.btnFillTestDataClick(Sender: TObject);
 var
   AStock: TStock;
   AStocks: TObjectList<TStock>;
@@ -125,7 +125,7 @@ begin
   end;
 end;
 
-procedure TfrmMain.btnGetOneByCodeFilterClick(Sender: TObject);
+procedure TfrmDashboard.btnGetOneByCodeFilterClick(Sender: TObject);
 var
   LStock, LStockClone: TStock;
   LFilter: string;
@@ -150,22 +150,22 @@ begin
   end;
 end;
 
-procedure TfrmMain.btnGridExampleClick(Sender: TObject);
+procedure TfrmDashboard.btnGridExampleClick(Sender: TObject);
 begin
   TfrmStockTransactions.Create(Self).ShowModal;
 end;
 
-procedure TfrmMain.btnGridListInvoicesClick(Sender: TObject);
+procedure TfrmDashboard.btnGridListInvoicesClick(Sender: TObject);
 begin
-  TfrmInvoices<TInvoice>.Create(Self, TInvoice.Create, TInvoice.GetSelectSQL).ShowModal;
+  TfrmInvoices<TInvoice>.Create(Self, TInvoice.Create, TInvoice.GetSelectSQL, True).ShowModal;
 end;
 
-procedure TfrmMain.btnGridListStocksClick(Sender: TObject);
+procedure TfrmDashboard.btnGridListStocksClick(Sender: TObject);
 begin
-  TfrmGrid<TStock>.Create(Self, TStock.Create, TStock.GetSelectSQL).ShowModal;
+  TfrmGrid<TStock>.Create(Self, TStock.Create, TStock.GetSelectSQL, True).ShowModal;
 end;
 
-procedure TfrmMain.btnResetTablesClick(Sender: TObject);
+procedure TfrmDashboard.btnResetTablesClick(Sender: TObject);
 begin
   ManagerApp.StartTrans;
   ManagerApp.DeleteBatch<TInvoice>('', False);
@@ -173,7 +173,7 @@ begin
   ManagerApp.CommitTrans;
 end;
 
-procedure TfrmMain.btnUpdateBusinessClick(Sender: TObject);
+procedure TfrmDashboard.btnUpdateBusinessClick(Sender: TObject);
 var
   LInvoice: TInvoice;
   LInvoiceLine: TInvoiceLine;

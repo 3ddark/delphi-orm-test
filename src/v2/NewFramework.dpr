@@ -2,7 +2,7 @@ program NewFramework;
 
 uses
   Vcl.Forms,
-  ufrmMain in 'ufrmMain.pas' {frmMain},
+  ufrmDashboard in 'ufrmDashboard.pas' {frmDashboard},
   Ths.Orm.Table in 'Ths.Orm.Table.pas',
   Ths.Orm.Manager in 'Ths.Orm.Manager.pas',
   Logger in 'Logger.pas',
@@ -24,7 +24,6 @@ begin
   ReportMemoryLeaksOnShutdown := True;
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
-  TStyleManager.TrySetStyle('Aqua Light Slate');
-  Application.CreateForm(TfrmMain, frmMain);
+  Application.CreateForm(TfrmDashboard, frmDashboard);
   Application.Run;
 end.
