@@ -3,8 +3,7 @@ unit EntityAttributes;
 interface
 
 uses
-  SysUtils, StrUtils, Generics.Collections, System.TypInfo, Rtti,
-  ZAbstractConnection, Data.DB;
+  SysUtils, StrUtils, Generics.Collections, System.TypInfo, Rtti;
 
 type
   Table = class(TCustomAttribute)

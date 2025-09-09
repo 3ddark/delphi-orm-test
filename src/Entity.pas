@@ -4,7 +4,7 @@ interface
 
 uses
   SysUtils, StrUtils, Classes, Generics.Collections, System.TypInfo, Rtti,
-  ZAbstractConnection, Data.DB, EntityAttributes, EntityManager;
+  FireDAC.Comp.Client, Data.DB, EntityAttributes, EntityManager;
 
 type
   TEntity = class(TObject)

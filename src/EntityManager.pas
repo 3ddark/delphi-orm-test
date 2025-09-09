@@ -1,17 +1,17 @@
-unit EntityManager;
+ï»¿unit EntityManager;
 
 interface
 
 uses
   SysUtils, StrUtils, Generics.Collections, System.TypInfo, Rtti,
-  ZAbstractConnection, ZAbstractDataset, ZDataset,
+  FireDAC.Comp.Client,
   Data.DB, EntityAttributes;
 
 type
   TEntityManager = class
   private
-    FConnection: TZAbstractConnection;
-    
+    FConnection: TFDConnection;
+
     function MethodCall(AObject: TObject; AMethodName: string; AParameters: array of TValue): TValue; overload;
     function MethodCall(AClass: TClass; AMethodName: string; AParameters: array of TValue): TValue; overload;
 
@@ -21,7 +21,7 @@ type
     procedure SetModelValueFromQuery(AModel: TObject; ARttiType: TRttiType; ASQL: string); overload;
     procedure SetListModelValueFromQuery(AList: TObject; ARttiType: TRttiType; ASQL: string); overload;
   protected
-    function Connection: TZAbstractConnection;
+    function Connection: TFDConnection;
     function GetTableName(AClass: TClass): string;
 
 
@@ -49,16 +49,16 @@ type
 
     function Clone<T>(ASource: T): T;
 
-    procedure StartTrans(AConnection: TZAbstractConnection = nil);
-    procedure CommitTrans(AConnection: TZAbstractConnection = nil);
-    procedure RollbackTrans(AConnection: TZAbstractConnection = nil);
+    procedure StartTrans(AConnection: TFDConnection = nil);
+    procedure CommitTrans(AConnection: TFDConnection = nil);
+    procedure RollbackTrans(AConnection: TFDConnection = nil);
 
     function LogicalGet<T: class>(AFilter: string = ''; ALock: Boolean = False; AWithBegin: Boolean = False): TObjectList<T>;
     procedure LogicalAdd<T: class>(AModels: TArray<T>; AWithBegin: Boolean = False; AWithCommit: Boolean = False);
     procedure LogicalUpdate<T: class>(AModels: TArray<T>; AWithCommit: Boolean = False);
     procedure LogicalDelete<T: class>(AIDs: TArray<Int64>; AWithCommit: Boolean = False);
 
-    constructor Create(AConnection: TZAbstractConnection);
+    constructor Create(AConnection: TFDConnection);
   end;
 
 implementation
@@ -66,7 +66,7 @@ implementation
 uses
   System.Classes;
 
-constructor TEntityManager.Create(AConnection: TZAbstractConnection);
+constructor TEntityManager.Create(AConnection: TFDConnection);
 begin
   if AConnection = nil then
     raise Exception.Create('Connection Required');
@@ -74,7 +74,7 @@ begin
   FConnection := AConnection;
 end;
 
-function TEntityManager.Connection: TZAbstractConnection;
+function TEntityManager.Connection: TFDConnection;
 begin
   Result := FConnection;
 end;
@@ -157,7 +157,7 @@ begin
   end;
 
   if LColNames = '' then
-    raise Exception.Create('field_name not found for SQL sorugusu için field_name bilgilerine ulaþýlamadý!!!');
+    raise Exception.Create('field_name not found for SQL sorugusu iï¿½in field_name bilgilerine ulaï¿½ï¿½lamadï¿½!!!');
 
   LColNames := LColID + ',' + LColNames;
 
@@ -204,12 +204,12 @@ end;
 
 procedure TEntityManager.SetModelValueFromQuery(AModel: TObject; ARttiType: TRttiType; ASQL: string);
 var
-  LCmd: TZQuery;
+  LCmd: TFDQuery;
   AField: TField;
   rP: TRttiProperty;
   rA: TCustomAttribute;
 begin
-  LCmd := TZQuery.Create(nil);
+  LCmd := TFDQuery.Create(nil);
   try
     LCmd.Connection := Connection;
     LCmd.SQL.Text := ASQL;
@@ -305,13 +305,13 @@ end;
 
 procedure TEntityManager.SetListModelValueFromQuery(AList: TObject; ARttiType: TRttiType; ASQL: string);
 var
-  LCmd: TZQuery;
+  LCmd: TFDQuery;
   AField: TField;
   rP: TRttiProperty;
   rA: TCustomAttribute;
   AModel: TObject;
 begin
-  LCmd := TZQuery.Create(nil);
+  LCmd := TFDQuery.Create(nil);
   try
     LCmd.Connection := Connection;
     LCmd.SQL.Text := ASQL;
@@ -373,7 +373,7 @@ begin
                       ftIDispatch: ;
                       ftGuid: ;
                       ftTimeStamp: ;
-                      ftFMTBcd: ;
+                      ftFMTBcd        : rP.SetValue(AModel, TValue.From(AField.AsFloat));
                       ftFixedWideChar: ;
                       ftWideMemo      : rP.SetValue(AModel, TValue.From(AField.AsString));
                       ftOraTimeStamp: ;
@@ -408,9 +408,9 @@ begin
   end;
 end;
 
-procedure TEntityManager.CommitTrans(AConnection: TZAbstractConnection);
+procedure TEntityManager.CommitTrans(AConnection: TFDConnection);
 var
-  LConnection: TZAbstractConnection;
+  LConnection: TFDConnection;
 begin
   LConnection := Connection;
   if Assigned(AConnection) then
@@ -419,9 +419,9 @@ begin
     LConnection.Commit;
 end;
 
-procedure TEntityManager.RollbackTrans(AConnection: TZAbstractConnection);
+procedure TEntityManager.RollbackTrans(AConnection: TFDConnection);
 var
-  LConnection: TZAbstractConnection;
+  LConnection: TFDConnection;
 begin
   LConnection := Connection;
   if Assigned(AConnection) then
@@ -430,9 +430,9 @@ begin
     LConnection.Rollback;
 end;
 
-procedure TEntityManager.StartTrans(AConnection: TZAbstractConnection);
+procedure TEntityManager.StartTrans(AConnection: TFDConnection);
 var
-  LConnection: TZAbstractConnection;
+  LConnection: TFDConnection;
 begin
   LConnection := Connection;
   if Assigned(AConnection) then
@@ -476,7 +476,7 @@ begin
     SetModelValueFromQuery(Result, rT, LQry);
 
     //not support Sub Entity
-(*
+
     rT := rC.GetType(Result.ClassType);
     rPs := GetRelations(rT);
     for rP in rPs do
@@ -540,7 +540,7 @@ begin
         end;
       end;
     end;
-*)
+
   finally
     rC.Free;
   end;
@@ -669,7 +669,7 @@ end;
 
 procedure TEntityManager.Add<T>(AModel: T);
 var
-  LCmd: TZQuery;
+  LCmd: TFDQuery;
 
   rC: TRttiContext;
   rT: TRttiType;
@@ -686,7 +686,7 @@ var
   AObject, AModel2: TObject;
 begin
   rC := TRttiContext.Create;
-  LCmd := TZQuery.Create(nil);
+  LCmd := TFDQuery.Create(nil);
   rP := nil;
   try
     rT := rC.GetType(TypeInfo(T));
@@ -800,7 +800,7 @@ end;
 
 procedure TEntityManager.Update(AModel: TObject);
 var
-  LCmd: TZQuery;
+  LCmd: TFDQuery;
 
   ACtx: TRttiContext;
   AType: TRttiType;
@@ -814,7 +814,7 @@ var
   LID: Int64;
 begin
   ACtx := TRttiContext.Create;
-  LCmd := TZQuery.Create(nil);
+  LCmd := TFDQuery.Create(nil);
   try
     AType := ACtx.GetType(AModel.ClassType);
     LTableName := Self.GetTableName(AModel.ClassType);
@@ -900,11 +900,11 @@ var
   rC: TRttiContext;
   rT: TRttiType;
   LTableName : string;
-  LCmd: TZQuery;
+  LCmd: TFDQuery;
 begin
   if AID = 0 then Exit;
 
-  LCmd := TZQuery.Create(nil);
+  LCmd := TFDQuery.Create(nil);
   rC := TRttiContext.Create;
   rT := rC.GetType(TypeInfo(T));
   try
@@ -931,9 +931,9 @@ var
   LPointer: Pointer;
   LTableName : string;
   LID: Int64;
-  LCmd: TZQuery;
+  LCmd: TFDQuery;
 begin
-  LCmd := TZQuery.Create(nil);
+  LCmd := TFDQuery.Create(nil);
   rC := TRttiContext.Create;
   rT := rC.GetType(TypeInfo(T));
   try
@@ -987,11 +987,11 @@ var
   rC: TRttiContext;
   rT: TRttiType;
   LTableName : string;
-  LCmd: TZQuery;
+  LCmd: TFDQuery;
 begin
   rC := TRttiContext.Create;
   rT := rC.GetType(TypeInfo(T));
-  LCmd := TZQuery.Create(nil);
+  LCmd := TFDQuery.Create(nil);
   try
     LTableName := Self.GetTableName(rT.AsInstance.MetaclassType);
     if LTableName = '' then Exit;

@@ -4,7 +4,7 @@ interface
 
 uses
   Generics.Collections, SysUtils, System.Types,
-  EntityAttributes, Entity, EntityManager;
+  EntityAttributes, Entity;
 (*
 -- DROP TABLE IF EXISTS public.aa_person_addresses;
 -- DROP TABLE IF EXISTS public.aa_persons;

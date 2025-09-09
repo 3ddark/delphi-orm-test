@@ -5,16 +5,20 @@ program orm_test;
 {$R *.res}
 
 uses
-  System.SysUtils,
+  System.SysUtils, System.IOUtils,
   Generics.Collections,
-  ZConnection,
+  FireDAC.Comp.Client, FireDAC.Phys.PG, FireDAC.Stan.Intf, FireDAC.Comp.UI,
+  FireDAC.Comp.DataSet, FireDAC.Phys.PGDef, FireDAC.Stan.Def, FireDAC.DApt,
+  FireDAC.Stan.Async,
   Entity in 'Entity.pas',
   EntityManager in 'EntityManager.pas',
   EntityAttributes in 'EntityAttributes.pas',
   Persons in 'Persons.pas';
 
 var
-  LConn: TZConnection;
+  LConn: TFDConnection;
+  FPhys: TFDPhysPgDriverLink;
+
   LMan: TEntityManager;
 
   lstr: string;
@@ -24,13 +28,42 @@ var
   LAddress: TPersonAddress;
 begin
   try
-    LConn := TZConnection.Create(nil);
-    LConn.Protocol := 'postgresql-9';
-    LConn.Database := 'mydb-test';
-    LConn.HostName := 'localhost';
-    LConn.User := 'postgres';
-    LConn.Password := 'qwe';
-    LConn.Connect;
+//    LConn := TFDConnection.Create(nil);
+//    LConn.Protocol := 'postgresql-9';
+//    LConn.Database := 'mydb-test';
+//    LConn.HostName := 'localhost';
+//    LConn.User := 'postgres';
+//    LConn.Password := 'qwe';
+//    LConn.Connect;
+
+    LConn := TFDConnection.Create(nil);
+    LConn.LoginPrompt := False;
+
+//    LConn.BeforeConnect       := ConnBeforeConnect;
+//    LConn.BeforeDisconnect    := ConnBeforeDisconnect;
+//    LConn.AfterConnect        := ConnAfterConnect;
+//    LConn.AfterDisconnect     := ConnAfterDisconnect;
+//    LConn.BeforeStartTransaction := ConnOnStartTransaction;
+//    LConn.AfterCommit         := ConnOnCommit;
+//    LConn.AfterRollback       := ConnOnRollback;
+
+    FPhys := nil;
+    LConn.DriverName := 'PG';
+    with LConn.Params as TFDPhysPGConnectionDefParams do
+    begin
+      Server := 'localhost';
+      Database := 'postgres';
+      UserName := 'postgres';
+      Password := 'qwe';
+      Port := 5432;
+      CharacterSet := TFDPGCharacterSet.csUTF8;
+    end;
+
+    FPhys := TFDPhysPgDriverLink.Create(nil);
+    FPhys.VendorLib := TPath.Combine(TPath.Combine(ExtractFilePath(ParamStr(0)), 'lib'), 'libpq.dll');
+
+
+
 
     LMan := TEntityManager.Create(LConn);
 (*
