@@ -45,7 +45,7 @@ type
   TPerson = class;
 
   [Table('aa_person_addresses', 'public')]
-  TPersonAddress = class(TEntity)
+  TPersonAddress = class(TEntity, IEntity)
   private
     FPersonId: Int64;
     FCountry: string;
@@ -53,21 +53,21 @@ type
 
     FPerson: TPerson;
   public
-    [Column('person_id')]
+    [Column('person_id', [cpNotNull], [cucFind, cucAdd, cucUpdate])]
     property PersonId: Int64 read FPersonId write FPersonId;
-    [Column('country')]
+    [Column('country', [cpNotNull], [cucFind, cucAdd, cucUpdate])]
     property Country: string read FCountry write FCountry;
-    [Column('city')]
+    [Column('city', [cpNotNull], [cucFind, cucAdd, cucUpdate])]
     property City: string read FCity write FCity;
 
-    [HasOne('Id', 'PersonId')]
+    [BelongsTo('PersonId', 'Id')]
     property Person: TPerson read FPerson write FPerson;
 
     constructor Create; override;
   end;
 
   [Table('aa_persons', 'public')]
-  TPerson = class(TEntity)
+  TPerson = class(TEntity, IEntity)
   private
     FPersonName: string;
     FPersonAge: SmallInt;
@@ -75,16 +75,16 @@ type
 
     FAddresses: TObjectList<TPersonAddress>;
   public
-    [Column('person_name')]
+    [Column('person_name', [cpNotNull], [cucFind, cucAdd, cucUpdate])]
     property PersonName: string read FPersonName write FPersonName;
 
-    [Column('person_age')]
+    [Column('person_age', [cpNotNull], [cucFind, cucAdd, cucUpdate])]
     property PersonAge: SmallInt read FPersonAge write FPersonAge;
 
-    [Column('salary')]
+    [Column('salary', [cpNotNull], [cucFind, cucUpdate])]
     property Salary: Double read FSalary write FSalary;
 
-    [HasMany('PersonId', 'Id')]
+    [HasMany('Id', 'PersonId')]
     property Addresses: TObjectList<TPersonAddress> read FAddresses write FAddresses;
 
     constructor Create; override;
@@ -101,7 +101,8 @@ end;
 constructor TPersonAddress.Create;
 begin
   inherited;
-  Self.Person := TPerson.Create;
+  Self.Person := nil;
+  Self.PersonId := 0;
 end;
 
 end.
