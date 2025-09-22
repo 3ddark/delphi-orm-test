@@ -4,7 +4,7 @@ interface
 
 uses
   SysUtils, StrUtils, System.Classes, Generics.Collections, System.TypInfo,
-  Rtti, Data.DB, FireDAC.Comp.Client,
+  Rtti, Data.DB, FireDAC.Comp.Client, FireDAC.Stan.Param, System.Variants,
   Entity, EntityAttributes, FilterCriterion;
 
 type
@@ -12,10 +12,9 @@ type
     ['{808825C5-94CA-4B8F-BCEA-D351F4F6813E}']
   end;
 
-  TEntityManager<T: TEntity> = class(TInterfacedObject, IRepository<T>)
+  TRepository<T: TEntity> = class(TInterfacedObject, IRepository<T>)
   private
     FConnection: TFDConnection;
-    function MethodCall(AClass: T; AMethodName: string; AParameters: array of TValue): T; overload;
 
     function GenerateSelectSql(AClass: TClass; const AWhereClause: string = ''): string;
     function GetSelectColumns(AClass: TClass): string;
@@ -24,9 +23,10 @@ type
     function GetPrimaryKeyColumn(AClass: TClass): string;
     function GetColumnName(AProp: TRttiProperty): string;
     function ShouldUseInSelect(AProp: TRttiProperty): Boolean;
-    function CreateEntityInstance<TEntity>: TEntity;
     function CreateEntityInstanceByClass(AClass: TClass): TObject;
     function ExtractGenericTypeFromList(AListType: TRttiType): TClass;
+    procedure ProcessHasManyInserts(AModel: T; AParentId: Int64);
+    procedure InsertNestedEntity(AEntity: TObject; AEntityClass: TClass);
   protected
     function Connection: TFDConnection;
     function GetTableName(AClass: TClass): string;
@@ -55,7 +55,7 @@ type
 
 implementation
 
-constructor TEntityManager<T>.Create(AConnection: TFDConnection);
+constructor TRepository<T>.Create(AConnection: TFDConnection);
 begin
   if AConnection = nil then
     raise Exception.Create('Connection Required');
@@ -63,12 +63,12 @@ begin
   FConnection := AConnection;
 end;
 
-function TEntityManager<T>.Connection: TFDConnection;
+function TRepository<T>.Connection: TFDConnection;
 begin
   Result := FConnection;
 end;
 
-function TEntityManager<T>.GetTableName(AClass: TClass): string;
+function TRepository<T>.GetTableName(AClass: TClass): string;
 var
   ACtx: TRttiContext;
   AType: TRttiType;
@@ -90,7 +90,257 @@ begin
   end;
 end;
 
-function TEntityManager<T>.GetFullTableName(AClass: TClass): string;
+procedure TRepository<T>.InsertNestedEntity(AEntity: TObject; AEntityClass: TClass);
+var
+  query: TFDQuery;
+  insertSql: string;
+  ctx: TRttiContext;
+  rType: TRttiType;
+  prop: TRttiProperty;
+  attr: TCustomAttribute;
+  colAttr: Column;
+  columns, values: TStringList;
+  columnName: string;
+  propValue: TValue;
+  insertedId: Int64;
+  pkColumn: string;
+  pkProp: TRttiProperty;
+begin
+  if not Assigned(AEntity) then
+    Exit;
+
+  query := TFDQuery.Create(nil);
+  columns := TStringList.Create;
+  values := TStringList.Create;
+  try
+    query.Connection := FConnection;
+
+    ctx := TRttiContext.Create;
+    try
+      rType := ctx.GetType(AEntityClass);
+
+      // INSERT için kolonları hazırla
+      for prop in rType.GetProperties do
+      begin
+        if not prop.IsReadable then
+          Continue;
+
+        colAttr := nil;
+        for attr in prop.GetAttributes do
+        begin
+          if attr is NotMapped then
+            Break;
+          if attr is HasOne then
+            Break;
+          if attr is HasMany then
+            Break;
+          if attr is BelongsTo then
+            Break;
+          if attr is Column then
+          begin
+            colAttr := attr as Column;
+            Break;
+          end;
+        end;
+
+        if not Assigned(colAttr) or colAttr.IsAutoIncrement then
+          Continue;
+
+        if (colAttr.SqlUseWhichCols <> []) and not (cucAdd in colAttr.SqlUseWhichCols) then
+          Continue;
+
+        columnName := GetColumnName(prop);
+        propValue := prop.GetValue(AEntity);
+
+        if propValue.IsEmpty and colAttr.IsNotNull then
+          Continue;
+
+        columns.Add(columnName);
+        values.Add(':' + columnName);
+      end;
+
+      if columns.Count = 0 then
+        Exit;
+
+      // INSERT SQL'i oluştur
+      insertSql := Format('INSERT INTO %s (%s) VALUES (%s)', [
+        GetFullTableName(AEntityClass),
+        columns.CommaText.Replace('"', ''),
+        values.CommaText.Replace('"', '')
+      ]);
+
+      // PostgreSQL için RETURNING ekle
+      pkColumn := GetPrimaryKeyColumn(AEntityClass);
+      insertSql := insertSql + ' RETURNING ' + pkColumn;
+
+      query.SQL.Text := insertSql;
+
+      // Parametreleri set et
+      for prop in rType.GetProperties do
+      begin
+        if not prop.IsReadable then
+          Continue;
+
+        colAttr := nil;
+        for attr in prop.GetAttributes do
+        begin
+          if attr is Column then
+          begin
+            colAttr := attr as Column;
+            Break;
+          end;
+        end;
+
+        if not Assigned(colAttr) or colAttr.IsAutoIncrement then
+          Continue;
+
+        if (colAttr.SqlUseWhichCols <> []) and not (cucAdd in colAttr.SqlUseWhichCols) then
+          Continue;
+
+        columnName := GetColumnName(prop);
+        if query.ParamByName(columnName) <> nil then
+        begin
+          propValue := prop.GetValue(AEntity);
+          if not propValue.IsEmpty then
+            query.ParamByName(columnName).Value := propValue.AsVariant
+          else
+            query.ParamByName(columnName).Value := Null;
+        end;
+      end;
+
+      // INSERT işlemini gerçekleştir
+      query.Open;
+
+      if not query.IsEmpty then
+      begin
+        insertedId := query.Fields[0].AsLargeInt;
+
+        // Nested nesnenin ID'sini güncelle
+        pkProp := nil;
+        for prop in rType.GetProperties do
+        begin
+          if not prop.IsWritable then
+            Continue;
+
+          for attr in prop.GetAttributes do
+          begin
+            if attr is Column then
+            begin
+              colAttr := attr as Column;
+              if colAttr.IsPrimaryKey then
+              begin
+                pkProp := prop;
+                Break;
+              end;
+            end;
+          end;
+          if Assigned(pkProp) then
+            Break;
+        end;
+
+        if Assigned(pkProp) then
+          pkProp.SetValue(AEntity, TValue.From<Int64>(insertedId));
+      end;
+
+    finally
+      ctx.Free;
+    end;
+  finally
+    query.Free;
+    columns.Free;
+    values.Free;
+  end;
+end;
+
+procedure TRepository<T>.ProcessHasManyInserts(AModel: T; AParentId: Int64);
+var
+  ctx: TRttiContext;
+  rType: TRttiType;
+  prop: TRttiProperty;
+  attr: TCustomAttribute;
+  hasManyAttr: HasMany;
+  nestedList: TObject;
+  nestedEntityClass: TClass;
+  listType: TRttiType;
+  countProp: TRttiProperty;
+  getItemMethod: TRttiMethod;
+  count, i: Integer;
+  nestedEntity: TObject;
+  filterProp: TRttiProperty;
+  propValue: TValue;
+  method: TRttiMethod;
+begin
+  ctx := TRttiContext.Create;
+  try
+    rType := ctx.GetType(T);
+
+    for prop in rType.GetProperties do
+    begin
+      for attr in prop.GetAttributes do
+      begin
+        if attr is HasMany then
+        begin
+          hasManyAttr := attr as HasMany;
+
+          // Nested list'i al - TObject(AModel) cast kullan
+          propValue := prop.GetValue(TObject(AModel));
+          nestedList := propValue.AsObject;
+          if not Assigned(nestedList) then
+            Continue;
+
+          // Generic type'ı çıkar
+          nestedEntityClass := ExtractGenericTypeFromList(prop.PropertyType);
+          if not Assigned(nestedEntityClass) then
+            Continue;
+
+          // List'teki item sayısını al - Count property'si kullan
+          listType := ctx.GetType(nestedList.ClassType);
+          countProp := listType.GetProperty('Count');
+          if not Assigned(countProp) then
+            Continue;
+
+          count := countProp.GetValue(nestedList).AsInteger;
+          if count = 0 then
+            Continue;
+
+          // GetItem metodunu bul
+          getItemMethod := nil;
+          for method in listType.GetMethods do
+          begin
+            if (method.Name = 'GetItem') and (Length(method.GetParameters) = 1) then
+            begin
+              getItemMethod := method;
+              Break;
+            end;
+          end;
+
+          if not Assigned(getItemMethod) then
+            Continue;
+
+          // Her nested entity için INSERT işlemi yap
+          for i := 0 to count - 1 do
+          begin
+            nestedEntity := getItemMethod.Invoke(nestedList, [i]).AsObject;
+            if not Assigned(nestedEntity) then
+              Continue;
+
+            // Parent ID'yi set et
+            filterProp := ctx.GetType(nestedEntityClass).GetProperty(hasManyAttr.ValuePropertyName);
+            if Assigned(filterProp) and filterProp.IsWritable then
+              filterProp.SetValue(nestedEntity, TValue.From<Int64>(AParentId));
+
+            // Nested entity için repository oluştur ve insert et
+            InsertNestedEntity(nestedEntity, nestedEntityClass);
+          end;
+        end;
+      end;
+    end;
+  finally
+    ctx.Free;
+  end;
+end;
+
+function TRepository<T>.GetFullTableName(AClass: TClass): string;
 var
   ACtx: TRttiContext;
   AType: TRttiType;
@@ -114,7 +364,7 @@ begin
   end;
 end;
 
-function TEntityManager<T>.GetPrimaryKeyColumn(AClass: TClass): string;
+function TRepository<T>.GetPrimaryKeyColumn(AClass: TClass): string;
 var
   ctx: TRttiContext;
   rType: TRttiType;
@@ -150,7 +400,7 @@ begin
   end;
 end;
 
-function TEntityManager<T>.GetColumnName(AProp: TRttiProperty): string;
+function TRepository<T>.GetColumnName(AProp: TRttiProperty): string;
 var
   attr: TCustomAttribute;
   colAttr: Column;
@@ -171,7 +421,7 @@ begin
   end;
 end;
 
-function TEntityManager<T>.ShouldUseInSelect(AProp: TRttiProperty): Boolean;
+function TRepository<T>.ShouldUseInSelect(AProp: TRttiProperty): Boolean;
 var
   attr: TCustomAttribute;
   colAttr: Column;
@@ -204,7 +454,7 @@ begin
   Result := hasColumnAttr and Result;
 end;
 
-function TEntityManager<T>.GetSelectColumns(AClass: TClass): string;
+function TRepository<T>.GetSelectColumns(AClass: TClass): string;
 var
   ctx: TRttiContext;
   rType: TRttiType;
@@ -236,7 +486,7 @@ begin
   end;
 end;
 
-function TEntityManager<T>.GenerateSelectSql(AClass: TClass; const AWhereClause: string): string;
+function TRepository<T>.GenerateSelectSql(AClass: TClass; const AWhereClause: string): string;
 var
   tableName, columns: string;
 begin
@@ -249,37 +499,7 @@ begin
     Result := Result + ' WHERE ' + AWhereClause;
 end;
 
-function TEntityManager<T>.CreateEntityInstance<TEntity>: TEntity;
-var
-  ctx: TRttiContext;
-  rType: TRttiType;
-  method: TRttiMethod;
-  rMetod: TRttiMethod;
-begin
-  ctx := TRttiContext.Create;
-  try
-    rType := ctx.GetType(TypeInfo(TEntity));
-    rMetod := nil;
-
-    for method in rType.GetMethods do
-    begin
-      if method.IsConstructor and (Length(method.GetParameters) = 0) then
-      begin
-        rMetod := method;
-        Break;
-      end;
-    end;
-
-    if Assigned(rMetod) then
-      Result := rMetod.Invoke(rType.AsInstance.MetaclassType, []).AsType<TEntity>
-    else
-      raise Exception.CreateFmt('No default constructor found for %s', [rType.ClassName]);
-  finally
-    ctx.Free;
-  end;
-end;
-
-procedure TEntityManager<T>.FillEntityFromDataSet(AEntity: TObject; ADataSet: TFDQuery);
+procedure TRepository<T>.FillEntityFromDataSet(AEntity: TObject; ADataSet: TFDQuery);
 var
   ctx: TRttiContext;
   rType: TRttiType;
@@ -347,7 +567,7 @@ begin
   end;
 end;
 
-procedure TEntityManager<T>.FillNestedEntities(AEntity: TObject);
+procedure TRepository<T>.FillNestedEntities(AEntity: TObject);
 var
   ctx: TRttiContext;
   rType: TRttiType;
@@ -533,7 +753,7 @@ begin
   end;
 end;
 
-function TEntityManager<T>.CreateEntityInstanceByClass(AClass: TClass): TObject;
+function TRepository<T>.CreateEntityInstanceByClass(AClass: TClass): TObject;
 var
   ctx: TRttiContext;
   rType: TRttiType;
@@ -563,7 +783,7 @@ begin
   end;
 end;
 
-function TEntityManager<T>.ExtractGenericTypeFromList(AListType: TRttiType): TClass;
+function TRepository<T>.ExtractGenericTypeFromList(AListType: TRttiType): TClass;
 var
   ctx: TRttiContext;
   typeName: string;
@@ -608,7 +828,7 @@ begin
   end;
 end;
 
-function TEntityManager<T>.FindById(AId: TValue; ALock: Boolean = False): T;
+function TRepository<T>.FindById(AId: TValue; ALock: Boolean = False): T;
 var
   query: TFDQuery;
   sql: string;
@@ -644,81 +864,299 @@ begin
   end;
 end;
 
-function TEntityManager<T>.MethodCall(AClass: T; AMethodName: string; AParameters: array of TValue): T;
+function TRepository<T>.FindOne(AFilter: TFilterCriteria; ALock: Boolean): T;
+begin
+  Result := nil;
+  // TODO: Implement based on filter criteria
+end;
+
+function TRepository<T>.Find(AFilter: TFilterCriteria; ALock: Boolean): TObjectList<T>;
+begin
+  Result := nil;
+  // TODO: Implement based on filter criteria
+end;
+
+procedure TRepository<T>.Add(AModel: T);
+var
+  query: TFDQuery;
+  insertSql: string;
+  ctx: TRttiContext;
+  rType: TRttiType;
+  prop: TRttiProperty;
+  attr: TCustomAttribute;
+  colAttr: Column;
+  columns, values: TStringList;
+  columnName: string;
+  propValue: TValue;
+  insertedId: Int64;
+  pkColumn: string;
+begin
+  if not Assigned(AModel) then
+    Exit;
+
+  query := TFDQuery.Create(nil);
+  columns := TStringList.Create;
+  values := TStringList.Create;
+  try
+    query.Connection := FConnection;
+
+    ctx := TRttiContext.Create;
+    try
+      rType := ctx.GetType(T);
+
+      // Ana tablo için INSERT SQL'i oluştur
+      for prop in rType.GetProperties do
+      begin
+        if not prop.IsReadable then
+          Continue;
+
+        // Column attribute'unu kontrol et
+        colAttr := nil;
+        for attr in prop.GetAttributes do
+        begin
+          if attr is NotMapped then
+            Break;
+          if attr is HasOne then
+            Break;
+          if attr is HasMany then
+            Break;
+          if attr is BelongsTo then
+            Break;
+          if attr is Column then
+          begin
+            colAttr := attr as Column;
+            Break;
+          end;
+        end;
+
+        // Column attribute yoksa veya mapped değilse atla
+        if not Assigned(colAttr) then
+          Continue;
+
+        // Auto increment alanları INSERT'e dahil etme
+        if colAttr.IsAutoIncrement then
+          Continue;
+
+        // cucAdd kullanım kriterini kontrol et
+        if (colAttr.SqlUseWhichCols <> []) and not (cucAdd in colAttr.SqlUseWhichCols) then
+          Continue;
+
+        columnName := GetColumnName(prop);
+        propValue := prop.GetValue(TObject(AModel));
+
+        // Boş değerleri kontrol et (nullable olmayan alanlar için)
+        if propValue.IsEmpty and colAttr.IsNotNull then
+          Continue;
+
+        columns.Add(columnName);
+        values.Add(':' + columnName);
+      end;
+
+      if columns.Count = 0 then
+        raise Exception.Create('No columns to insert');
+
+      // INSERT SQL'i oluştur
+      insertSql := Format('INSERT INTO %s (%s) VALUES (%s)', [
+        GetFullTableName(T),
+        columns.CommaText.Replace('"', ''),
+        values.CommaText.Replace('"', '')
+      ]);
+
+      // PostgreSQL için RETURNING ekle
+      pkColumn := GetPrimaryKeyColumn(T);
+      insertSql := insertSql + ' RETURNING ' + pkColumn;
+
+      query.SQL.Text := insertSql;
+
+      // Parametreleri set et
+      for prop in rType.GetProperties do
+      begin
+        if not prop.IsReadable then
+          Continue;
+
+        colAttr := nil;
+        for attr in prop.GetAttributes do
+        begin
+          if attr is Column then
+          begin
+            colAttr := attr as Column;
+            Break;
+          end;
+        end;
+
+        if not Assigned(colAttr) or colAttr.IsAutoIncrement then
+          Continue;
+
+        if (colAttr.SqlUseWhichCols <> []) and not (cucAdd in colAttr.SqlUseWhichCols) then
+          Continue;
+
+        columnName := GetColumnName(prop);
+        if query.ParamByName(columnName) <> nil then
+        begin
+          propValue := prop.GetValue(TObject(AModel));
+          if not propValue.IsEmpty then
+            query.ParamByName(columnName).Value := propValue.AsVariant
+          else
+            query.ParamByName(columnName).Value := Null;
+        end;
+      end;
+
+      // INSERT işlemini gerçekleştir
+      query.Open;
+
+      if not query.IsEmpty then
+      begin
+        insertedId := query.Fields[0].AsLargeInt;
+
+        // Ana nesnenin ID'sini güncelle
+        for prop in rType.GetProperties do
+        begin
+          if not prop.IsWritable then
+            Continue;
+
+          for attr in prop.GetAttributes do
+          begin
+            if attr is Column then
+            begin
+              colAttr := attr as Column;
+              if colAttr.IsPrimaryKey then
+              begin
+                prop.SetValue(TObject(AModel), TValue.From<Int64>(insertedId));
+                Break;
+              end;
+            end;
+          end;
+        end;
+
+        query.Close;
+
+        // Nested objeleri işle (HasMany relationships)
+        ProcessHasManyInserts(AModel, insertedId);
+      end;
+
+    finally
+      ctx.Free;
+    end;
+  finally
+    query.Free;
+    columns.Free;
+    values.Free;
+  end;
+end;
+
+procedure TRepository<T>.AddBatch(AModels: TArray<T>);
+begin
+  // TODO: Implement batch INSERT operation
+end;
+
+procedure TRepository<T>.Update(AModel: T);
+begin
+  // TODO: Implement UPDATE operation
+end;
+
+procedure TRepository<T>.UpdateBatch(AModels: TArray<T>);
+begin
+  // TODO: Implement batch UPDATE operation
+end;
+
+procedure TRepository<T>.Delete(AID: Int64);
+var
+  Q: TFDQuery;
+  SQL, PKCol: string;
+begin
+  PKCol := GetPrimaryKeyColumn(TClass(T));
+  SQL := Format('DELETE FROM %s WHERE %s = :%s', [GetTableName(TClass(T)), PKCol, PKCol]);
+
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FConnection;
+    Q.SQL.Text := SQL;
+    Q.ParamByName(PKCol).AsLargeInt := AID;
+    Q.ExecSQL;
+  finally
+    Q.Free;
+  end;
+end;
+
+procedure TRepository<T>.Delete(AModel: T);
 var
   ctx: TRttiContext;
-  m: TRttiMethod;
+  rType: TRttiType;
+  prop: TRttiProperty;
+  PKCol: string;
+  PKVal: TValue;
 begin
   ctx := TRttiContext.Create;
   try
-    m := ctx.GetType(T).GetMethod(AMethodName);
-    if Assigned(m) then
-      Result := m.Invoke(T, AParameters).AsType<T>
-    else
-      raise Exception.Create(Format('Cannot find method "%s" in the object', [AMethodName]));
+    rType := ctx.GetType(TClass(T));
+    PKCol := GetPrimaryKeyColumn(TClass(T));
+
+    for prop in rType.GetProperties do
+    begin
+      if (prop.Visibility = mvPublished)
+      or (prop.Visibility = mvPublic)
+      then
+      begin
+        if SameText(GetColumnName(prop), PKCol) then
+        begin
+          PKVal := prop.GetValue(TObject(AModel));
+          Delete(PKVal.AsInt64);
+          Exit;
+        end;
+      end;
+    end;
   finally
     ctx.Free;
   end;
 end;
 
-function TEntityManager<T>.FindOne(AFilter: TFilterCriteria; ALock: Boolean): T;
+procedure TRepository<T>.DeleteBatch(AModels: TArray<T>);
+var
+  Model: T;
 begin
-  Result := nil;
-  // TODO: Implement based on filter criteria
+  for Model in AModels do
+    Delete(Model);
 end;
 
-function TEntityManager<T>.Find(AFilter: TFilterCriteria; ALock: Boolean): TObjectList<T>;
+procedure TRepository<T>.DeleteBatch(AIDs: TArray<Int64>);
+var
+  ID: Int64;
 begin
-  Result := nil;
-  // TODO: Implement based on filter criteria
+  for ID in AIDs do
+    Delete(ID);
 end;
 
-procedure TEntityManager<T>.Add(AModel: T);
+procedure TRepository<T>.DeleteBatch(AFilter: TFilterCriteria);
+var
+  Q: TFDQuery;
+  SQL: string;
+  FC: TFilterCriterion;
+  i: Integer;
 begin
-  // TODO: Implement INSERT operation
+  SQL := 'DELETE FROM ' + GetTableName(TClass(T)) + ' WHERE ';
+  for i := 0 to AFilter.Count - 1 do
+  begin
+    FC := AFilter[i];
+    if i > 0 then
+      SQL := SQL + ' AND ';
+    SQL := SQL + FC.PropertyNamePath + ' ' + FC.Operator + ' :' + FC.PropertyNamePath;
+  end;
+
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FConnection;
+    Q.SQL.Text := SQL;
+    for i := 0 to AFilter.Count - 1 do
+    begin
+      Q.ParamByName(AFilter[i].PropertyNamePath).Value := AFilter[i].Value.AsVariant;
+    end;
+    Q.ExecSQL;
+  finally
+    Q.Free;
+  end;
 end;
 
-procedure TEntityManager<T>.AddBatch(AModels: TArray<T>);
-begin
-  // TODO: Implement batch INSERT operation
-end;
-
-procedure TEntityManager<T>.Update(AModel: T);
-begin
-  // TODO: Implement UPDATE operation
-end;
-
-procedure TEntityManager<T>.UpdateBatch(AModels: TArray<T>);
-begin
-  // TODO: Implement batch UPDATE operation
-end;
-
-procedure TEntityManager<T>.Delete(AID: Int64);
-begin
-  // TODO: Implement DELETE by ID operation
-end;
-
-procedure TEntityManager<T>.Delete(AModel: T);
-begin
-  // TODO: Implement DELETE by model operation
-end;
-
-procedure TEntityManager<T>.DeleteBatch(AModels: TArray<T>);
-begin
-  // TODO: Implement batch DELETE by models operation
-end;
-
-procedure TEntityManager<T>.DeleteBatch(AIDs: TArray<Int64>);
-begin
-  // TODO: Implement batch DELETE by IDs operation
-end;
-
-procedure TEntityManager<T>.DeleteBatch(AFilter: TFilterCriteria);
-begin
-  // TODO: Implement batch DELETE by filter operation
-end;
-
-function TEntityManager<T>.Clone(ASource: T): T;
+function TRepository<T>.Clone(ASource: T): T;
 begin
   Result := nil;
   // TODO: Implement clone operation
