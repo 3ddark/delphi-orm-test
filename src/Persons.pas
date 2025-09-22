@@ -4,7 +4,7 @@ interface
 
 uses
   Generics.Collections, SysUtils, System.Types,
-  EntityAttributes, Entity;
+  EntityAttributes, Entity, Repository;
 (*
 -- DROP TABLE IF EXISTS public.aa_person_addresses;
 -- DROP TABLE IF EXISTS public.aa_persons;
@@ -88,6 +88,9 @@ type
     property Addresses: TObjectList<TPersonAddress> read FAddresses write FAddresses;
 
     constructor Create; override;
+  end;
+
+  TPersonRepository = class(TRepository<TPerson>)
   end;
 
 implementation

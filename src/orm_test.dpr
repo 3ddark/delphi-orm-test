@@ -21,14 +21,14 @@ uses
   Repository in 'Repository.pas',
   EntityAttributes in 'EntityAttributes.pas',
   Persons in 'Persons.pas',
-  FilterCriterion in 'FilterCriterion.pas';
+  FilterCriterion in 'FilterCriterion.pas',
+  RepositoryManager in 'RepositoryManager.pas';
 
 var
   LConn: TFDConnection;
   FPhys: TFDPhysPgDriverLink;
 
-  LMan: TRepository<TPerson>;
-
+  LRepoPerson: IRepository<TPerson>;
   LPerson: TPerson;
   LPersonAddress: TPersonAddress;
 begin
@@ -68,14 +68,14 @@ begin
     FPhys := TFDPhysPgDriverLink.Create(nil);
     FPhys.VendorLib := TPath.Combine(TPath.Combine(ExtractFilePath(ParamStr(0)), 'lib'), 'libpq.dll');
 
+    TRepositoryManager.Instance.Initialize(LConn);
 
-    LMan := TRepository<TPerson>.Create(LConn);
+    LRepoPerson := TRepositoryManager.Instance.GetRepository<TPerson, TPersonRepository>;
+    LPerson := LRepoPerson.FindById(1, False);
 
-    LPerson := LMan.FindById(1, False);
+    LRepoPerson.Delete(LPerson);
 
-    LMan.Delete(LPerson);
-
-    LPerson := LMan.FindById(1, False);
+    LPerson := LRepoPerson.FindById(1, False);
 
 
     LPerson := TPerson.Create;
@@ -95,10 +95,9 @@ begin
     LPersonAddress.PersonId := LPerson.Id;
     LPerson.Addresses.Add(LPersonAddress);
 
-    LMan.Add(LPerson);
+    LRepoPerson.Add(LPerson);
 
-
-    LPerson := LMan.FindById(2, False);
+    LPerson := LRepoPerson.FindById(2, False);
     FreeAndNil(LPerson);
   except
     on E: Exception do

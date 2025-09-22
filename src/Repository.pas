@@ -8,8 +8,25 @@ uses
   Entity, EntityAttributes, FilterCriterion;
 
 type
-  IRepository<T> = interface
+  IRepository<T: TEntity> = interface
     ['{808825C5-94CA-4B8F-BCEA-D351F4F6813E}']
+    function FindById(AId: TValue; ALock: Boolean = False): T;
+    function FindOne(AFilter: TFilterCriteria; ALock: Boolean = False): T;
+    function Find(AFilter: TFilterCriteria; ALock: Boolean = False): TObjectList<T>;
+
+    procedure Add(AModel: T); overload;
+    procedure AddBatch(AModels: TArray<T>); overload;
+
+    procedure Update(AModel: T);
+    procedure UpdateBatch(AModels: TArray<T>); overload;
+
+    procedure Delete(AID: Int64); overload;
+    procedure Delete(AModel: T); overload;
+    procedure DeleteBatch(AModels: TArray<T>); overload;
+    procedure DeleteBatch(AIDs: TArray<Int64>); overload;
+    procedure DeleteBatch(AFilter: TFilterCriteria); overload;
+
+    function Clone(ASource: T): T;
   end;
 
   TRepository<T: TEntity> = class(TInterfacedObject, IRepository<T>)
