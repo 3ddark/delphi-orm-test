@@ -8,11 +8,15 @@ uses
 type
   TFilterCriterion = record
   private
-    PropertyNamePath: string;
-    Operator: string;
-    Value: TValue;
+    FPropertyNamePath: string;
+    FOperator: string;
+    FValue: TValue;
   public
     class function New(const APropertyNamePath, AOperator: string; AValue: TValue): TFilterCriterion; static;
+
+    property PropertyNamePath: string read FPropertyNamePath write FPropertyNamePath;
+    property Operator: string read FOperator write FOperator;
+    property Value: TValue read FValue write FValue;
   end;
 
   TFilterCriteria = TList<TFilterCriterion>;

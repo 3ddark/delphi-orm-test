@@ -27,11 +27,10 @@ var
   LConn: TFDConnection;
   FPhys: TFDPhysPgDriverLink;
 
-  LMan: TEntityManager<TPerson>;
-
-  lstr: string;
+  LMan: TRepository<TPerson>;
 
   LPerson: TPerson;
+  LPersonAddress: TPersonAddress;
 begin
   ReportMemoryLeaksOnShutdown := True;
   try
@@ -70,7 +69,35 @@ begin
     FPhys.VendorLib := TPath.Combine(TPath.Combine(ExtractFilePath(ParamStr(0)), 'lib'), 'libpq.dll');
 
 
-    LMan := TEntityManager<TPerson>.Create(LConn);
+    LMan := TRepository<TPerson>.Create(LConn);
+
+    LPerson := LMan.FindById(1, False);
+
+    LMan.Delete(LPerson);
+
+    LPerson := LMan.FindById(1, False);
+
+
+    LPerson := TPerson.Create;
+    LPerson.PersonName := 'John Doe';
+    LPerson.PersonAge := 30;
+    LPerson.Salary := 1000;
+
+    LPersonAddress := TPersonAddress.Create;
+    LPersonAddress.Country := 'Turkey';
+    LPersonAddress.City := 'Istanbul';
+    LPersonAddress.PersonId := LPerson.Id;
+    LPerson.Addresses.Add(LPersonAddress);
+
+    LPersonAddress := TPersonAddress.Create;
+    LPersonAddress.Country := 'Germany';
+    LPersonAddress.City := 'Bochum';
+    LPersonAddress.PersonId := LPerson.Id;
+    LPerson.Addresses.Add(LPersonAddress);
+
+    LMan.Add(LPerson);
+
+
     LPerson := LMan.FindById(2, False);
     FreeAndNil(LPerson);
   except
