@@ -14,9 +14,19 @@ type
   TEntity = class(TInterfacedObject, IEntity)
   private
     FId: Int64;
+    FCreatedAt: TDateTime;
+    FUpdatedAt: TDateTime;
   public
-    [Column('id', [cpPrimaryKey, cpUnique, cpNotNull, cpAutoIncrement], [cucFind])]
+    [Column('id', [cpPrimaryKey, cpAutoIncrement], [cucFind])]
     property Id: Int64 read FId write FId;
+
+    [Column('created_at', [cpNotNull], [cucAdd, cucFind])]
+    [CreatedAt]
+    property CreatedAt: TDateTime read FCreatedAt write FCreatedAt;
+
+    [Column('updated_at', [], [cucUpdate, cucFind])]
+    [UpdatedAt]
+    property UpdatedAt: TDateTime read FUpdatedAt write FUpdatedAt;
 
     constructor Create; virtual;
   end;

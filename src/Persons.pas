@@ -67,6 +67,8 @@ type
   end;
 
   [Table('aa_persons', 'public')]
+  [Index('idx_person_name', ['PersonName'], True)]
+  [SoftDelete('deleted_at', 'deleted_by')]
   TPerson = class(TEntity, IEntity)
   private
     FPersonName: string;

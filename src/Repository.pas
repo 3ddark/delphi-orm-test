@@ -8,23 +8,39 @@ uses
   Entity, EntityAttributes, FilterCriterion;
 
 type
+  TIncludeOption = (
+    ioIncludeNone,          // Load only main entity
+    ioIncludeChildren,      // Load child entities (HasMany relations)
+    ioIncludeParent,        // Load parent entities (BelongsTo relations)
+    ioIncludeGrandChildren, // Load children of children (2 levels deep)
+    ioIncludeAll,           // Load all nested entities
+    ioIncludeSpecific       // Load specific relations (use with relation names)
+  );
+  TIncludeOptions = set of TIncludeOption;
+
+  TRelationNames = TArray<string>;
+
+
+  TCascadeOperation = (coInsert, coUpdate, coDelete);
+  TCascadeOperations = set of TCascadeOperation;
+
   IRepository<T: TEntity> = interface
     ['{808825C5-94CA-4B8F-BCEA-D351F4F6813E}']
-    function FindById(AId: TValue; ALock: Boolean = False): T;
-    function FindOne(AFilter: TFilterCriteria; ALock: Boolean = False): T;
-    function Find(AFilter: TFilterCriteria; ALock: Boolean = False): TObjectList<T>;
+    function FindById(AId: TValue; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil; ALock: Boolean = False): T;
+    function FindOne(AFilter: TFilterCriteria; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil; ALock: Boolean = False): T;
+    function Find(AFilter: TFilterCriteria; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil; ALock: Boolean = False): TObjectList<T>;
 
-    procedure Add(AModel: T); overload;
-    procedure AddBatch(AModels: TArray<T>); overload;
+    procedure Add(AModel: T; ACascade: TCascadeOperations = []); overload;
+    procedure AddBatch(AModels: TArray<T>; ACascade: TCascadeOperations = []); overload;
 
-    procedure Update(AModel: T);
-    procedure UpdateBatch(AModels: TArray<T>); overload;
+    procedure Update(AModel: T; ACascade: TCascadeOperations = []);
+    procedure UpdateBatch(AModels: TArray<T>; ACascade: TCascadeOperations = []); overload;
 
-    procedure Delete(AID: Int64); overload;
-    procedure Delete(AModel: T); overload;
-    procedure DeleteBatch(AModels: TArray<T>); overload;
-    procedure DeleteBatch(AIDs: TArray<Int64>); overload;
-    procedure DeleteBatch(AFilter: TFilterCriteria); overload;
+    procedure Delete(AID: Int64; ACascade: TCascadeOperations = []); overload;
+    procedure Delete(AModel: T; ACascade: TCascadeOperations = []); overload;
+    procedure DeleteBatch(AModels: TArray<T>; ACascade: TCascadeOperations = []); overload;
+    procedure DeleteBatch(AIDs: TArray<Int64>; ACascade: TCascadeOperations = []); overload;
+    procedure DeleteBatch(AFilter: TFilterCriteria; ACascade: TCascadeOperations = []); overload;
 
     function Clone(ASource: T): T;
   end;
@@ -35,35 +51,52 @@ type
 
     function GenerateSelectSql(AClass: TClass; const AWhereClause: string = ''): string;
     function GetSelectColumns(AClass: TClass): string;
-    procedure FillEntityFromDataSet(AEntity: TObject; ADataSet: TFDQuery);
-    procedure FillNestedEntities(AEntity: TObject);
+    function GetColumnNameForProperty(const APropertyName: string): string;
     function GetPrimaryKeyColumn(AClass: TClass): string;
     function GetColumnName(AProp: TRttiProperty): string;
     function ShouldUseInSelect(AProp: TRttiProperty): Boolean;
     function CreateEntityInstanceByClass(AClass: TClass): TObject;
     function ExtractGenericTypeFromList(AListType: TRttiType): TClass;
+    procedure FillEntityFromDataSet(AEntity: TObject; ADataSet: TFDQuery);
+    procedure FillNestedEntitiesWithInclude(AEntity: TObject; AInclude: TIncludeOptions; ARelations: TRelationNames = nil);
+    procedure LoadChildEntitiesWithInclude(AEntity: TObject; AInclude: TIncludeOptions; ARelations: TRelationNames);
+    procedure LoadParentEntitiesWithInclude(AEntity: TObject; AInclude: TIncludeOptions; ARelations: TRelationNames);
+    procedure LoadChildProperty(AEntity: TObject; AProp: TRttiProperty; AHasManyAttr: HasManyAttribute);
+    procedure LoadParentProperty(AEntity: TObject; AProp: TRttiProperty; ABelongsToAttr: BelongsToAttribute);
+    procedure LoadGrandChildEntitiesRecursive(AEntity: TObject);
+    procedure LoadSpecificRelationsOnly(AEntity: TObject; ARelations: TRelationNames);
+    function ShouldLoadThisRelation(const ARelationName: string; ARelations: TRelationNames; AInclude: TIncludeOptions): Boolean;
+    function IsChildRelationProperty(AProp: TRttiProperty): Boolean;
+    function CreateListInstance(AListType: TRttiType): TObject;
+    procedure AddToList(AList: TObject; AItem: TObject);
+    function GetListCount(AList: TObject): Integer;
+    function GetListItem(AList: TObject; AIndex: Integer): TObject;
     procedure ProcessHasManyInserts(AModel: T; AParentId: Int64);
     procedure InsertNestedEntity(AEntity: TObject; AEntityClass: TClass);
+    procedure ProcessHasManyUpdates(AModel: T; AParentId: Int64);
+    procedure UpdateNestedEntity(AEntity: TObject; AEntityClass: TClass);
+    procedure ProcessCascadeDeletes(AModel: T; ACascade: TCascadeOperations);
+    procedure CloneEntityProperties(ASource, ATarget: TObject; AEntityClass: TClass; ADeepClone: Boolean);
   protected
     function Connection: TFDConnection;
     function GetTableName(AClass: TClass): string;
     function GetFullTableName(AClass: TClass): string;
   public
-    function FindById(AId: TValue; ALock: Boolean = False): T;
-    function FindOne(AFilter: TFilterCriteria; ALock: Boolean = False): T;
-    function Find(AFilter: TFilterCriteria; ALock: Boolean = False): TObjectList<T>;
+    function FindById(AId: TValue; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil; ALock: Boolean = False): T;
+    function FindOne(AFilter: TFilterCriteria; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil; ALock: Boolean = False): T;
+    function Find(AFilter: TFilterCriteria; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil; ALock: Boolean = False): TObjectList<T>;
 
-    procedure Add(AModel: T); overload;
-    procedure AddBatch(AModels: TArray<T>); overload;
+    procedure Add(AModel: T; ACascade: TCascadeOperations = []); overload;
+    procedure AddBatch(AModels: TArray<T>; ACascade: TCascadeOperations = []); overload;
 
-    procedure Update(AModel: T);
-    procedure UpdateBatch(AModels: TArray<T>); overload;
+    procedure Update(AModel: T; ACascade: TCascadeOperations = []);
+    procedure UpdateBatch(AModels: TArray<T>; ACascade: TCascadeOperations = []); overload;
 
-    procedure Delete(AID: Int64); overload;
-    procedure Delete(AModel: T); overload;
-    procedure DeleteBatch(AModels: TArray<T>); reintroduce; overload;
-    procedure DeleteBatch(AIDs: TArray<Int64>); reintroduce; overload;
-    procedure DeleteBatch(AFilter: TFilterCriteria); reintroduce; overload;
+    procedure Delete(AID: Int64; ACascade: TCascadeOperations = []); overload;
+    procedure Delete(AModel: T; ACascade: TCascadeOperations = []); overload;
+    procedure DeleteBatch(AModels: TArray<T>; ACascade: TCascadeOperations = []); reintroduce; overload;
+    procedure DeleteBatch(AIDs: TArray<Int64>; ACascade: TCascadeOperations = []); reintroduce; overload;
+    procedure DeleteBatch(AFilter: TFilterCriteria; ACascade: TCascadeOperations = []); reintroduce; overload;
 
     function Clone(ASource: T): T;
 
@@ -147,11 +180,11 @@ begin
         begin
           if attr is NotMapped then
             Break;
-          if attr is HasOne then
+          if attr is HasOneAttribute then
             Break;
-          if attr is HasMany then
+          if attr is HasManyAttribute then
             Break;
-          if attr is BelongsTo then
+          if attr is BelongsToAttribute then
             Break;
           if attr is Column then
           begin
@@ -275,7 +308,7 @@ var
   rType: TRttiType;
   prop: TRttiProperty;
   attr: TCustomAttribute;
-  hasManyAttr: HasMany;
+  hasManyAttr: HasManyAttribute;
   nestedList: TObject;
   nestedEntityClass: TClass;
   listType: TRttiType;
@@ -293,63 +326,70 @@ begin
 
     for prop in rType.GetProperties do
     begin
+      hasManyAttr := nil;
+
+      // HasMany attribute'ını bul
       for attr in prop.GetAttributes do
       begin
-        if attr is HasMany then
+        if attr is HasManyAttribute then
         begin
-          hasManyAttr := attr as HasMany;
-
-          // Nested list'i al - TObject(AModel) cast kullan
-          propValue := prop.GetValue(TObject(AModel));
-          nestedList := propValue.AsObject;
-          if not Assigned(nestedList) then
-            Continue;
-
-          // Generic type'ı çıkar
-          nestedEntityClass := ExtractGenericTypeFromList(prop.PropertyType);
-          if not Assigned(nestedEntityClass) then
-            Continue;
-
-          // List'teki item sayısını al - Count property'si kullan
-          listType := ctx.GetType(nestedList.ClassType);
-          countProp := listType.GetProperty('Count');
-          if not Assigned(countProp) then
-            Continue;
-
-          count := countProp.GetValue(nestedList).AsInteger;
-          if count = 0 then
-            Continue;
-
-          // GetItem metodunu bul
-          getItemMethod := nil;
-          for method in listType.GetMethods do
-          begin
-            if (method.Name = 'GetItem') and (Length(method.GetParameters) = 1) then
-            begin
-              getItemMethod := method;
-              Break;
-            end;
-          end;
-
-          if not Assigned(getItemMethod) then
-            Continue;
-
-          // Her nested entity için INSERT işlemi yap
-          for i := 0 to count - 1 do
-          begin
-            nestedEntity := getItemMethod.Invoke(nestedList, [i]).AsObject;
-            if not Assigned(nestedEntity) then
-              Continue;
-
-            // Parent ID'yi set et
-            filterProp := ctx.GetType(nestedEntityClass).GetProperty(hasManyAttr.ValuePropertyName);
-            if Assigned(filterProp) and filterProp.IsWritable then
-              filterProp.SetValue(nestedEntity, TValue.From<Int64>(AParentId));
-
-            // Nested entity için repository oluştur ve insert et
-            InsertNestedEntity(nestedEntity, nestedEntityClass);
-          end;
+          hasManyAttr := attr as HasManyAttribute;
+          Break;
         end;
+      end;
+
+      if not Assigned(hasManyAttr) then
+        Continue;
+
+      // Nested list'i al
+      propValue := prop.GetValue(TObject(AModel));
+      nestedList := propValue.AsObject;
+      if not Assigned(nestedList) then
+        Continue;
+
+      // Generic type'ı çıkar
+      nestedEntityClass := ExtractGenericTypeFromList(prop.PropertyType);
+      if not Assigned(nestedEntityClass) then
+        Continue;
+
+      // List'teki item sayısını al
+      listType := ctx.GetType(nestedList.ClassType);
+      countProp := listType.GetProperty('Count');
+      if not Assigned(countProp) then
+        Continue;
+
+      count := countProp.GetValue(nestedList).AsInteger;
+      if count = 0 then
+        Continue;
+
+      // GetItem metodunu bul
+      getItemMethod := nil;
+      for method in listType.GetMethods do
+      begin
+        if (method.Name = 'GetItem') and (Length(method.GetParameters) = 1) then
+        begin
+          getItemMethod := method;
+          Break;
+        end;
+      end;
+
+      if not Assigned(getItemMethod) then
+        Continue;
+
+      // Her nested entity için INSERT işlemi yap
+      for i := 0 to count - 1 do
+      begin
+        nestedEntity := getItemMethod.Invoke(nestedList, [i]).AsObject;
+        if not Assigned(nestedEntity) then
+          Continue;
+
+        // Parent ID'yi set et
+        filterProp := ctx.GetType(nestedEntityClass).GetProperty(hasManyAttr.LocalKeyProperty);
+        if Assigned(filterProp) and filterProp.IsWritable then
+          filterProp.SetValue(nestedEntity, TValue.From<Int64>(AParentId));
+
+        // Nested entity için insert et (cascade olmadan)
+        InsertNestedEntity(nestedEntity, nestedEntityClass);
       end;
     end;
   finally
@@ -452,10 +492,10 @@ begin
     if attr is NotMapped then
       Exit(False);
 
-    if attr is HasOne then
+    if attr is HasOneAttribute then
       Exit(False);
 
-    if attr is HasMany then
+    if attr is HasManyAttribute then
       Exit(False);
 
     if attr is Column then
@@ -584,189 +624,439 @@ begin
   end;
 end;
 
-procedure TRepository<T>.FillNestedEntities(AEntity: TObject);
-var
-  ctx: TRttiContext;
-  rType: TRttiType;
-  prop: TRttiProperty;
-  attr: TCustomAttribute;
-  hasOneAttr: HasOne;
-  hasManyAttr: HasMany;
-  belongsToAttr: BelongsTo;
-  filterProp: TRttiProperty;
-  filterValue: TValue;
-  nestedQuery: TFDQuery;
-  sql: string;
-  nestedEntity: TObject;
-  nestedList: TObject;
-  addMethod: TRttiMethod;
-  nestedEntityClass: TClass;
-  clearMethod: TRttiMethod;
-  valueColumnName: string;
-  valueProp: TRttiProperty;
+procedure TRepository<T>.FillNestedEntitiesWithInclude(AEntity: TObject; AInclude: TIncludeOptions; ARelations: TRelationNames = nil);
 begin
-  if not Assigned(AEntity) then
+  // Exit if no includes requested
+  if (AInclude = [ioIncludeNone]) or (AEntity = nil) then
     Exit;
 
-  ctx := TRttiContext.Create;
+  // Load all relations
+  if ioIncludeAll in AInclude then
+  begin
+    LoadChildEntitiesWithInclude(AEntity, [ioIncludeAll], nil);
+    LoadParentEntitiesWithInclude(AEntity, [ioIncludeAll], nil);
+    if ioIncludeGrandChildren in AInclude then
+      LoadGrandChildEntitiesRecursive(AEntity);
+    Exit;
+  end;
+
+  // Load specific relation types
+  if ioIncludeChildren in AInclude then
+    LoadChildEntitiesWithInclude(AEntity, AInclude, ARelations);
+
+  if ioIncludeParent in AInclude then
+    LoadParentEntitiesWithInclude(AEntity, AInclude, ARelations);
+
+  if ioIncludeGrandChildren in AInclude then
+    LoadGrandChildEntitiesRecursive(AEntity);
+
+  if ioIncludeSpecific in AInclude then
+    LoadSpecificRelationsOnly(AEntity, ARelations);
+end;
+
+procedure TRepository<T>.LoadChildEntitiesWithInclude(AEntity: TObject; AInclude: TIncludeOptions; ARelations: TRelationNames);
+var
+  LContext: TRttiContext;
+  LType: TRttiType;
+  LProp: TRttiProperty;
+  LRelationName: string;
+  LHasManyAttr: HasManyAttribute;
+  LAttr: TCustomAttribute;
+  LFound: Boolean;
+begin
+  LContext := TRttiContext.Create;
   try
-    rType := ctx.GetType(AEntity.ClassType);
+    LType := LContext.GetType(AEntity.ClassInfo);
 
-    for prop in rType.GetProperties do
+    for LProp in LType.GetProperties do
     begin
-      for attr in prop.GetAttributes do
+      LFound := False;
+      LHasManyAttr := nil;
+
+      // Check if this property has HasMany attribute
+      for LAttr in LProp.GetAttributes do
       begin
-        if attr is BelongsTo then
+        if LAttr is HasManyAttribute then
         begin
-          belongsToAttr := attr as BelongsTo;
+          LHasManyAttr := HasManyAttribute(LAttr);
+          LFound := True;
+          Break;
+        end;
+      end;
 
-          filterProp := rType.GetProperty(belongsToAttr.LocalKey);
-          if not Assigned(filterProp) then
-            Continue;
+      if LFound then
+      begin
+        LRelationName := LProp.Name;
 
-          filterValue := filterProp.GetValue(AEntity);
-          if filterValue.IsEmpty or (filterValue.AsInt64 = 0) then
-            Continue;
-
-          nestedEntityClass := nil;
-          if prop.PropertyType.IsInstance then
-            nestedEntityClass := prop.PropertyType.AsInstance.MetaclassType;
-
-          if not Assigned(nestedEntityClass) then
-            Continue;
-
-          valueColumnName := belongsToAttr.RemoteKey;
-          valueProp := ctx.GetType(nestedEntityClass).GetProperty(belongsToAttr.RemoteKey);
-          if Assigned(valueProp) then
-            valueColumnName := GetColumnName(valueProp);
-
-          nestedQuery := TFDQuery.Create(nil);
-          try
-            nestedQuery.Connection := FConnection;
-
-            sql := GenerateSelectSql(nestedEntityClass, Format('%s = :%s', [valueColumnName, 'param_value']));
-            nestedQuery.SQL.Text := sql;
-            nestedQuery.ParamByName('param_value').Value := filterValue.AsVariant;
-            nestedQuery.Open;
-
-            if not nestedQuery.IsEmpty then
-            begin
-              nestedEntity := CreateEntityInstanceByClass(nestedEntityClass);
-              FillEntityFromDataSet(nestedEntity, nestedQuery);
-
-              prop.SetValue(AEntity, nestedEntity);
-
-              FillNestedEntities(nestedEntity);
-            end;
-          finally
-            nestedQuery.Free;
-          end;
-        end
-        else if attr is HasOne then
+        // Check if we should load this relation
+        if ShouldLoadThisRelation(LRelationName, ARelations, AInclude) then
         begin
-          hasOneAttr := attr as HasOne;
+          LoadChildProperty(AEntity, LProp, LHasManyAttr);
+        end;
+      end;
+    end;
+  finally
+    LContext.Free;
+  end;
+end;
 
-          filterProp := rType.GetProperty(hasOneAttr.FilterPropertyName);
-          if not Assigned(filterProp) then
-            Continue;
+procedure TRepository<T>.LoadParentEntitiesWithInclude(AEntity: TObject;
+  AInclude: TIncludeOptions; ARelations: TRelationNames);
+var
+  LContext: TRttiContext;
+  LType: TRttiType;
+  LProp: TRttiProperty;
+  LRelationName: string;
+  LBelongsToAttr: BelongsToAttribute;
+  LAttr: TCustomAttribute;
+  LFound: Boolean;
+begin
+  LContext := TRttiContext.Create;
+  try
+    LType := LContext.GetType(AEntity.ClassInfo);
 
-          filterValue := filterProp.GetValue(AEntity);
-          if filterValue.IsEmpty then
-            Continue;
+    for LProp in LType.GetProperties do
+    begin
+      LFound := False;
+      LBelongsToAttr := nil;
 
-          nestedEntityClass := nil;
-          if prop.PropertyType.IsInstance then
-            nestedEntityClass := prop.PropertyType.AsInstance.MetaclassType;
-
-          if not Assigned(nestedEntityClass) then
-            Continue;
-
-          valueColumnName := hasOneAttr.ValuePropertyName;
-          valueProp := ctx.GetType(nestedEntityClass).GetProperty(hasOneAttr.ValuePropertyName);
-          if Assigned(valueProp) then
-            valueColumnName := GetColumnName(valueProp);
-
-          nestedQuery := TFDQuery.Create(nil);
-          try
-            nestedQuery.Connection := FConnection;
-
-            sql := GenerateSelectSql(nestedEntityClass, Format('%s = :%s', [valueColumnName, 'param_value']));
-            nestedQuery.SQL.Text := sql;
-            nestedQuery.ParamByName('param_value').Value := filterValue.AsVariant;
-            nestedQuery.Open;
-
-            if not nestedQuery.IsEmpty then
-            begin
-              nestedEntity := CreateEntityInstanceByClass(nestedEntityClass);
-              FillEntityFromDataSet(nestedEntity, nestedQuery);
-              prop.SetValue(AEntity, nestedEntity);
-              FillNestedEntities(nestedEntity);
-            end;
-          finally
-            nestedQuery.Free;
-          end;
-        end
-        else if attr is HasMany then
+      // Check if this property has BelongsTo attribute
+      for LAttr in LProp.GetAttributes do
+      begin
+        if LAttr is BelongsToAttribute then
         begin
-          hasManyAttr := attr as HasMany;
+          LBelongsToAttr := BelongsToAttribute(LAttr);
+          LFound := True;
+          Break;
+        end;
+      end;
 
-          filterProp := rType.GetProperty(hasManyAttr.FilterPropertyName);
-          if not Assigned(filterProp) then
-            Continue;
+      if LFound then
+      begin
+        LRelationName := LProp.Name;
 
-          filterValue := filterProp.GetValue(AEntity);
-          if filterValue.IsEmpty then
-            Continue;
+        // Check if we should load this relation
+        if ShouldLoadThisRelation(LRelationName, ARelations, AInclude) then
+        begin
+          LoadParentProperty(AEntity, LProp, LBelongsToAttr);
+        end;
+      end;
+    end;
+  finally
+    LContext.Free;
+  end;
+end;
 
-          nestedList := prop.GetValue(AEntity).AsObject;
-          if not Assigned(nestedList) then
-            Continue;
+procedure TRepository<T>.LoadChildProperty(AEntity: TObject; AProp: TRttiProperty; AHasManyAttr: HasManyAttribute);
+var
+  LQuery: TFDQuery;
+  LChildClass: TClass;
+  LChildEntity: TObject;
+  LListValue: TValue;
+  LList: TObject;
+  LForeignKey: string;
+  LParentId: TValue;
+  LParentIdProp: TRttiProperty;
+  LContext: TRttiContext;
+  LParentType: TRttiType;
+  LSql: string;
+  LWhereClause: string;
+begin
+  LQuery := TFDQuery.Create(nil);
+  LContext := TRttiContext.Create;
+  try
+    LQuery.Connection := Connection;
 
-          nestedEntityClass := ExtractGenericTypeFromList(prop.PropertyType);
-          if not Assigned(nestedEntityClass) then
-            Continue;
+    // Get child class from generic list type
+    LChildClass := ExtractGenericTypeFromList(AProp.PropertyType);
+    if LChildClass = nil then
+      Exit;
 
-          valueColumnName := hasManyAttr.ValuePropertyName;
-          valueProp := ctx.GetType(nestedEntityClass).GetProperty(hasManyAttr.ValuePropertyName);
-          if Assigned(valueProp) then
-            valueColumnName := GetColumnName(valueProp);
+    // Get parent ID
+    LParentType := LContext.GetType(AEntity.ClassInfo);
+    LParentIdProp := LParentType.GetProperty('Id'); // Assuming 'Id' is primary key
+    if LParentIdProp = nil then
+      Exit;
 
-          nestedQuery := TFDQuery.Create(nil);
-          try
-            nestedQuery.Connection := FConnection;
+    LParentId := LParentIdProp.GetValue(AEntity);
+    if LParentId.IsEmpty then
+      Exit;
 
-            sql := GenerateSelectSql(nestedEntityClass, Format('%s = :%s', [valueColumnName, 'param_value']));
-            nestedQuery.SQL.Text := sql;
-            nestedQuery.ParamByName('param_value').Value := filterValue.AsVariant;
-            nestedQuery.Open;
+    // Get foreign key column name from attribute or convention
+    if AHasManyAttr.ForeignKeyProperty <> '' then
+      LForeignKey := AHasManyAttr.ForeignKeyProperty
+    else
+      LForeignKey := Format('%s_id', [GetTableName(AEntity.ClassInfo).ToLower]); // Convention: parent_table_id
 
-            clearMethod := ctx.GetType(nestedList.ClassType).GetMethod('Clear');
-            if Assigned(clearMethod) then
-              clearMethod.Invoke(nestedList, []);
+    // Build WHERE clause
+    LWhereClause := Format('%s = %s', [LForeignKey, QuotedStr(LParentId.ToString)]);
 
-            addMethod := ctx.GetType(nestedList.ClassType).GetMethod('Add');
-            if Assigned(addMethod) then
+    // Generate and execute SQL for child entities
+    LSql := GenerateSelectSql(LChildClass, LWhereClause);
+    LQuery.SQL.Text := LSql;
+    LQuery.Open;
+
+    // Create list instance
+    LList := CreateListInstance(AProp.PropertyType);
+    if LList = nil then
+      Exit;
+
+    // Fill child entities
+    LQuery.First;
+    while not LQuery.Eof do
+    begin
+      LChildEntity := CreateEntityInstanceByClass(LChildClass);
+      FillEntityFromDataSet(LChildEntity, LQuery);
+
+      // Add to list
+      AddToList(LList, LChildEntity);
+
+      LQuery.Next;
+    end;
+
+    // Set the list property
+    LListValue := TValue.From<TObject>(LList);
+    AProp.SetValue(AEntity, LListValue);
+
+  finally
+    LContext.Free;
+    LQuery.Free;
+  end;
+end;
+
+procedure TRepository<T>.LoadParentProperty(AEntity: TObject; AProp: TRttiProperty; ABelongsToAttr: BelongsToAttribute);
+var
+  LQuery: TFDQuery;
+  LParentClass: TClass;
+  LParentEntity: TObject;
+  LForeignKey: string;
+  LForeignIdValue: TValue;
+  LForeignIdProp: TRttiProperty;
+  LContext: TRttiContext;
+  LEntityType: TRttiType;
+  LSql: string;
+  LWhereClause: string;
+  LParentValue: TValue;
+begin
+  LQuery := TFDQuery.Create(nil);
+  LContext := TRttiContext.Create;
+  try
+    LQuery.Connection := Connection;
+
+    // Get parent class
+    LParentClass := AProp.PropertyType.AsInstance.MetaclassType;
+    if LParentClass = nil then
+      Exit;
+
+    // Get foreign key column name from attribute or convention
+    if ABelongsToAttr.RemoteKeyProperty <> '' then
+      LForeignKey := ABelongsToAttr.RemoteKeyProperty
+    else
+      LForeignKey := Format('%s_id', [AProp.Name.ToLower]); // Convention: property_name_id
+
+    // Get foreign key value from entity
+    LEntityType := LContext.GetType(AEntity.ClassInfo);
+    LForeignIdProp := LEntityType.GetProperty(LForeignKey.Replace('_id', 'Id')); // Convert snake_case to PascalCase
+    if LForeignIdProp = nil then
+      Exit;
+
+    LForeignIdValue := LForeignIdProp.GetValue(AEntity);
+    if LForeignIdValue.IsEmpty then
+      Exit;
+
+    // Build WHERE clause for parent entity
+    LWhereClause := Format('%s = %s', [GetPrimaryKeyColumn(LParentClass), QuotedStr(LForeignIdValue.ToString)]);
+
+    // Generate and execute SQL for parent entity
+    LSql := GenerateSelectSql(LParentClass, LWhereClause);
+    LQuery.SQL.Text := LSql;
+    LQuery.Open;
+
+    if not LQuery.IsEmpty then
+    begin
+      LParentEntity := CreateEntityInstanceByClass(LParentClass);
+      FillEntityFromDataSet(LParentEntity, LQuery);
+
+      // Set the parent property
+      LParentValue := TValue.From<TObject>(LParentEntity);
+      AProp.SetValue(AEntity, LParentValue);
+    end;
+
+  finally
+    LContext.Free;
+    LQuery.Free;
+  end;
+end;
+
+procedure TRepository<T>.LoadGrandChildEntitiesRecursive(AEntity: TObject);
+var
+  LContext: TRttiContext;
+  LType: TRttiType;
+  LProp: TRttiProperty;
+  LList: TObject;
+  LListValue: TValue;
+  LChildEntity: TObject;
+  LIndex: Integer;
+begin
+  LContext := TRttiContext.Create;
+  try
+    LType := LContext.GetType(AEntity.ClassInfo);
+
+    for LProp in LType.GetProperties do
+    begin
+      if IsChildRelationProperty(LProp) then
+      begin
+        LListValue := LProp.GetValue(AEntity);
+        if not LListValue.IsEmpty then
+        begin
+          LList := LListValue.AsObject;
+          if LList <> nil then
+          begin
+            // Iterate through child entities and load their children
+            for LIndex := 0 to GetListCount(LList) - 1 do
             begin
-              while not nestedQuery.Eof do
+              LChildEntity := GetListItem(LList, LIndex);
+              if LChildEntity <> nil then
               begin
-                nestedEntity := CreateEntityInstanceByClass(nestedEntityClass);
-                FillEntityFromDataSet(nestedEntity, nestedQuery);
-                addMethod.Invoke(nestedList, [nestedEntity]);
-
-                // Note: Avoid recursive loading for child entities in HasMany to prevent infinite loops
-                // FillNestedEntities(nestedEntity); // Uncomment if needed but be careful of circular references
-
-                nestedQuery.Next;
+                // Recursively load children of children
+                FillNestedEntitiesWithInclude(LChildEntity, [ioIncludeChildren], nil);
               end;
             end;
-          finally
-            nestedQuery.Free;
           end;
         end;
       end;
     end;
   finally
-    ctx.Free;
+    LContext.Free;
+  end;
+end;
+
+procedure TRepository<T>.LoadSpecificRelationsOnly(AEntity: TObject; ARelations: TRelationNames);
+begin
+  if ARelations = nil then
+    Exit;
+
+  // Load both child and parent relations that match the specified names
+  LoadChildEntitiesWithInclude(AEntity, [ioIncludeSpecific], ARelations);
+  LoadParentEntitiesWithInclude(AEntity, [ioIncludeSpecific], ARelations);
+end;
+
+function TRepository<T>.ShouldLoadThisRelation(const ARelationName: string; ARelations: TRelationNames; AInclude: TIncludeOptions): Boolean;
+var
+  LRelation: string;
+begin
+  // If ioIncludeAll is set, load everything
+  if ioIncludeAll in AInclude then
+  begin
+    Result := True;
+    Exit;
+  end;
+
+  // If ioIncludeSpecific is set, only load specified relations
+  if ioIncludeSpecific in AInclude then
+  begin
+    Result := False;
+    if ARelations <> nil then
+    begin
+      for LRelation in ARelations do
+      begin
+        if SameText(LRelation, ARelationName) then
+        begin
+          Result := True;
+          Break;
+        end;
+      end;
+    end;
+    Exit;
+  end;
+
+  // For other include options, load all relations of that type
+  Result := True;
+end;
+
+function TRepository<T>.IsChildRelationProperty(AProp: TRttiProperty): Boolean;
+var
+  LAttr: TCustomAttribute;
+begin
+  Result := False;
+  for LAttr in AProp.GetAttributes do
+  begin
+    if LAttr is HasManyAttribute then
+    begin
+      Result := True;
+      Break;
+    end;
+  end;
+end;
+
+function TRepository<T>.CreateListInstance(AListType: TRttiType): TObject;
+var
+  LContext: TRttiContext;
+  LListClass: TClass;
+begin
+  Result := nil;
+  LContext := TRttiContext.Create;
+  try
+    if AListType.AsInstance <> nil then
+    begin
+      LListClass := AListType.AsInstance.MetaclassType;
+      Result := LListClass.Create;
+    end;
+  finally
+    LContext.Free;
+  end;
+end;
+
+procedure TRepository<T>.AddToList(AList: TObject; AItem: TObject);
+var
+  LContext: TRttiContext;
+  LType: TRttiType;
+  LMethod: TRttiMethod;
+begin
+  LContext := TRttiContext.Create;
+  try
+    LType := LContext.GetType(AList.ClassInfo);
+    LMethod := LType.GetMethod('Add');
+    if LMethod <> nil then
+      LMethod.Invoke(AList, [AItem]);
+  finally
+    LContext.Free;
+  end;
+end;
+
+function TRepository<T>.GetListCount(AList: TObject): Integer;
+var
+  LContext: TRttiContext;
+  LType: TRttiType;
+  LProp: TRttiProperty;
+begin
+  Result := 0;
+  LContext := TRttiContext.Create;
+  try
+    LType := LContext.GetType(AList.ClassInfo);
+    LProp := LType.GetProperty('Count');
+    if LProp <> nil then
+      Result := LProp.GetValue(AList).AsInteger;
+  finally
+    LContext.Free;
+  end;
+end;
+
+function TRepository<T>.GetListItem(AList: TObject; AIndex: Integer): TObject;
+var
+  LContext: TRttiContext;
+  LType: TRttiType;
+  LProp: TRttiProperty;
+begin
+  Result := nil;
+  LContext := TRttiContext.Create;
+  try
+    LType := LContext.GetType(AList.ClassInfo);
+    LProp := LType.GetProperty('Items');
+    if LProp <> nil then
+      Result := LProp.GetValue(AList).AsObject;
+  finally
+    LContext.Free;
   end;
 end;
 
@@ -845,55 +1135,511 @@ begin
   end;
 end;
 
-function TRepository<T>.FindById(AId: TValue; ALock: Boolean = False): T;
+procedure TRepository<T>.ProcessHasManyUpdates(AModel: T; AParentId: Int64);
 var
-  query: TFDQuery;
-  sql: string;
-  pkColumn: string;
-  lockClause: string;
+  ctx: TRttiContext;
+  rType: TRttiType;
+  prop, prop2: TRttiProperty;
+  attr: TCustomAttribute;
+  hasManyAttr: HasManyAttribute;
+  nestedList: TObject;
+  nestedEntityClass: TClass;
+  listType: TRttiType;
+  countProp: TRttiProperty;
+  getItemMethod: TRttiMethod;
+  count, i: Integer;
+  nestedEntity: TObject;
+  filterProp: TRttiProperty;
+  propValue: TValue;
+  method: TRttiMethod;
+  nestedEntityId: TValue;
+  nestedEntityIdProp: TRttiProperty;
 begin
-  Result := nil;
-
-  if AId.IsEmpty then
-    Exit;
-
-  query := TFDQuery.Create(nil);
+  ctx := TRttiContext.Create;
   try
-    query.Connection := FConnection;
+    rType := ctx.GetType(T);
 
-    pkColumn := GetPrimaryKeyColumn(T);
-    lockClause := IfThen(ALock, ' FOR UPDATE', '');
-
-    sql := GenerateSelectSql(T, Format('%s = :%s', [pkColumn, pkColumn])) + lockClause;
-
-    query.SQL.Text := sql;
-    query.ParamByName(pkColumn).Value := AId.AsVariant;
-    query.Open;
-
-    if not query.IsEmpty then
+    for prop in rType.GetProperties do
     begin
-      Result := CreateEntityInstanceByClass(T) as T;
-      FillEntityFromDataSet(Result, query);
-      FillNestedEntities(Result);
+      hasManyAttr := nil;
+
+      // HasMany attribute'ını bul
+      for attr in prop.GetAttributes do
+      begin
+        if attr is HasManyAttribute then
+        begin
+          hasManyAttr := attr as HasManyAttribute;
+          Break;
+        end;
+      end;
+
+      if not Assigned(hasManyAttr) then
+        Continue;
+
+      // Nested list'i al
+      propValue := prop.GetValue(TObject(AModel));
+      nestedList := propValue.AsObject;
+      if not Assigned(nestedList) then
+        Continue;
+
+      // Generic type'ı çıkar
+      nestedEntityClass := ExtractGenericTypeFromList(prop.PropertyType);
+      if not Assigned(nestedEntityClass) then
+        Continue;
+
+      // List'teki item sayısını al
+      listType := ctx.GetType(nestedList.ClassType);
+      countProp := listType.GetProperty('Count');
+      if not Assigned(countProp) then
+        Continue;
+
+      count := countProp.GetValue(nestedList).AsInteger;
+      if count = 0 then
+        Continue;
+
+      // GetItem metodunu bul
+      getItemMethod := nil;
+      for method in listType.GetMethods do
+      begin
+        if (method.Name = 'GetItem') and (Length(method.GetParameters) = 1) then
+        begin
+          getItemMethod := method;
+          Break;
+        end;
+      end;
+
+      if not Assigned(getItemMethod) then
+        Continue;
+
+      // Her nested entity için UPDATE/INSERT işlemi yap
+      for i := 0 to count - 1 do
+      begin
+        nestedEntity := getItemMethod.Invoke(nestedList, [i]).AsObject;
+        if not Assigned(nestedEntity) then
+          Continue;
+
+        // Parent ID'yi set et
+        filterProp := ctx.GetType(nestedEntityClass).GetProperty(hasManyAttr.LocalKeyProperty);
+        if Assigned(filterProp) and filterProp.IsWritable then
+          filterProp.SetValue(nestedEntity, TValue.From<Int64>(AParentId));
+
+        // Nested entity'nin ID'sini kontrol et
+        nestedEntityIdProp := nil;
+        for prop2 in ctx.GetType(nestedEntityClass).GetProperties do
+        begin
+          for attr in prop2.GetAttributes do
+          begin
+            if attr is Column then
+            begin
+              if (attr as Column).IsPrimaryKey then
+              begin
+                nestedEntityIdProp := prop2;
+                Break;
+              end;
+            end;
+          end;
+          if Assigned(nestedEntityIdProp) then
+            Break;
+        end;
+
+        if Assigned(nestedEntityIdProp) then
+        begin
+          nestedEntityId := nestedEntityIdProp.GetValue(nestedEntity);
+
+          // ID varsa UPDATE, yoksa INSERT yap
+          if nestedEntityId.IsEmpty or (nestedEntityId.AsInt64 <= 0) then
+          begin
+            // INSERT işlemi
+            InsertNestedEntity(nestedEntity, nestedEntityClass);
+          end
+          else
+          begin
+            // UPDATE işlemi
+            UpdateNestedEntity(nestedEntity, nestedEntityClass);
+          end;
+        end;
+      end;
     end;
   finally
-    query.Free;
+    ctx.Free;
   end;
 end;
 
-function TRepository<T>.FindOne(AFilter: TFilterCriteria; ALock: Boolean): T;
+procedure TRepository<T>.UpdateNestedEntity(AEntity: TObject; AEntityClass: TClass);
+var
+  query: TFDQuery;
+  updateSql: string;
+  ctx: TRttiContext;
+  rType: TRttiType;
+  prop: TRttiProperty;
+  attr: TCustomAttribute;
+  colAttr: Column;
+  setParts: TStringList;
+  whereClause: string;
+  columnName: string;
+  propValue: TValue;
+  pkColumn: string;
+  pkValue: TValue;
+begin
+  if not Assigned(AEntity) then
+    Exit;
+
+  query := TFDQuery.Create(nil);
+  setParts := TStringList.Create;
+  try
+    query.Connection := FConnection;
+
+    ctx := TRttiContext.Create;
+    try
+      rType := ctx.GetType(AEntityClass);
+
+      // Primary Key değerini bul
+      pkColumn := GetPrimaryKeyColumn(AEntityClass);
+      pkValue := TValue.Empty;
+
+      for prop in rType.GetProperties do
+      begin
+        for attr in prop.GetAttributes do
+        begin
+          if attr is Column then
+          begin
+            colAttr := attr as Column;
+            if colAttr.IsPrimaryKey then
+            begin
+              pkValue := prop.GetValue(AEntity);
+              Break;
+            end;
+          end;
+        end;
+        if not pkValue.IsEmpty then
+          Break;
+      end;
+
+      if pkValue.IsEmpty or (pkValue.AsInt64 <= 0) then
+        Exit; // ID yoksa update yapma
+
+      // UPDATE için SET clause'unu oluştur
+      for prop in rType.GetProperties do
+      begin
+        if not prop.IsReadable then
+          Continue;
+
+        colAttr := nil;
+        for attr in prop.GetAttributes do
+        begin
+          if attr is NotMapped then
+            Break;
+          if attr is HasOneAttribute then
+            Break;
+          if attr is HasManyAttribute then
+            Break;
+          if attr is BelongsToAttribute then
+            Break;
+          if attr is Column then
+          begin
+            colAttr := attr as Column;
+            Break;
+          end;
+        end;
+
+        if not Assigned(colAttr) then
+          Continue;
+
+        if colAttr.IsPrimaryKey or colAttr.IsAutoIncrement then
+          Continue;
+
+        if (colAttr.SqlUseWhichCols <> []) and not (cucUpdate in colAttr.SqlUseWhichCols) then
+          Continue;
+
+        columnName := GetColumnName(prop);
+        setParts.Add(columnName + ' = :' + columnName);
+      end;
+
+      if setParts.Count = 0 then
+        Exit;
+
+      // UPDATE SQL'i oluştur
+      whereClause := pkColumn + ' = :' + pkColumn;
+      updateSql := Format('UPDATE %s SET %s WHERE %s', [
+        GetFullTableName(AEntityClass),
+        setParts.CommaText.Replace('"', ''),
+        whereClause
+      ]);
+
+      query.SQL.Text := updateSql;
+      query.ParamByName(pkColumn).Value := pkValue.AsVariant;
+
+      // SET parametrelerini set et
+      for prop in rType.GetProperties do
+      begin
+        if not prop.IsReadable then
+          Continue;
+
+        colAttr := nil;
+        for attr in prop.GetAttributes do
+        begin
+          if attr is Column then
+          begin
+            colAttr := attr as Column;
+            Break;
+          end;
+        end;
+
+        if not Assigned(colAttr) or colAttr.IsPrimaryKey or colAttr.IsAutoIncrement then
+          Continue;
+
+        if (colAttr.SqlUseWhichCols <> []) and not (cucUpdate in colAttr.SqlUseWhichCols) then
+          Continue;
+
+        columnName := GetColumnName(prop);
+        if query.ParamByName(columnName) <> nil then
+        begin
+          propValue := prop.GetValue(AEntity);
+          if not propValue.IsEmpty then
+            query.ParamByName(columnName).Value := propValue.AsVariant
+          else
+            query.ParamByName(columnName).Value := Null;
+        end;
+      end;
+
+      // UPDATE işlemini gerçekleştir
+      query.ExecSQL;
+
+    finally
+      ctx.Free;
+    end;
+  finally
+    query.Free;
+    setParts.Free;
+  end;
+end;
+
+procedure TRepository<T>.CloneEntityProperties(ASource, ATarget: TObject; AEntityClass: TClass; ADeepClone: Boolean);
+var
+  ctx: TRttiContext;
+  rType: TRttiType;
+  prop: TRttiProperty;
+  attr: TCustomAttribute;
+  colAttr: Column;
+  propValue: TValue;
+begin
+  if not Assigned(ASource) or not Assigned(ATarget) then
+    Exit;
+
+  ctx := TRttiContext.Create;
+  try
+    rType := ctx.GetType(AEntityClass);
+
+    for prop in rType.GetProperties do
+    begin
+      if not prop.IsReadable or not prop.IsWritable then
+        Continue;
+
+      // Sadece Column property'lerini kopyala (nested relationship'leri atla - circular reference önlemi)
+      colAttr := nil;
+      for attr in prop.GetAttributes do
+      begin
+        if attr is Column then
+        begin
+          colAttr := attr as Column;
+          Break;
+        end
+        else if attr is NotMapped then
+        begin
+          Break; // NotMapped property'leri atla
+        end
+        else if (attr is HasOneAttribute) or (attr is HasManyAttribute) or (attr is BelongsToAttribute) then
+        begin
+          if not ADeepClone then
+            Break; // Deep clone değilse relationship'leri atla
+        end;
+      end;
+
+      if not Assigned(colAttr) then
+        Continue;
+
+      propValue := prop.GetValue(ASource);
+
+      // Primary key auto increment ise ve 0'dan büyükse, klonda 0 yap
+      if colAttr.IsPrimaryKey and colAttr.IsAutoIncrement and not propValue.IsEmpty then
+      begin
+        case prop.PropertyType.TypeKind of
+          tkInteger: prop.SetValue(ATarget, TValue.From<Integer>(0));
+          tkInt64: prop.SetValue(ATarget, TValue.From<Int64>(0));
+        end;
+      end
+      else
+      begin
+        // Diğer property'leri direkt kopyala
+        if not propValue.IsEmpty then
+          prop.SetValue(ATarget, propValue);
+      end;
+    end;
+
+  finally
+    ctx.Free;
+  end;
+
+end;
+
+procedure TRepository<T>.ProcessCascadeDeletes(AModel: T; ACascade: TCascadeOperations);
+var
+  ctx: TRttiContext;
+  rType: TRttiType;
+  prop: TRttiProperty;
+  attr: TCustomAttribute;
+  hasManyAttr: HasManyAttribute;
+  nestedList: TObject;
+  nestedEntityClass: TClass;
+  listType: TRttiType;
+  countProp: TRttiProperty;
+  getItemMethod: TRttiMethod;
+  count, i: Integer;
+  nestedEntity: TObject;
+  method: TRttiMethod;
+  deleteQuery: TFDQuery;
+  deleteSql: string;
+  filterProp: TRttiProperty;
+  filterValue: TValue;
+  valueColumnName: string;
+  valueProp: TRttiProperty;
+begin
+  if not (coDelete in ACascade) then
+    Exit;
+
+  ctx := TRttiContext.Create;
+  try
+    rType := ctx.GetType(T);
+
+    for prop in rType.GetProperties do
+    begin
+      hasManyAttr := nil;
+
+      // HasMany attribute'ını bul
+      for attr in prop.GetAttributes do
+      begin
+        if attr is HasManyAttribute then
+        begin
+          hasManyAttr := attr as HasManyAttribute;
+          Break;
+        end;
+      end;
+
+      if not Assigned(hasManyAttr) then
+        Continue;
+
+      // Parent ID'yi al
+      filterProp := rType.GetProperty(hasManyAttr.LocalKeyProperty);
+      if not Assigned(filterProp) then
+        Continue;
+
+      filterValue := filterProp.GetValue(TObject(AModel));
+      if filterValue.IsEmpty then
+        Continue;
+
+      // Generic type'ı çıkar
+      nestedEntityClass := ExtractGenericTypeFromList(prop.PropertyType);
+      if not Assigned(nestedEntityClass) then
+        Continue;
+
+      // Child tablosundaki foreign key column adını al
+      valueColumnName := hasManyAttr.ForeignKeyProperty;
+      valueProp := ctx.GetType(nestedEntityClass).GetProperty(hasManyAttr.ForeignKeyProperty);
+      if Assigned(valueProp) then
+        valueColumnName := GetColumnName(valueProp);
+
+      // Child kayıtları sil
+      deleteQuery := TFDQuery.Create(nil);
+      try
+        deleteQuery.Connection := FConnection;
+        deleteSql := Format('DELETE FROM %s WHERE %s = :parent_id', [
+          GetFullTableName(nestedEntityClass),
+          valueColumnName
+        ]);
+        deleteQuery.SQL.Text := deleteSql;
+        deleteQuery.ParamByName('parent_id').Value := filterValue.AsVariant;
+        deleteQuery.ExecSQL;
+      finally
+        deleteQuery.Free;
+      end;
+    end;
+  finally
+    ctx.Free;
+  end;
+end;
+
+function TRepository<T>.GetColumnNameForProperty(const APropertyName: string): string;
+var
+  ctx: TRttiContext;
+  rType: TRttiType;
+  prop: TRttiProperty;
+begin
+  Result := LowerCase(APropertyName); // Default olarak lowercase
+
+  ctx := TRttiContext.Create;
+  try
+    rType := ctx.GetType(T);
+    prop := rType.GetProperty(APropertyName);
+
+    if Assigned(prop) then
+      Result := GetColumnName(prop);
+  finally
+    ctx.Free;
+  end;
+end;
+
+function TRepository<T>.FindById(AId: TValue; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil; ALock: Boolean = False): T;
+var
+  LQuery: TFDQuery;
+  LWhereClause: string;
+  LLockClause: string;
+  LSql: string;
+begin
+  Result := nil;
+  LQuery := TFDQuery.Create(nil);
+  try
+    LQuery.Connection := Connection;
+
+    // Build WHERE clause for primary key
+    LWhereClause := Format('%s = %s', [GetPrimaryKeyColumn(T), QuotedStr(AId.ToString)]);
+
+    // Add lock clause if needed
+    LLockClause := '';
+    if ALock then
+      LLockClause := ' FOR UPDATE';
+
+    // Generate and execute SQL
+    LSql := GenerateSelectSql(T, LWhereClause) + LLockClause;
+    LQuery.SQL.Text := LSql;
+    LQuery.Open;
+
+    if not LQuery.IsEmpty then
+    begin
+      Result := T.Create;
+      FillEntityFromDataSet(Result, LQuery);
+
+      // Apply include pattern for nested entities
+      if AInclude <> [ioIncludeNone] then
+        FillNestedEntitiesWithInclude(Result, AInclude, ARelations);
+    end;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TRepository<T>.FindOne(AFilter: TFilterCriteria; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil; ALock: Boolean = False): T;
 begin
   Result := nil;
   // TODO: Implement based on filter criteria
 end;
 
-function TRepository<T>.Find(AFilter: TFilterCriteria; ALock: Boolean): TObjectList<T>;
+function TRepository<T>.Find(AFilter: TFilterCriteria; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil; ALock: Boolean = False): TObjectList<T>;
 begin
   Result := nil;
   // TODO: Implement based on filter criteria
 end;
 
-procedure TRepository<T>.Add(AModel: T);
+procedure TRepository<T>.Add(AModel: T; ACascade: TCascadeOperations = []);
 var
   query: TFDQuery;
   insertSql: string;
@@ -933,11 +1679,11 @@ begin
         begin
           if attr is NotMapped then
             Break;
-          if attr is HasOne then
+          if attr is HasOneAttribute then
             Break;
-          if attr is HasMany then
+          if attr is HasManyAttribute then
             Break;
-          if attr is BelongsTo then
+          if attr is BelongsToAttribute then
             Break;
           if attr is Column then
           begin
@@ -1048,7 +1794,8 @@ begin
         query.Close;
 
         // Nested objeleri işle (HasMany relationships)
-        ProcessHasManyInserts(AModel, insertedId);
+        if coInsert in ACascade then
+          ProcessHasManyInserts(AModel, insertedId);
       end;
 
     finally
@@ -1061,64 +1808,299 @@ begin
   end;
 end;
 
-procedure TRepository<T>.AddBatch(AModels: TArray<T>);
-begin
-  // TODO: Implement batch INSERT operation
-end;
-
-procedure TRepository<T>.Update(AModel: T);
-begin
-  // TODO: Implement UPDATE operation
-end;
-
-procedure TRepository<T>.UpdateBatch(AModels: TArray<T>);
-begin
-  // TODO: Implement batch UPDATE operation
-end;
-
-procedure TRepository<T>.Delete(AID: Int64);
+procedure TRepository<T>.AddBatch(AModels: TArray<T>; ACascade: TCascadeOperations = []);
 var
-  Q: TFDQuery;
-  SQL, PKCol: string;
+  i: Integer;
+  transaction: TFDTransaction;
 begin
-  PKCol := GetPrimaryKeyColumn(TClass(T));
-  SQL := Format('DELETE FROM %s WHERE %s = :%s', [GetTableName(TClass(T)), PKCol, PKCol]);
+  if Length(AModels) = 0 then
+    Exit;
 
-  Q := TFDQuery.Create(nil);
+  transaction := TFDTransaction.Create(nil);
   try
-    Q.Connection := FConnection;
-    Q.SQL.Text := SQL;
-    Q.ParamByName(PKCol).AsLargeInt := AID;
-    Q.ExecSQL;
+    transaction.Connection := FConnection;
+    transaction.StartTransaction;
+    try
+      for i := 0 to High(AModels) do
+        Add(AModels[i], ACascade);
+
+      transaction.Commit;
+    except
+      transaction.Rollback;
+      raise;
+    end;
   finally
-    Q.Free;
+    transaction.Free;
   end;
 end;
 
-procedure TRepository<T>.Delete(AModel: T);
+procedure TRepository<T>.Update(AModel: T; ACascade: TCascadeOperations = []);
+var
+  query: TFDQuery;
+  updateSql: string;
+  ctx: TRttiContext;
+  rType: TRttiType;
+  prop: TRttiProperty;
+  attr: TCustomAttribute;
+  colAttr: Column;
+  setParts: TStringList;
+  whereClause: string;
+  columnName: string;
+  propValue: TValue;
+  pkColumn: string;
+  pkValue: TValue;
+  pkProp: TRttiProperty;
+begin
+  if not Assigned(AModel) then
+    Exit;
+
+  query := TFDQuery.Create(nil);
+  setParts := TStringList.Create;
+  try
+    query.Connection := FConnection;
+
+    ctx := TRttiContext.Create;
+    try
+      rType := ctx.GetType(T);
+
+      // Primary Key değerini bul
+      pkColumn := GetPrimaryKeyColumn(T);
+      pkValue := TValue.Empty;
+
+      for prop in rType.GetProperties do
+      begin
+        for attr in prop.GetAttributes do
+        begin
+          if attr is Column then
+          begin
+            colAttr := attr as Column;
+            if colAttr.IsPrimaryKey then
+            begin
+              pkProp := prop;
+              pkValue := prop.GetValue(TObject(AModel));
+              Break;
+            end;
+          end;
+        end;
+        if not pkValue.IsEmpty then
+          Break;
+      end;
+
+      if pkValue.IsEmpty or (pkValue.AsInt64 <= 0) then
+        raise Exception.Create('Primary key value is required for update operation');
+
+      // UPDATE için SET clause'unu oluştur
+      for prop in rType.GetProperties do
+      begin
+        if not prop.IsReadable then
+          Continue;
+
+        // Column attribute'unu kontrol et
+        colAttr := nil;
+        for attr in prop.GetAttributes do
+        begin
+          if attr is NotMapped then
+            Break;
+          if attr is HasOneAttribute then
+            Break;
+          if attr is HasManyAttribute then
+            Break;
+          if attr is BelongsToAttribute then
+            Break;
+          if attr is Column then
+          begin
+            colAttr := attr as Column;
+            Break;
+          end;
+        end;
+
+        // Column attribute yoksa veya mapped değilse atla
+        if not Assigned(colAttr) then
+          Continue;
+
+        // Primary Key ve Auto increment alanları UPDATE'e dahil etme
+        if colAttr.IsPrimaryKey or colAttr.IsAutoIncrement then
+          Continue;
+
+        // cucUpdate kullanım kriterini kontrol et
+        if (colAttr.SqlUseWhichCols <> []) and not (cucUpdate in colAttr.SqlUseWhichCols) then
+          Continue;
+
+        columnName := GetColumnName(prop);
+        setParts.Add(columnName + ' = :' + columnName);
+      end;
+
+      if setParts.Count = 0 then
+        raise Exception.Create('No columns to update');
+
+      // UPDATE SQL'i oluştur
+      whereClause := pkColumn + ' = :' + pkColumn;
+      updateSql := Format('UPDATE %s SET %s WHERE %s', [
+        GetFullTableName(T),
+        setParts.CommaText.Replace('"', ''),
+        whereClause
+      ]);
+
+      query.SQL.Text := updateSql;
+
+      // WHERE parametresini set et
+      query.ParamByName(pkColumn).Value := pkValue.AsVariant;
+
+      // SET parametrelerini set et
+      for prop in rType.GetProperties do
+      begin
+        if not prop.IsReadable then
+          Continue;
+
+        colAttr := nil;
+        for attr in prop.GetAttributes do
+        begin
+          if attr is Column then
+          begin
+            colAttr := attr as Column;
+            Break;
+          end;
+        end;
+
+        if not Assigned(colAttr) or colAttr.IsPrimaryKey or colAttr.IsAutoIncrement then
+          Continue;
+
+        if (colAttr.SqlUseWhichCols <> []) and not (cucUpdate in colAttr.SqlUseWhichCols) then
+          Continue;
+
+        columnName := GetColumnName(prop);
+        if query.ParamByName(columnName) <> nil then
+        begin
+          propValue := prop.GetValue(TObject(AModel));
+          if not propValue.IsEmpty then
+            query.ParamByName(columnName).Value := propValue.AsVariant
+          else
+            query.ParamByName(columnName).Value := Null;
+        end;
+      end;
+
+      // UPDATE işlemini gerçekleştir
+      query.ExecSQL;
+
+      // Nested objeleri işle (HasMany relationships)
+      if coUpdate in ACascade then
+      begin
+        ProcessHasManyUpdates(AModel, pkValue.AsInt64);
+      end;
+
+    finally
+      ctx.Free;
+    end;
+  finally
+    query.Free;
+    setParts.Free;
+  end;
+end;
+
+procedure TRepository<T>.UpdateBatch(AModels: TArray<T>; ACascade: TCascadeOperations = []);
+var
+  i: Integer;
+  transaction: TFDTransaction;
+begin
+  if Length(AModels) = 0 then
+    Exit;
+
+  transaction := TFDTransaction.Create(nil);
+  try
+    transaction.Connection := FConnection;
+    transaction.StartTransaction;
+    try
+      for i := 0 to High(AModels) do
+        Update(AModels[i], ACascade);
+
+      transaction.Commit;
+    except
+      transaction.Rollback;
+      raise;
+    end;
+  finally
+    transaction.Free;
+  end;
+end;
+
+procedure TRepository<T>.Delete(AID: Int64; ACascade: TCascadeOperations = []);
+var
+  model: T;
+  query: TFDQuery;
+  sql, pkColumn: string;
+begin
+  if AID <= 0 then
+    Exit;
+
+  // Cascade delete işlemi gerekiyorsa önce model'i yükle
+  if coDelete in ACascade then
+  begin
+    model := FindById(AID);
+    if Assigned(model) then
+    begin
+      try
+        ProcessCascadeDeletes(model, ACascade);
+      finally
+        model.Free;
+      end;
+    end;
+  end;
+
+  // Ana kaydı sil
+  pkColumn := GetPrimaryKeyColumn(T);
+  sql := Format('DELETE FROM %s WHERE %s = :%s', [
+    GetFullTableName(T),
+    pkColumn,
+    pkColumn
+  ]);
+
+  query := TFDQuery.Create(nil);
+  try
+    query.Connection := FConnection;
+    query.SQL.Text := sql;
+    query.ParamByName(pkColumn).AsLargeInt := AID;
+    query.ExecSQL;
+  finally
+    query.Free;
+  end;
+end;
+
+procedure TRepository<T>.Delete(AModel: T; ACascade: TCascadeOperations = []);
 var
   ctx: TRttiContext;
   rType: TRttiType;
   prop: TRttiProperty;
-  PKCol: string;
-  PKVal: TValue;
+  attr: TCustomAttribute;
+  colAttr: Column;
+  idValue: TValue;
 begin
+  if not Assigned(AModel) then
+    Exit;
+
+  // Model'den ID'yi al
   ctx := TRttiContext.Create;
   try
-    rType := ctx.GetType(TClass(T));
-    PKCol := GetPrimaryKeyColumn(TClass(T));
-
+    rType := ctx.GetType(T);
     for prop in rType.GetProperties do
     begin
-      if (prop.Visibility = mvPublished)
-      or (prop.Visibility = mvPublic)
-      then
+      for attr in prop.GetAttributes do
       begin
-        if SameText(GetColumnName(prop), PKCol) then
+        if attr is Column then
         begin
-          PKVal := prop.GetValue(TObject(AModel));
-          Delete(PKVal.AsInt64);
-          Exit;
+          colAttr := attr as Column;
+          if colAttr.IsPrimaryKey then
+          begin
+            idValue := prop.GetValue(TObject(AModel));
+            if not idValue.IsEmpty and (idValue.AsInt64 > 0) then
+            begin
+              // Cascade delete işlemi gerekiyorsa
+              if coDelete in ACascade then
+                ProcessCascadeDeletes(AModel, ACascade);
+
+              Delete(idValue.AsInt64, []); // Cascade'i tekrar çağırma
+            end;
+            Exit;
+          end;
         end;
       end;
     end;
@@ -1127,56 +2109,322 @@ begin
   end;
 end;
 
-procedure TRepository<T>.DeleteBatch(AModels: TArray<T>);
+procedure TRepository<T>.DeleteBatch(AModels: TArray<T>; ACascade: TCascadeOperations = []);
 var
   Model: T;
+  transaction: TFDTransaction;
 begin
-  for Model in AModels do
-    Delete(Model);
+  if Length(AModels) = 0 then
+    Exit;
+
+  transaction := TFDTransaction.Create(nil);
+  try
+    transaction.Connection := FConnection;
+    transaction.StartTransaction;
+    try
+      for Model in AModels do
+        Delete(Model, ACascade);
+
+      transaction.Commit;
+    except
+      transaction.Rollback;
+      raise;
+    end;
+  finally
+    transaction.Free;
+  end;
 end;
 
-procedure TRepository<T>.DeleteBatch(AIDs: TArray<Int64>);
+procedure TRepository<T>.DeleteBatch(AIDs: TArray<Int64>; ACascade: TCascadeOperations = []);
 var
   ID: Int64;
+  transaction: TFDTransaction;
 begin
-  for ID in AIDs do
-    Delete(ID);
+  if Length(AIDs) = 0 then
+    Exit;
+
+  transaction := TFDTransaction.Create(nil);
+  try
+    transaction.Connection := FConnection;
+    transaction.StartTransaction;
+    try
+      for ID in AIDs do
+        Delete(ID, ACascade);
+
+      transaction.Commit;
+    except
+      transaction.Rollback;
+      raise;
+    end;
+  finally
+    transaction.Free;
+  end;
 end;
 
-procedure TRepository<T>.DeleteBatch(AFilter: TFilterCriteria);
+procedure TRepository<T>.DeleteBatch(AFilter: TFilterCriteria; ACascade: TCascadeOperations = []);
 var
-  Q: TFDQuery;
-  SQL: string;
-  FC: TFilterCriterion;
+  query: TFDQuery;
+  sql: string;
+  fc: TFilterCriterion;
   i: Integer;
+  models: TObjectList<T>;
+  model: T;
+  transaction: TFDTransaction;
 begin
-  SQL := 'DELETE FROM ' + GetTableName(TClass(T)) + ' WHERE ';
-  for i := 0 to AFilter.Count - 1 do
+  if not Assigned(AFilter) or (AFilter.Count = 0) then
+    Exit;
+
+  // Cascade delete gerekiyorsa önce kayıtları yükle
+  if coDelete in ACascade then
   begin
-    FC := AFilter[i];
-    if i > 0 then
-      SQL := SQL + ' AND ';
-    SQL := SQL + FC.PropertyNamePath + ' ' + FC.Operator + ' :' + FC.PropertyNamePath;
+    models := Find(AFilter);
+    if Assigned(models) then
+    begin
+      try
+        transaction := TFDTransaction.Create(nil);
+        try
+          transaction.Connection := FConnection;
+          transaction.StartTransaction;
+          try
+            for model in models do
+              Delete(model, ACascade);
+
+            transaction.Commit;
+          except
+            transaction.Rollback;
+            raise;
+          end;
+        finally
+          transaction.Free;
+        end;
+      finally
+        models.Free;
+      end;
+      Exit;
+    end;
   end;
 
-  Q := TFDQuery.Create(nil);
+  // Normal delete (cascade olmadan)
+  sql := 'DELETE FROM ' + GetFullTableName(T) + ' WHERE ';
+  for i := 0 to AFilter.Count - 1 do
+  begin
+    fc := AFilter[i];
+    if i > 0 then
+      sql := sql + ' AND ';
+
+    // Property name'i column name'e çevir
+    sql := sql + GetColumnNameForProperty(fc.PropertyNamePath) + ' ' + fc.Operator + ' :param' + IntToStr(i);
+  end;
+
+  query := TFDQuery.Create(nil);
   try
-    Q.Connection := FConnection;
-    Q.SQL.Text := SQL;
+    query.Connection := FConnection;
+    query.SQL.Text := sql;
+
     for i := 0 to AFilter.Count - 1 do
     begin
-      Q.ParamByName(AFilter[i].PropertyNamePath).Value := AFilter[i].Value.AsVariant;
+      query.ParamByName('param' + IntToStr(i)).Value := AFilter[i].Value.AsVariant;
     end;
-    Q.ExecSQL;
+
+    query.ExecSQL;
   finally
-    Q.Free;
+    query.Free;
   end;
 end;
 
 function TRepository<T>.Clone(ASource: T): T;
+var
+  ctx: TRttiContext;
+  rType: TRttiType;
+  prop: TRttiProperty;
+  attr: TCustomAttribute;
+  colAttr: Column;
+  hasOneAttr: HasOneAttribute;
+  hasManyAttr: HasManyAttribute;
+  belongsToAttr: BelongsToAttribute;
+  propValue: TValue;
+  sourceList: TObject;
+  targetList: TObject;
+  listType: TRttiType;
+  countProp: TRttiProperty;
+  getItemMethod: TRttiMethod;
+  addMethod: TRttiMethod;
+  clearMethod: TRttiMethod;
+  count, i: Integer;
+  sourceItem: TObject;
+  clonedItem: TObject;
+  sourceNestedEntity: TObject;
+  clonedNestedEntity: TObject;
+  nestedEntityClass: TClass;
+  method: TRttiMethod;
 begin
   Result := nil;
-  // TODO: Implement clone operation
+
+  if not Assigned(ASource) then
+    Exit;
+
+  ctx := TRttiContext.Create;
+  try
+    rType := ctx.GetType(T);
+
+    // Yeni instance oluştur
+    Result := CreateEntityInstanceByClass(T) as T;
+
+    // Tüm property'leri kopyala
+    for prop in rType.GetProperties do
+    begin
+      if not prop.IsReadable or not prop.IsWritable then
+        Continue;
+
+      // Attribute'ları kontrol et
+      colAttr := nil;
+      hasOneAttr := nil;
+      hasManyAttr := nil;
+      belongsToAttr := nil;
+
+      for attr in prop.GetAttributes do
+      begin
+        if attr is NotMapped then
+        begin
+          // NotMapped property'leri atla
+          Break;
+        end
+        else if attr is Column then
+        begin
+          colAttr := attr as Column;
+        end
+        else if attr is HasOneAttribute then
+        begin
+          hasOneAttr := attr as HasOneAttribute;
+        end
+        else if attr is HasManyAttribute then
+        begin
+          hasManyAttr := attr as HasManyAttribute;
+        end
+        else if attr is BelongsToAttribute then
+        begin
+          belongsToAttr := attr as BelongsToAttribute;
+        end;
+      end;
+
+      // NotMapped property ise atla
+      if (colAttr = nil) and (hasOneAttr = nil) and (hasManyAttr = nil) and (belongsToAttr = nil) then
+        Continue;
+
+      propValue := prop.GetValue(TObject(ASource));
+
+      // Column property'si ise direkt kopyala
+      if Assigned(colAttr) then
+      begin
+        // Primary key auto increment ise ve 0'dan büyükse, klonda 0 yap (yeni kayıt olarak eklenmesi için)
+        if colAttr.IsPrimaryKey and colAttr.IsAutoIncrement and not propValue.IsEmpty then
+        begin
+          case prop.PropertyType.TypeKind of
+            tkInteger: prop.SetValue(TObject(Result), TValue.From<Integer>(0));
+            tkInt64: prop.SetValue(TObject(Result), TValue.From<Int64>(0));
+          end;
+        end
+        else
+        begin
+          // Diğer column property'leri direkt kopyala
+          if not propValue.IsEmpty then
+            prop.SetValue(TObject(Result), propValue);
+        end;
+      end
+      // BelongsTo relationship ise nested entity'yi klonla
+      else if Assigned(belongsToAttr) then
+      begin
+        sourceNestedEntity := propValue.AsObject;
+        if Assigned(sourceNestedEntity) then
+        begin
+          nestedEntityClass := prop.PropertyType.AsInstance.MetaclassType;
+          clonedNestedEntity := CreateEntityInstanceByClass(nestedEntityClass);
+
+          // Recursive clone (ama sadece 1 seviye - circular reference'ı önlemek için)
+          CloneEntityProperties(sourceNestedEntity, clonedNestedEntity, nestedEntityClass, False);
+          prop.SetValue(TObject(Result), clonedNestedEntity);
+        end;
+      end
+      // HasOne relationship ise nested entity'yi klonla
+      else if Assigned(hasOneAttr) then
+      begin
+        sourceNestedEntity := propValue.AsObject;
+        if Assigned(sourceNestedEntity) then
+        begin
+          nestedEntityClass := prop.PropertyType.AsInstance.MetaclassType;
+          clonedNestedEntity := CreateEntityInstanceByClass(nestedEntityClass);
+
+          // Recursive clone (ama sadece 1 seviye - circular reference'ı önlemek için)
+          CloneEntityProperties(sourceNestedEntity, clonedNestedEntity, nestedEntityClass, False);
+          prop.SetValue(TObject(Result), clonedNestedEntity);
+        end;
+      end
+      // HasMany relationship ise list'i klonla
+      else if Assigned(hasManyAttr) then
+      begin
+        sourceList := propValue.AsObject;
+        targetList := prop.GetValue(TObject(Result)).AsObject;
+
+        if Assigned(sourceList) and Assigned(targetList) then
+        begin
+          nestedEntityClass := ExtractGenericTypeFromList(prop.PropertyType);
+          if not Assigned(nestedEntityClass) then
+            Continue;
+
+          listType := ctx.GetType(sourceList.ClassType);
+
+          // Count property'sini al
+          countProp := listType.GetProperty('Count');
+          if not Assigned(countProp) then
+            Continue;
+
+          count := countProp.GetValue(sourceList).AsInteger;
+          if count = 0 then
+            Continue;
+
+          // GetItem ve Add metodlarını bul
+          getItemMethod := nil;
+          addMethod := nil;
+          clearMethod := nil;
+
+          for method in listType.GetMethods do
+          begin
+            if (method.Name = 'GetItem') and (Length(method.GetParameters) = 1) then
+              getItemMethod := method
+            else if (method.Name = 'Add') and (Length(method.GetParameters) = 1) then
+              addMethod := method
+            else if (method.Name = 'Clear') and (Length(method.GetParameters) = 0) then
+              clearMethod := method;
+          end;
+
+          if not Assigned(getItemMethod) or not Assigned(addMethod) then
+            Continue;
+
+          // Target list'i temizle
+          if Assigned(clearMethod) then
+            clearMethod.Invoke(targetList, []);
+
+          // Her item'ı klonla ve target list'e ekle
+          for i := 0 to count - 1 do
+          begin
+            sourceItem := getItemMethod.Invoke(sourceList, [i]).AsObject;
+            if Assigned(sourceItem) then
+            begin
+              clonedItem := CreateEntityInstanceByClass(nestedEntityClass);
+
+              // Nested entity'yi klonla (ama daha derin klonlama yapma - circular reference önlemi)
+              CloneEntityProperties(sourceItem, clonedItem, nestedEntityClass, False);
+
+              addMethod.Invoke(targetList, [clonedItem]);
+            end;
+          end;
+        end;
+      end;
+    end;
+
+  finally
+    ctx.Free;
+  end;
 end;
 
 end.

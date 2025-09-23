@@ -66,18 +66,13 @@ begin
 
   if not FCache.TryGetValue(LKey, LRepo) then
   begin
-    // RTTI ile parametreli constructor çağırıyoruz
     LContext := TRttiContext.Create;
     try
       LRttiType := LContext.GetType(R);
       LRttiMethod := LRttiType.GetMethod('Create');
-      if Assigned(LRttiMethod) and (Length(LRttiMethod.GetParameters) = 1) then
-      begin
-        LRepo := LRttiMethod.Invoke(LRttiType.AsInstance.MetaclassType,
-                  [FConnection]).AsInterface as IRepository<T>;
-      end
-      else
+      if Assigned(LRttiMethod) and (Length(LRttiMethod.GetParameters) <> 1) then
         raise Exception.CreateFmt('%s uygun constructor bulamadı!', [R.ClassName]);
+      LRepo := LRttiMethod.Invoke(LRttiType.AsInstance.MetaclassType, [FConnection]).AsInterface as IRepository<T>;
     finally
       LContext.Free;
     end;

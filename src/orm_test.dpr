@@ -22,7 +22,8 @@ uses
   EntityAttributes in 'EntityAttributes.pas',
   Persons in 'Persons.pas',
   FilterCriterion in 'FilterCriterion.pas',
-  RepositoryManager in 'RepositoryManager.pas';
+  RepositoryManager in 'RepositoryManager.pas',
+  CascadeHelper in 'CascadeHelper.pas';
 
 var
   LConn: TFDConnection;
@@ -95,7 +96,7 @@ begin
     LPersonAddress.PersonId := LPerson.Id;
     LPerson.Addresses.Add(LPersonAddress);
 
-    LRepoPerson.Add(LPerson);
+    LRepoPerson.Add(LPerson, TCascadeHelper.Insert);
 
     LPerson := LRepoPerson.FindById(2, False);
     FreeAndNil(LPerson);

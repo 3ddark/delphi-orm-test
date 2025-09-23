@@ -3,7 +3,7 @@ unit EntityAttributes;
 interface
 
 uses
-  System.Classes;
+  System.Classes, System.SysUtils, System.Variants, System.Generics.Collections;
 
 type
   TColumnProperty = (cpNotNull, cpUnique, cpPrimaryKey, cpAutoIncrement);
@@ -12,14 +12,46 @@ type
   TColumnUseCriteria = (cucFind, cucAdd, cucUpdate, cucDelete);
   TColumnUseCriterias = set of TColumnUseCriteria;
 
+  TDataType = (dtString, dtInteger, dtBigInt, dtFloat, dtDouble, dtDecimal, dtDateTime,
+               dtDate, dtTime, dtBoolean, dtText, dtBlob, dtGUID, dtJSON, dtEnum);
+
+  TCascadeAction = (caNone, caRestrict, caCascade, caSetNull, caSetDefault);
+
+  TValidationError = class
+  private
+    FFieldName: string;
+    FMessage: string;
+  public
+    constructor Create(const AFieldName, AMessage: string);
+    property FieldName: string read FFieldName;
+    property Message: string read FMessage;
+  end;
+
+  TValidationResult = class
+  private
+    FIsValid: Boolean;
+    FErrors: TArray<TValidationError>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure AddError(const AFieldName, AMessage: string);
+    property IsValid: Boolean read FIsValid;
+    property Errors: TArray<TValidationError> read FErrors;
+  end;
+
   Table = class(TCustomAttribute)
   private
     FName: string;
     FSchema: string;
+    FEngine: string;
+    FCharset: string;
   public
-    constructor Create(const AName: string; const ASchema: string = ''); overload;
+    constructor Create(const AName: string; const ASchema: string = '';
+                      const AEngine: string = ''; const ACharset: string = 'utf8mb4'); overload;
     property Name: string read FName;
     property Schema: string read FSchema;
+    property Engine: string read FEngine;
+    property Charset: string read FCharset;
     function FullName: string;
   end;
 
@@ -28,15 +60,265 @@ type
     FName: string;
     FProperties: TColumnProperties;
     FSqlUseWhichCols: TColumnUseCriterias;
+    FDataType: TDataType;
+    FLength: Integer;
+    FPrecision: Integer;
+    FScale: Integer;
+    FComment: string;
   public
-    constructor Create(const AName: string = ''; AProperties: TColumnProperties = []; ASqlUseWhichCols: TColumnUseCriterias = []); overload;
+    constructor Create(const AName: string; AProperties: TColumnProperties = [];
+                      ASqlUseWhichCols: TColumnUseCriterias = [];
+                      ADataType: TDataType = dtString; ALength: Integer = 0;
+                      APrecision: Integer = 0; AScale: Integer = 0;
+                      const AComment: string = ''); overload;
     property Name: string read FName;
     property Properties: TColumnProperties read FProperties;
     property SqlUseWhichCols: TColumnUseCriterias read FSqlUseWhichCols;
+    property DataType: TDataType read FDataType;
+    property Length: Integer read FLength;
+    property Precision: Integer read FPrecision;
+    property Scale: Integer read FScale;
+    property Comment: string read FComment;
     function IsPrimaryKey: Boolean;
     function IsNotNull: Boolean;
     function IsUnique: Boolean;
     function IsAutoIncrement: Boolean;
+  end;
+
+  Index = class(TCustomAttribute)
+  private
+    FName: string;
+    FColumns: TArray<string>;
+    FUnique: Boolean;
+    FType: string;
+  public
+    constructor Create(const AName: string; const AColumns: array of string; AUnique: Boolean = False; const AType: string = 'BTREE'); overload;
+    constructor Create(const AName: string; const AColumn: string; AUnique: Boolean = False; const AType: string = 'BTREE'); overload;
+    property Name: string read FName;
+    property Columns: TArray<string> read FColumns;
+    property Unique: Boolean read FUnique;
+    property IndexType: string read FType;
+  end;
+
+  UniqueIndex = class(Index)
+  public
+    constructor Create(const AName: string; const AColumns: TArray<string>; const AType: string = 'BTREE');
+  end;
+
+  CompositeKey = class(TCustomAttribute)
+  private
+    FColumns: TArray<string>;
+  public
+    constructor Create(const AColumns: TArray<string>);
+    property Columns: TArray<string> read FColumns;
+  end;
+
+  Required = class(TCustomAttribute)
+  private
+    FMessage: string;
+  public
+    constructor Create(const AMessage: string = 'Field is required');
+    function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+    property Message: string read FMessage;
+  end;
+
+  MinLength = class(TCustomAttribute)
+  private
+    FMinLength: Integer;
+    FMessage: string;
+  public
+    property MinLength: Integer read FMinLength;
+    constructor Create(AMinLength: Integer; const AMessage: string = '');
+    function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+  end;
+
+  MaxLength = class(TCustomAttribute)
+  private
+    FMaxLength: Integer;
+    FMessage: string;
+  public
+    constructor Create(AMaxLength: Integer; const AMessage: string = '');
+    function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+    property MaxLength: Integer read FMaxLength;
+  end;
+
+  Range = class(TCustomAttribute)
+  private
+    FMinValue: Variant;
+    FMaxValue: Variant;
+    FMessage: string;
+  public
+    constructor Create(const AMinValue, AMaxValue: Variant; const AMessage: string = '');
+    function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+  end;
+
+  Email = class(TCustomAttribute)
+  private
+    FMessage: string;
+  public
+    constructor Create(const AMessage: string = 'Invalid email format');
+    function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+  end;
+
+  RegEx = class(TCustomAttribute)
+  private
+    FPattern: string;
+    FMessage: string;
+  public
+    constructor Create(const APattern: string; const AMessage: string = 'Invalid format');
+    function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+  end;
+
+  CreatedAt = class(TCustomAttribute)
+  private
+    FColumnName: string;
+    FAutoUpdate: Boolean;
+  public
+    constructor Create(const AColumnName: string = 'created_at'; AAutoUpdate: Boolean = True);
+    property ColumnName: string read FColumnName;
+    property AutoUpdate: Boolean read FAutoUpdate;
+  end;
+
+  UpdatedAt = class(TCustomAttribute)
+  private
+    FColumnName: string;
+    FAutoUpdate: Boolean;
+  public
+    constructor Create(const AColumnName: string = 'updated_at'; AAutoUpdate: Boolean = True);
+    property ColumnName: string read FColumnName;
+    property AutoUpdate: Boolean read FAutoUpdate;
+  end;
+
+  CreatedBy = class(TCustomAttribute)
+  private
+    FColumnName: string;
+    FUserIdProvider: string;
+  public
+    constructor Create(const AColumnName: string = 'created_by'; const AUserIdProvider: string = '');
+    property ColumnName: string read FColumnName;
+    property UserIdProvider: string read FUserIdProvider;
+  end;
+
+  UpdatedBy = class(TCustomAttribute)
+  private
+    FColumnName: string;
+    FUserIdProvider: string;
+  public
+    constructor Create(const AColumnName: string = 'updated_by'; const AUserIdProvider: string = '');
+    property ColumnName: string read FColumnName;
+    property UserIdProvider: string read FUserIdProvider;
+  end;
+
+  SoftDelete = class(TCustomAttribute)
+  private
+    FDeletedAtColumn: string;
+    FDeletedByColumn: string;
+  public
+    constructor Create(const ADeletedAtColumn: string = 'deleted_at'; const ADeletedByColumn: string = '');
+    property DeletedAtColumn: string read FDeletedAtColumn;
+    property DeletedByColumn: string read FDeletedByColumn;
+  end;
+
+  HasManyAttribute = class(TCustomAttribute)
+  private
+    FForeignKeyProperty: string;
+    FLocalKeyProperty: string;
+    FRelatedClass: string;
+    FOnDelete: TCascadeAction;
+    FOnUpdate: TCascadeAction;
+    FOrderBy: string;
+    FWhere: string;
+  public
+    constructor Create(const AForeignKeyProperty: string = '';
+                      const ALocalKeyProperty: string = 'Id';
+                      const ARelatedClass: string = '';
+                      AOnDelete: TCascadeAction = caNone;
+                      AOnUpdate: TCascadeAction = caNone;
+                      const AOrderBy: string = '';
+                      const AWhere: string = '');
+
+    property ForeignKeyProperty: string read FForeignKeyProperty;
+    property LocalKeyProperty: string read FLocalKeyProperty;
+    property RelatedClass: string read FRelatedClass;
+    property OnDelete: TCascadeAction read FOnDelete;
+    property OnUpdate: TCascadeAction read FOnUpdate;
+    property OrderBy: string read FOrderBy;
+    property Where: string read FWhere;
+  end;
+
+  HasOneAttribute = class(TCustomAttribute)
+  private
+    FForeignKeyProperty: string;
+    FLocalKeyProperty: string;
+    FRelatedClass: string;
+    FOnDelete: TCascadeAction;
+    FOnUpdate: TCascadeAction;
+  public
+    constructor Create(const AForeignKeyProperty: string = '';
+                      const ALocalKeyProperty: string = 'Id';
+                      const ARelatedClass: string = '';
+                      AOnDelete: TCascadeAction = caNone;
+                      AOnUpdate: TCascadeAction = caNone);
+
+    property ForeignKeyProperty: string read FForeignKeyProperty;
+    property LocalKeyProperty: string read FLocalKeyProperty;
+    property RelatedClass: string read FRelatedClass;
+    property OnDelete: TCascadeAction read FOnDelete;
+    property OnUpdate: TCascadeAction read FOnUpdate;
+  end;
+
+  BelongsToAttribute = class(TCustomAttribute)
+  private
+    FLocalKeyProperty: string;
+    FRemoteKeyProperty: string;
+    FRelatedClass: string;
+    FOnDelete: TCascadeAction;
+    FOnUpdate: TCascadeAction;
+  public
+    constructor Create(const ALocalKeyProperty: string = '';
+                      const ARemoteKeyProperty: string = 'Id';
+                      const ARelatedClass: string = '';
+                      AOnDelete: TCascadeAction = caNone;
+                      AOnUpdate: TCascadeAction = caNone);
+
+    property LocalKeyProperty: string read FLocalKeyProperty;
+    property RemoteKeyProperty: string read FRemoteKeyProperty;
+    property RelatedClass: string read FRelatedClass;
+    property OnDelete: TCascadeAction read FOnDelete;
+    property OnUpdate: TCascadeAction read FOnUpdate;
+  end;
+
+  ManyToManyAttribute = class(TCustomAttribute)
+  private
+    FPivotTable: string;
+    FLocalKey: string;
+    FRemoteKey: string;
+    FClassName: string;
+    FTableName: string;
+    FPivotLocalKey: string;
+    FPivotRemoteKey: string;
+    FOrderBy: string;
+    FWhere: string;
+  public
+    constructor Create(const APivotTable: string;
+                      const ALocalKey: string = '';
+                      const ARemoteKey: string = '';
+                      const AClassName: string = '';
+                      const ATableName: string = '';
+                      const APivotLocalKey: string = '';
+                      const APivotRemoteKey: string = '';
+                      const AOrderBy: string = '';
+                      const AWhere: string = '');
+
+    property PivotTable: string read FPivotTable;
+    property LocalKey: string read FLocalKey;
+    property RemoteKey: string read FRemoteKey;
+    property ClassName: string read FClassName;
+    property TableName: string read FTableName;
+    property PivotLocalKey: string read FPivotLocalKey;
+    property PivotRemoteKey: string read FPivotRemoteKey;
+    property OrderBy: string read FOrderBy;
+    property Where: string read FWhere;
   end;
 
   NotMapped = class(TCustomAttribute)
@@ -44,43 +326,78 @@ type
     constructor Create;
   end;
 
-  HasMany = class(TCustomAttribute)
-  private
-    FFilterPropertyName: string;
-    FValuePropertyName: string;
+  Transient = class(TCustomAttribute)
   public
-    constructor Create(const AFilterPropertyName, AValuePropertyName: string);
-    property FilterPropertyName: string read FFilterPropertyName;
-    property ValuePropertyName: string read FValuePropertyName;
+    constructor Create;
   end;
 
-  HasOne = class(TCustomAttribute)
+  Version = class(TCustomAttribute)
   private
-    FFilterPropertyName: string;
-    FValuePropertyName: string;
+    FColumnName: string;
   public
-    constructor Create(const AFilterPropertyName, AValuePropertyName: string);
-    property FilterPropertyName: string read FFilterPropertyName;
-    property ValuePropertyName: string read FValuePropertyName;
+    constructor Create(const AColumnName: string = 'version');
+    property ColumnName: string read FColumnName;
   end;
 
-  BelongsTo = class(TCustomAttribute)
+  JsonColumn = class(TCustomAttribute)
   private
-    FLocalKey: string;
-    FRemoteKey: string;
+    FColumnName: string;
   public
-    constructor Create(const ALocalKey, ARemoteKey: string);
-    property LocalKey: string read FLocalKey;
-    property RemoteKey: string read FRemoteKey;
+    constructor Create(const AColumnName: string = '');
+    property ColumnName: string read FColumnName;
+  end;
+
+  Enum = class(TCustomAttribute)
+  private
+    FValues: TArray<string>;
+    FDefaultValue: string;
+  public
+    constructor Create(const AValues: TArray<string>; const ADefaultValue: string = '');
+    property Values: TArray<string> read FValues;
+    property DefaultValue: string read FDefaultValue;
   end;
 
 implementation
 
-constructor Table.Create(const AName: string; const ASchema: string = '');
+uses
+  System.RegularExpressions, System.StrUtils;
+
+constructor TValidationError.Create(const AFieldName, AMessage: string);
 begin
   inherited Create;
+  FFieldName := AFieldName;
+  FMessage := AMessage;
+end;
+
+constructor TValidationResult.Create;
+begin
+  inherited Create;
+  FIsValid := True;
+  SetLength(FErrors, 0);
+end;
+
+destructor TValidationResult.Destroy;
+var
+  I: Integer;
+begin
+  for I := 0 to High(FErrors) do
+    FErrors[I].Free;
+  inherited;
+end;
+
+procedure TValidationResult.AddError(const AFieldName, AMessage: string);
+begin
+  SetLength(FErrors, Length(FErrors) + 1);
+  FErrors[High(FErrors)] := TValidationError.Create(AFieldName, AMessage);
+  FIsValid := False;
+end;
+
+constructor Table.Create(const AName: string; const ASchema: string = ''; const AEngine: string = ''; const ACharset: string = 'utf8mb4');
+begin
   FName := AName;
   FSchema := ASchema;
+  FEngine := AEngine;
+  FCharset := ACharset;
 end;
 
 function Table.FullName: string;
@@ -91,12 +408,21 @@ begin
     Result := FName;
 end;
 
-constructor Column.Create(const AName: string = ''; AProperties: TColumnProperties = []; ASqlUseWhichCols: TColumnUseCriterias = []);
+constructor Column.Create(const AName: string; AProperties: TColumnProperties = [];
+                         ASqlUseWhichCols: TColumnUseCriterias = [];
+                         ADataType: TDataType = dtString; ALength: Integer = 0;
+                         APrecision: Integer = 0; AScale: Integer = 0;
+                         const AComment: string = '');
 begin
   inherited Create;
   FName := AName;
   FProperties := AProperties;
   FSqlUseWhichCols := ASqlUseWhichCols;
+  FDataType := ADataType;
+  FLength := ALength;
+  FPrecision := APrecision;
+  FScale := AScale;
+  FComment := AComment;
 end;
 
 function Column.IsPrimaryKey: Boolean;
@@ -119,30 +445,293 @@ begin
   Result := cpAutoIncrement in FProperties;
 end;
 
+constructor Index.Create(const AName: string; const AColumns: array of string; AUnique: Boolean = False; const AType: string = 'BTREE');
+var
+  I: Integer;
+begin
+  inherited Create;
+
+  FName := AName;
+  FUnique := AUnique;
+  FType := AType;
+
+  SetLength(FColumns, Length(AColumns));
+  for I := Low(AColumns) to High(AColumns) do
+    FColumns[I] := AColumns[I];
+end;
+
+constructor Index.Create(const AName: string; const AColumn: string; AUnique: Boolean = False; const AType: string = 'BTREE');
+begin
+  inherited Create;
+  FName := AName;
+  FColumns := TArray<string>.Create(AColumn);
+  FUnique := AUnique;
+  FType := AType;
+end;
+
+constructor UniqueIndex.Create(const AName: string; const AColumns: TArray<string>; const AType: string = 'BTREE');
+begin
+  inherited Create(AName, AColumns, True, AType);
+end;
+
+constructor CompositeKey.Create(const AColumns: TArray<string>);
+begin
+  inherited Create;
+  FColumns := AColumns;
+end;
+
+constructor Required.Create(const AMessage: string = 'Field is required');
+begin
+  inherited Create;
+  FMessage := AMessage;
+end;
+
+function Required.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+begin
+  Result := TValidationResult.Create;
+  if VarIsNull(AValue) or VarIsEmpty(AValue) or (VarToStr(AValue) = '') then
+    Result.AddError(AFieldName, FMessage);
+end;
+
+constructor MinLength.Create(AMinLength: Integer; const AMessage: string = '');
+begin
+  inherited Create;
+  FMinLength := AMinLength;
+  if AMessage = '' then
+    FMessage := Format('Field must be at least %d characters long', [AMinLength])
+  else
+    FMessage := AMessage;
+end;
+
+function MinLength.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+var
+  StrValue: string;
+begin
+  Result := TValidationResult.Create;
+  if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
+  begin
+    StrValue := VarToStr(AValue);
+    if Length(StrValue) < FMinLength then
+      Result.AddError(AFieldName, FMessage);
+  end;
+end;
+
+constructor MaxLength.Create(AMaxLength: Integer; const AMessage: string = '');
+begin
+  inherited Create;
+  FMaxLength := AMaxLength;
+  if AMessage = '' then
+    FMessage := Format('Field must not exceed %d characters', [AMaxLength])
+  else
+    FMessage := AMessage;
+end;
+
+function MaxLength.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+var
+  StrValue: string;
+begin
+  Result := TValidationResult.Create;
+  if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
+  begin
+    StrValue := VarToStr(AValue);
+    if Length(StrValue) > FMaxLength then
+      Result.AddError(AFieldName, FMessage);
+  end;
+end;
+
+constructor Range.Create(const AMinValue, AMaxValue: Variant; const AMessage: string = '');
+begin
+  inherited Create;
+  FMinValue := AMinValue;
+  FMaxValue := AMaxValue;
+  if AMessage = '' then
+    FMessage := Format('Field must be between %s and %s', [VarToStr(AMinValue), VarToStr(AMaxValue)])
+  else
+    FMessage := AMessage;
+end;
+
+function Range.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+begin
+  Result := TValidationResult.Create;
+  if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
+  begin
+    if (AValue < FMinValue) or (AValue > FMaxValue) then
+      Result.AddError(AFieldName, FMessage);
+  end;
+end;
+
+constructor Email.Create(const AMessage: string = 'Invalid email format');
+begin
+  inherited Create;
+  FMessage := AMessage;
+end;
+
+function Email.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+var
+  EmailRegex: string;
+  StrValue: string;
+begin
+  Result := TValidationResult.Create;
+  if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
+  begin
+    StrValue := VarToStr(AValue);
+    EmailRegex := '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$';
+    if not TRegEx.IsMatch(StrValue, EmailRegex) then
+      Result.AddError(AFieldName, FMessage);
+  end;
+end;
+
+constructor RegEx.Create(const APattern: string; const AMessage: string = 'Invalid format');
+begin
+  inherited Create;
+  FPattern := APattern;
+  FMessage := AMessage;
+end;
+
+function RegEx.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+var
+  StrValue: string;
+begin
+  Result := TValidationResult.Create;
+  if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
+  begin
+    StrValue := VarToStr(AValue);
+    if not TRegEx.IsMatch(StrValue, FPattern) then
+      Result.AddError(AFieldName, FMessage);
+  end;
+end;
+
+constructor CreatedAt.Create(const AColumnName: string = 'created_at'; AAutoUpdate: Boolean = True);
+begin
+  inherited Create;
+  FColumnName := AColumnName;
+  FAutoUpdate := AAutoUpdate;
+end;
+
+constructor UpdatedAt.Create(const AColumnName: string = 'updated_at'; AAutoUpdate: Boolean = True);
+begin
+  inherited Create;
+  FColumnName := AColumnName;
+  FAutoUpdate := AAutoUpdate;
+end;
+
+constructor CreatedBy.Create(const AColumnName: string = 'created_by'; const AUserIdProvider: string = '');
+begin
+  inherited Create;
+  FColumnName := AColumnName;
+  FUserIdProvider := AUserIdProvider;
+end;
+
+constructor UpdatedBy.Create(const AColumnName: string = 'updated_by'; const AUserIdProvider: string = '');
+begin
+  inherited Create;
+  FColumnName := AColumnName;
+  FUserIdProvider := AUserIdProvider;
+end;
+
+constructor SoftDelete.Create(const ADeletedAtColumn: string = 'deleted_at';
+                             const ADeletedByColumn: string = '');
+begin
+  inherited Create;
+  FDeletedAtColumn := ADeletedAtColumn;
+  FDeletedByColumn := ADeletedByColumn;
+end;
+
+constructor HasManyAttribute.Create(const AForeignKeyProperty: string = '';
+                                   const ALocalKeyProperty: string = 'Id';
+                                   const ARelatedClass: string = '';
+                                   AOnDelete: TCascadeAction = caNone;
+                                   AOnUpdate: TCascadeAction = caNone;
+                                   const AOrderBy: string = '';
+                                   const AWhere: string = '');
+begin
+  inherited Create;
+  FForeignKeyProperty := AForeignKeyProperty;
+  FLocalKeyProperty := ALocalKeyProperty;
+  FRelatedClass := ARelatedClass;
+  FOnDelete := AOnDelete;
+  FOnUpdate := AOnUpdate;
+  FOrderBy := AOrderBy;
+  FWhere := AWhere;
+end;
+
+constructor HasOneAttribute.Create(const AForeignKeyProperty: string = '';
+                                  const ALocalKeyProperty: string = 'Id';
+                                  const ARelatedClass: string = '';
+                                  AOnDelete: TCascadeAction = caNone;
+                                  AOnUpdate: TCascadeAction = caNone);
+begin
+  inherited Create;
+  FForeignKeyProperty := AForeignKeyProperty;
+  FLocalKeyProperty := ALocalKeyProperty;
+  FRelatedClass := ARelatedClass;
+  FOnDelete := AOnDelete;
+  FOnUpdate := AOnUpdate;
+end;
+
+constructor BelongsToAttribute.Create(const ALocalKeyProperty: string = '';
+                                     const ARemoteKeyProperty: string = 'Id';
+                                     const ARelatedClass: string = '';
+                                     AOnDelete: TCascadeAction = caNone;
+                                     AOnUpdate: TCascadeAction = caNone);
+begin
+  inherited Create;
+  FLocalKeyProperty := ALocalKeyProperty;
+  FRemoteKeyProperty := ARemoteKeyProperty;
+  FRelatedClass := ARelatedClass;
+  FOnDelete := AOnDelete;
+  FOnUpdate := AOnUpdate;
+end;
+
+constructor ManyToManyAttribute.Create(const APivotTable: string;
+                                      const ALocalKey: string = '';
+                                      const ARemoteKey: string = '';
+                                      const AClassName: string = '';
+                                      const ATableName: string = '';
+                                      const APivotLocalKey: string = '';
+                                      const APivotRemoteKey: string = '';
+                                      const AOrderBy: string = '';
+                                      const AWhere: string = '');
+begin
+  inherited Create;
+  FPivotTable := APivotTable;
+  FLocalKey := ALocalKey;
+  FRemoteKey := ARemoteKey;
+  FClassName := AClassName;
+  FTableName := ATableName;
+  FPivotLocalKey := APivotLocalKey;
+  FPivotRemoteKey := APivotRemoteKey;
+  FOrderBy := AOrderBy;
+  FWhere := AWhere;
+end;
+
 constructor NotMapped.Create;
 begin
   inherited Create;
 end;
 
-constructor HasMany.Create(const AFilterPropertyName, AValuePropertyName: string);
+constructor Transient.Create;
 begin
   inherited Create;
-  FFilterPropertyName := AFilterPropertyName;
-  FValuePropertyName := AValuePropertyName;
 end;
 
-constructor HasOne.Create(const AFilterPropertyName, AValuePropertyName: string);
+constructor Version.Create(const AColumnName: string = 'version');
 begin
   inherited Create;
-  FFilterPropertyName := AFilterPropertyName;
-  FValuePropertyName := AValuePropertyName;
+  FColumnName := AColumnName;
 end;
 
-constructor BelongsTo.Create(const ALocalKey, ARemoteKey: string);
+constructor JsonColumn.Create(const AColumnName: string = '');
 begin
   inherited Create;
-  FLocalKey := ALocalKey;
-  FRemoteKey := ARemoteKey;
+  FColumnName := AColumnName;
+end;
+
+constructor Enum.Create(const AValues: TArray<string>; const ADefaultValue: string = '');
+begin
+  inherited Create;
+  FValues := AValues;
+  FDefaultValue := ADefaultValue;
 end;
 
 end.
