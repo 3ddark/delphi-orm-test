@@ -23,7 +23,9 @@ uses
   Persons in 'Persons.pas',
   FilterCriterion in 'FilterCriterion.pas',
   RepositoryManager in 'RepositoryManager.pas',
-  CascadeHelper in 'CascadeHelper.pas';
+  CascadeHelper in 'CascadeHelper.pas',
+  LocalizationManager in 'LocalizationManager.pas',
+  PersonRepository in 'PersonRepository.pas';
 
 var
   LConn: TFDConnection;
@@ -72,11 +74,11 @@ begin
     TRepositoryManager.Instance.Initialize(LConn);
 
     LRepoPerson := TRepositoryManager.Instance.GetRepository<TPerson, TPersonRepository>;
-    LPerson := LRepoPerson.FindById(1, False);
+    LPerson := LRepoPerson.FindById(2, False, [ioIncludeAll]);
 
     LRepoPerson.Delete(LPerson);
 
-    LPerson := LRepoPerson.FindById(1, False);
+    LPerson := LRepoPerson.FindById(2, False, [ioIncludeChildren]);
 
 
     LPerson := TPerson.Create;

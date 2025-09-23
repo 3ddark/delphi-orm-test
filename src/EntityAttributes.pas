@@ -3,7 +3,8 @@ unit EntityAttributes;
 interface
 
 uses
-  System.Classes, System.SysUtils, System.Variants, System.Generics.Collections;
+  System.Classes, System.SysUtils, System.Variants, System.Generics.Collections,
+  LocalizationManager;
 
 type
   TColumnProperty = (cpNotNull, cpUnique, cpPrimaryKey, cpAutoIncrement);
@@ -13,7 +14,10 @@ type
   TColumnUseCriterias = set of TColumnUseCriteria;
 
   TDataType = (dtString, dtInteger, dtBigInt, dtFloat, dtDouble, dtDecimal, dtDateTime,
-               dtDate, dtTime, dtBoolean, dtText, dtBlob, dtGUID, dtJSON, dtEnum);
+               dtDate, dtTime, dtBoolean, dtText, dtBlob, dtGUID, dtJSON, dtEnum,
+               //postgres special types
+               dtUUID, dtArray, dtJSONB, dtHStore, dtPoint, dtPolygon, dtInet, dtMacAddr,
+               dtTSVector, dtInterval, dtNumeric, dtSerial, dtBigSerial, dtBytea);
 
   TCascadeAction = (caNone, caRestrict, caCascade, caSetNull, caSetDefault);
 
@@ -30,13 +34,14 @@ type
   TValidationResult = class
   private
     FIsValid: Boolean;
-    FErrors: TArray<TValidationError>;
+    FErrors: TList<TValidationError>;
   public
     constructor Create;
     destructor Destroy; override;
     procedure AddError(const AFieldName, AMessage: string);
+    function GetErrors: TArray<TValidationError>;
     property IsValid: Boolean read FIsValid;
-    property Errors: TArray<TValidationError> read FErrors;
+    property Errors: TArray<TValidationError> read GetErrors;
   end;
 
   Table = class(TCustomAttribute)
@@ -47,7 +52,7 @@ type
     FCharset: string;
   public
     constructor Create(const AName: string; const ASchema: string = '';
-                      const AEngine: string = ''; const ACharset: string = 'utf8mb4'); overload;
+                      const AEngine: string = ''; const ACharset: string = 'utf8mb4');
     property Name: string read FName;
     property Schema: string read FSchema;
     property Engine: string read FEngine;
@@ -70,7 +75,7 @@ type
                       ASqlUseWhichCols: TColumnUseCriterias = [];
                       ADataType: TDataType = dtString; ALength: Integer = 0;
                       APrecision: Integer = 0; AScale: Integer = 0;
-                      const AComment: string = ''); overload;
+                      const AComment: string = '');
     property Name: string read FName;
     property Properties: TColumnProperties read FProperties;
     property SqlUseWhichCols: TColumnUseCriterias read FSqlUseWhichCols;
@@ -83,6 +88,14 @@ type
     function IsNotNull: Boolean;
     function IsUnique: Boolean;
     function IsAutoIncrement: Boolean;
+  end;
+
+  Inherits = class(TCustomAttribute)
+  private
+    FParentTable: string;
+  public
+    constructor Create(const AParentTable: string);
+    property ParentTable: string read FParentTable;
   end;
 
   Index = class(TCustomAttribute)
@@ -116,30 +129,43 @@ type
   Required = class(TCustomAttribute)
   private
     FMessage: string;
+    FMessageKey: string;
+    FUseTranslation: Boolean;
   public
-    constructor Create(const AMessage: string = 'Field is required');
+    constructor Create(const AMessage: string = ''); overload;
+    constructor Create(const AMessageKey: string; const AUseTranslation: Boolean); overload;
     function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
     property Message: string read FMessage;
+    property MessageKey: string read FMessageKey;
+    property UseTranslation: Boolean read FUseTranslation;
   end;
 
   MinLength = class(TCustomAttribute)
   private
     FMinLength: Integer;
     FMessage: string;
+    FMessageKey: string;
+    FUseTranslation: Boolean;
   public
-    property MinLength: Integer read FMinLength;
-    constructor Create(AMinLength: Integer; const AMessage: string = '');
+    constructor Create(AMinLength: Integer; const AMessage: string = ''); overload;
+    constructor Create(AMinLength: Integer; const AMessageKey: string; const AUseTranslation: Boolean); overload;
     function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+    property MinLength: Integer read FMinLength;
+    property UseTranslation: Boolean read FUseTranslation;
   end;
 
   MaxLength = class(TCustomAttribute)
   private
     FMaxLength: Integer;
     FMessage: string;
+    FMessageKey: string;
+    FUseTranslation: Boolean;
   public
-    constructor Create(AMaxLength: Integer; const AMessage: string = '');
+    constructor Create(AMaxLength: Integer; const AMessage: string = ''); overload;
+    constructor Create(AMaxLength: Integer; const AMessageKey: string; const AUseTranslation: Boolean); overload;
     function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
     property MaxLength: Integer read FMaxLength;
+    property UseTranslation: Boolean read FUseTranslation;
   end;
 
   Range = class(TCustomAttribute)
@@ -147,26 +173,38 @@ type
     FMinValue: Variant;
     FMaxValue: Variant;
     FMessage: string;
+    FMessageKey: string;
+    FUseTranslation: Boolean;
   public
-    constructor Create(const AMinValue, AMaxValue: Variant; const AMessage: string = '');
+    constructor Create(const AMinValue, AMaxValue: Variant; const AMessage: string = ''); overload;
+    constructor Create(const AMinValue, AMaxValue: Variant; const AMessageKey: string; const AUseTranslation: Boolean); overload;
     function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+    property UseTranslation: Boolean read FUseTranslation;
   end;
 
   Email = class(TCustomAttribute)
   private
     FMessage: string;
+    FMessageKey: string;
+    FUseTranslation: Boolean;
   public
-    constructor Create(const AMessage: string = 'Invalid email format');
+    constructor Create(const AMessage: string = 'Invalid email format'); overload;
+    constructor Create(const AMessageKey: string; const AUseTranslation: Boolean); overload;
     function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+    property UseTranslation: Boolean read FUseTranslation;
   end;
 
   RegEx = class(TCustomAttribute)
   private
     FPattern: string;
     FMessage: string;
+    FMessageKey: string;
+    FUseTranslation: Boolean;
   public
-    constructor Create(const APattern: string; const AMessage: string = 'Invalid format');
+    constructor Create(const APattern: string; const AMessage: string = 'Invalid format'); overload;
+    constructor Create(const APattern: string; const AMessageKey: string; const AUseTranslation: Boolean); overload;
     function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+    property UseTranslation: Boolean read FUseTranslation;
   end;
 
   CreatedAt = class(TCustomAttribute)
@@ -360,7 +398,7 @@ type
 implementation
 
 uses
-  System.RegularExpressions, System.StrUtils;
+  System.RegularExpressions;
 
 constructor TValidationError.Create(const AFieldName, AMessage: string);
 begin
@@ -373,27 +411,37 @@ constructor TValidationResult.Create;
 begin
   inherited Create;
   FIsValid := True;
-  SetLength(FErrors, 0);
+  FErrors := TList<TValidationError>.Create;
 end;
 
 destructor TValidationResult.Destroy;
-var
-  I: Integer;
 begin
-  for I := 0 to High(FErrors) do
-    FErrors[I].Free;
+  if Assigned(FErrors) then
+  begin
+    while FErrors.Count > 0 do
+    begin
+      FErrors[0].Free;
+      FErrors.Delete(0);
+    end;
+    FErrors.Free;
+  end;
   inherited;
 end;
 
 procedure TValidationResult.AddError(const AFieldName, AMessage: string);
 begin
-  SetLength(FErrors, Length(FErrors) + 1);
-  FErrors[High(FErrors)] := TValidationError.Create(AFieldName, AMessage);
+  FErrors.Add(TValidationError.Create(AFieldName, AMessage));
   FIsValid := False;
+end;
+
+function TValidationResult.GetErrors: TArray<TValidationError>;
+begin
+  Result := FErrors.ToArray;
 end;
 
 constructor Table.Create(const AName: string; const ASchema: string = ''; const AEngine: string = ''; const ACharset: string = 'utf8mb4');
 begin
+  inherited Create;
   FName := AName;
   FSchema := ASchema;
   FEngine := AEngine;
@@ -480,39 +528,84 @@ begin
   FColumns := AColumns;
 end;
 
-constructor Required.Create(const AMessage: string = 'Field is required');
+constructor Required.Create(const AMessage: string = '');
 begin
   inherited Create;
   FMessage := AMessage;
+  FMessageKey := '';
+  FUseTranslation := False;
+  if FMessage = '' then
+    FMessage := 'Field is required';
+end;
+
+constructor Required.Create(const AMessageKey: string; const AUseTranslation: Boolean);
+begin
+  inherited Create;
+  FMessageKey := AMessageKey;
+  FUseTranslation := AUseTranslation;
+  if AUseTranslation then
+    FMessage := ''
+  else
+    FMessage := AMessageKey;
 end;
 
 function Required.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+var
+  ErrorMessage: string;
 begin
   Result := TValidationResult.Create;
   if VarIsNull(AValue) or VarIsEmpty(AValue) or (VarToStr(AValue) = '') then
-    Result.AddError(AFieldName, FMessage);
+  begin
+    if FUseTranslation and (FMessageKey <> '') then
+      ErrorMessage := TLocalizationManager.Translate(FMessageKey, FMessage)
+    else
+      ErrorMessage := FMessage;
+
+    Result.AddError(AFieldName, ErrorMessage);
+  end;
 end;
 
 constructor MinLength.Create(AMinLength: Integer; const AMessage: string = '');
 begin
   inherited Create;
   FMinLength := AMinLength;
-  if AMessage = '' then
-    FMessage := Format('Field must be at least %d characters long', [AMinLength])
+  FMessage := AMessage;
+  FMessageKey := '';
+  FUseTranslation := False;
+  if FMessage = '' then
+    FMessage := Format('Field must be at least %d characters long', [AMinLength]);
+end;
+
+constructor MinLength.Create(AMinLength: Integer; const AMessageKey: string; const AUseTranslation: Boolean);
+begin
+  inherited Create;
+  FMinLength := AMinLength;
+  FMessageKey := AMessageKey;
+  FUseTranslation := AUseTranslation;
+  if AUseTranslation then
+    FMessage := ''
   else
-    FMessage := AMessage;
+    FMessage := AMessageKey;
 end;
 
 function MinLength.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
 var
   StrValue: string;
+  ErrorMessage: string;
 begin
   Result := TValidationResult.Create;
   if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
   begin
     StrValue := VarToStr(AValue);
     if Length(StrValue) < FMinLength then
-      Result.AddError(AFieldName, FMessage);
+    begin
+      if FUseTranslation and (FMessageKey <> '') then
+        ErrorMessage := TLocalizationManager.Translate(FMessageKey, [FMinLength], FMessage)
+      else
+        ErrorMessage := FMessage;
+
+      Result.AddError(AFieldName, ErrorMessage);
+    end;
   end;
 end;
 
@@ -520,22 +613,43 @@ constructor MaxLength.Create(AMaxLength: Integer; const AMessage: string = '');
 begin
   inherited Create;
   FMaxLength := AMaxLength;
+  FMessage := AMessage;
+  FMessageKey := '';
+  FUseTranslation := False;
   if AMessage = '' then
-    FMessage := Format('Field must not exceed %d characters', [AMaxLength])
+    FMessage := Format('Field must not exceed %d characters', [AMaxLength]);
+end;
+
+constructor MaxLength.Create(AMaxLength: Integer; const AMessageKey: string; const AUseTranslation: Boolean);
+begin
+  inherited Create;
+  FMaxLength := AMaxLength;
+  FMessageKey := AMessageKey;
+  FUseTranslation := AUseTranslation;
+  if AUseTranslation then
+    FMessage := ''
   else
-    FMessage := AMessage;
+    FMessage := AMessageKey;
 end;
 
 function MaxLength.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
 var
   StrValue: string;
+  ErrorMessage: string;
 begin
   Result := TValidationResult.Create;
   if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
   begin
     StrValue := VarToStr(AValue);
     if Length(StrValue) > FMaxLength then
-      Result.AddError(AFieldName, FMessage);
+    begin
+      if FUseTranslation and (FMessageKey <> '') then
+        ErrorMessage := TLocalizationManager.Translate(FMessageKey, [FMaxLength], FMessage)
+      else
+        ErrorMessage := FMessage;
+
+      Result.AddError(AFieldName, ErrorMessage);
+    end;
   end;
 end;
 
@@ -544,19 +658,42 @@ begin
   inherited Create;
   FMinValue := AMinValue;
   FMaxValue := AMaxValue;
+  FMessage := AMessage;
+  FMessageKey := '';
+  FUseTranslation := False;
   if AMessage = '' then
-    FMessage := Format('Field must be between %s and %s', [VarToStr(AMinValue), VarToStr(AMaxValue)])
+    FMessage := Format('Field must be between %s and %s', [VarToStr(AMinValue), VarToStr(AMaxValue)]);
+end;
+
+constructor Range.Create(const AMinValue, AMaxValue: Variant; const AMessageKey: string; const AUseTranslation: Boolean);
+begin
+  inherited Create;
+  FMinValue := AMinValue;
+  FMaxValue := AMaxValue;
+  FMessageKey := AMessageKey;
+  FUseTranslation := AUseTranslation;
+  if AUseTranslation then
+    FMessage := ''
   else
-    FMessage := AMessage;
+    FMessage := AMessageKey;
 end;
 
 function Range.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+var
+  ErrorMessage: string;
 begin
   Result := TValidationResult.Create;
   if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
   begin
     if (AValue < FMinValue) or (AValue > FMaxValue) then
-      Result.AddError(AFieldName, FMessage);
+    begin
+      if FUseTranslation and (FMessageKey <> '') then
+        ErrorMessage := TLocalizationManager.Translate(FMessageKey, [VarToStr(FMinValue), VarToStr(FMaxValue)], FMessage)
+      else
+        ErrorMessage := FMessage;
+
+      Result.AddError(AFieldName, ErrorMessage);
+    end;
   end;
 end;
 
@@ -564,20 +701,41 @@ constructor Email.Create(const AMessage: string = 'Invalid email format');
 begin
   inherited Create;
   FMessage := AMessage;
+  FMessageKey := '';
+  FUseTranslation := False;
+end;
+
+constructor Email.Create(const AMessageKey: string; const AUseTranslation: Boolean);
+begin
+  inherited Create;
+  FMessageKey := AMessageKey;
+  FUseTranslation := AUseTranslation;
+  if AUseTranslation then
+    FMessage := ''
+  else
+    FMessage := AMessageKey;
 end;
 
 function Email.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
 var
   EmailRegex: string;
   StrValue: string;
+  ErrorMessage: string;
 begin
   Result := TValidationResult.Create;
   if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
   begin
     StrValue := VarToStr(AValue);
-    EmailRegex := '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$';
+    EmailRegex := '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}';
     if not TRegEx.IsMatch(StrValue, EmailRegex) then
-      Result.AddError(AFieldName, FMessage);
+    begin
+      if FUseTranslation and (FMessageKey <> '') then
+        ErrorMessage := TLocalizationManager.Translate(FMessageKey, FMessage)
+      else
+        ErrorMessage := FMessage;
+
+      Result.AddError(AFieldName, ErrorMessage);
+    end;
   end;
 end;
 
@@ -586,18 +744,40 @@ begin
   inherited Create;
   FPattern := APattern;
   FMessage := AMessage;
+  FMessageKey := '';
+  FUseTranslation := False;
+end;
+
+constructor RegEx.Create(const APattern: string; const AMessageKey: string; const AUseTranslation: Boolean);
+begin
+  inherited Create;
+  FPattern := APattern;
+  FMessageKey := AMessageKey;
+  FUseTranslation := AUseTranslation;
+  if AUseTranslation then
+    FMessage := ''
+  else
+    FMessage := AMessageKey;
 end;
 
 function RegEx.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
 var
   StrValue: string;
+  ErrorMessage: string;
 begin
   Result := TValidationResult.Create;
   if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
   begin
     StrValue := VarToStr(AValue);
     if not TRegEx.IsMatch(StrValue, FPattern) then
-      Result.AddError(AFieldName, FMessage);
+    begin
+      if FUseTranslation and (FMessageKey <> '') then
+        ErrorMessage := TLocalizationManager.Translate(FMessageKey, FMessage)
+      else
+        ErrorMessage := FMessage;
+
+      Result.AddError(AFieldName, ErrorMessage);
+    end;
   end;
 end;
 
@@ -732,6 +912,12 @@ begin
   inherited Create;
   FValues := AValues;
   FDefaultValue := ADefaultValue;
+end;
+
+constructor Inherits.Create(const AParentTable: string);
+begin
+  inherited Create;
+  FParentTable := AParentTable;
 end;
 
 end.
