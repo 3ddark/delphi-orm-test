@@ -4,7 +4,7 @@ interface
 
 uses
   System.Classes, System.SysUtils, System.Variants, System.Generics.Collections,
-  LocalizationManager;
+  System.Rtti, LocalizationManager;
 
 type
   TColumnProperty = (cpNotNull, cpUnique, cpPrimaryKey, cpAutoIncrement);
@@ -134,7 +134,7 @@ type
   public
     constructor Create(const AMessage: string = ''); overload;
     constructor Create(const AMessageKey: string; const AUseTranslation: Boolean); overload;
-    function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+    function Validate(const AValue: TValue; const AFieldName: string): TValidationResult;
     property Message: string read FMessage;
     property MessageKey: string read FMessageKey;
     property UseTranslation: Boolean read FUseTranslation;
@@ -149,7 +149,7 @@ type
   public
     constructor Create(AMinLength: Integer; const AMessage: string = ''); overload;
     constructor Create(AMinLength: Integer; const AMessageKey: string; const AUseTranslation: Boolean); overload;
-    function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+    function Validate(const AValue: TValue; const AFieldName: string): TValidationResult;
     property MinLength: Integer read FMinLength;
     property UseTranslation: Boolean read FUseTranslation;
   end;
@@ -163,7 +163,7 @@ type
   public
     constructor Create(AMaxLength: Integer; const AMessage: string = ''); overload;
     constructor Create(AMaxLength: Integer; const AMessageKey: string; const AUseTranslation: Boolean); overload;
-    function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+    function Validate(const AValue: TValue; const AFieldName: string): TValidationResult;
     property MaxLength: Integer read FMaxLength;
     property UseTranslation: Boolean read FUseTranslation;
   end;
@@ -178,7 +178,7 @@ type
   public
     constructor Create(const AMinValue, AMaxValue: Variant; const AMessage: string = ''); overload;
     constructor Create(const AMinValue, AMaxValue: Variant; const AMessageKey: string; const AUseTranslation: Boolean); overload;
-    function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+    function Validate(const AValue: TValue; const AFieldName: string): TValidationResult;
     property UseTranslation: Boolean read FUseTranslation;
   end;
 
@@ -190,7 +190,7 @@ type
   public
     constructor Create(const AMessage: string = 'Invalid email format'); overload;
     constructor Create(const AMessageKey: string; const AUseTranslation: Boolean); overload;
-    function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+    function Validate(const AValue: TValue; const AFieldName: string): TValidationResult;
     property UseTranslation: Boolean read FUseTranslation;
   end;
 
@@ -203,7 +203,7 @@ type
   public
     constructor Create(const APattern: string; const AMessage: string = 'Invalid format'); overload;
     constructor Create(const APattern: string; const AMessageKey: string; const AUseTranslation: Boolean); overload;
-    function Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+    function Validate(const AValue: TValue; const AFieldName: string): TValidationResult;
     property UseTranslation: Boolean read FUseTranslation;
   end;
 
@@ -549,12 +549,32 @@ begin
     FMessage := AMessageKey;
 end;
 
-function Required.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+function Required.Validate(const AValue: TValue; const AFieldName: string): TValidationResult;
 var
   ErrorMessage: string;
+  IsEmpty: Boolean;
 begin
   Result := TValidationResult.Create;
-  if VarIsNull(AValue) or VarIsEmpty(AValue) or (VarToStr(AValue) = '') then
+
+  // FIX: TValue'yu direkt kontrol et, Variant'a çevirme
+  IsEmpty := AValue.IsEmpty;
+
+  if not IsEmpty then
+  begin
+    // String değerler için özel kontrol
+    case AValue.TypeInfo.Kind of
+      tkString, tkLString, tkWString, tkUString:
+        IsEmpty := Trim(AValue.AsString) = '';
+      tkInteger:
+        IsEmpty := False; // Integer değerler için boş kontrolü gerekmiyor
+      tkInt64:
+        IsEmpty := False;
+      tkFloat:
+        IsEmpty := False;
+    end;
+  end;
+
+  if IsEmpty then
   begin
     if FUseTranslation and (FMessageKey <> '') then
       ErrorMessage := TLocalizationManager.Translate(FMessageKey, FMessage)
@@ -588,21 +608,29 @@ begin
     FMessage := AMessageKey;
 end;
 
-function MinLength.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+function MinLength.Validate(const AValue: TValue; const AFieldName: string): TValidationResult;
 var
   StrValue: string;
   ErrorMessage: string;
 begin
   Result := TValidationResult.Create;
-  if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
+
+  if not AValue.IsEmpty then
   begin
-    StrValue := VarToStr(AValue);
+    // FIX: TValue'dan direkt string al, Variant kullanma
+    case AValue.TypeInfo.Kind of
+      tkString, tkLString, tkWString, tkUString:
+        StrValue := AValue.AsString;
+    else
+      Exit; // String olmayan değerler için length kontrolü yapma
+    end;
+
     if Length(StrValue) < FMinLength then
     begin
       if FUseTranslation and (FMessageKey <> '') then
         ErrorMessage := TLocalizationManager.Translate(FMessageKey, [FMinLength], FMessage)
       else
-        ErrorMessage := FMessage;
+        ErrorMessage := Format(FMessage, [FMinLength]);
 
       Result.AddError(AFieldName, ErrorMessage);
     end;
@@ -632,21 +660,29 @@ begin
     FMessage := AMessageKey;
 end;
 
-function MaxLength.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+function MaxLength.Validate(const AValue: TValue; const AFieldName: string): TValidationResult;
 var
   StrValue: string;
   ErrorMessage: string;
 begin
   Result := TValidationResult.Create;
-  if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
+
+  if not AValue.IsEmpty then
   begin
-    StrValue := VarToStr(AValue);
+    // FIX: TValue'dan direkt string al
+    case AValue.TypeInfo.Kind of
+      tkString, tkLString, tkWString, tkUString:
+        StrValue := AValue.AsString;
+    else
+      Exit; // String olmayan değerler için length kontrolü yapma
+    end;
+
     if Length(StrValue) > FMaxLength then
     begin
       if FUseTranslation and (FMessageKey <> '') then
         ErrorMessage := TLocalizationManager.Translate(FMessageKey, [FMaxLength], FMessage)
       else
-        ErrorMessage := FMessage;
+        ErrorMessage := Format(FMessage, [FMaxLength]);
 
       Result.AddError(AFieldName, ErrorMessage);
     end;
@@ -678,19 +714,46 @@ begin
     FMessage := AMessageKey;
 end;
 
-function Range.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+function Range.Validate(const AValue: TValue; const AFieldName: string): TValidationResult;
 var
   ErrorMessage: string;
+  NumericValue: Double;
+  IsInRange: Boolean;
 begin
   Result := TValidationResult.Create;
-  if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
+
+  if not AValue.IsEmpty then
   begin
-    if (AValue < FMinValue) or (AValue > FMaxValue) then
+    IsInRange := True;
+
+    // FIX: Type-safe numeric comparison, Variant kullanma
+    case AValue.TypeInfo.Kind of
+      tkInteger:
+        begin
+          NumericValue := AValue.AsInteger;
+          IsInRange := (NumericValue >= FMinValue.AsInteger) and (NumericValue <= FMaxValue.AsInteger);
+        end;
+      tkInt64:
+        begin
+          NumericValue := AValue.AsInt64;
+          IsInRange := (NumericValue >= FMinValue.AsInt64) and (NumericValue <= FMaxValue.AsInt64);
+        end;
+      tkFloat:
+        begin
+          NumericValue := AValue.AsExtended;
+          IsInRange := (NumericValue >= FMinValue.AsExtended) and (NumericValue <= FMaxValue.AsExtended);
+        end;
+    else
+      Exit; // Numeric olmayan değerler için range kontrolü yapma
+    end;
+
+    if not IsInRange then
     begin
       if FUseTranslation and (FMessageKey <> '') then
-        ErrorMessage := TLocalizationManager.Translate(FMessageKey, [VarToStr(FMinValue), VarToStr(FMaxValue)], FMessage)
+        ErrorMessage := TLocalizationManager.Translate(FMessageKey,
+          [FMinValue.ToString, FMaxValue.ToString], FMessage)
       else
-        ErrorMessage := FMessage;
+        ErrorMessage := Format(FMessage, [FMinValue.ToString, FMaxValue.ToString]);
 
       Result.AddError(AFieldName, ErrorMessage);
     end;
@@ -716,17 +779,29 @@ begin
     FMessage := AMessageKey;
 end;
 
-function Email.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+function Email.Validate(const AValue: TValue; const AFieldName: string): TValidationResult;
 var
   EmailRegex: string;
   StrValue: string;
   ErrorMessage: string;
 begin
   Result := TValidationResult.Create;
-  if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
+
+  if not AValue.IsEmpty then
   begin
-    StrValue := VarToStr(AValue);
+    // FIX: TValue'dan direkt string al, VarToStr kullanma
+    case AValue.TypeInfo.Kind of
+      tkString, tkLString, tkWString, tkUString:
+        StrValue := AValue.AsString;
+    else
+      Exit; // String olmayan değerler için email kontrolü yapma
+    end;
+
+    if Trim(StrValue) = '' then
+      Exit;
+
     EmailRegex := '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}';
+
     if not TRegEx.IsMatch(StrValue, EmailRegex) then
     begin
       if FUseTranslation and (FMessageKey <> '') then
@@ -760,23 +835,44 @@ begin
     FMessage := AMessageKey;
 end;
 
-function RegEx.Validate(const AValue: Variant; const AFieldName: string): TValidationResult;
+function RegEx.Validate(const AValue: TValue; const AFieldName: string): TValidationResult;
 var
   StrValue: string;
   ErrorMessage: string;
 begin
   Result := TValidationResult.Create;
-  if not VarIsNull(AValue) and not VarIsEmpty(AValue) then
-  begin
-    StrValue := VarToStr(AValue);
-    if not TRegEx.IsMatch(StrValue, FPattern) then
-    begin
-      if FUseTranslation and (FMessageKey <> '') then
-        ErrorMessage := TLocalizationManager.Translate(FMessageKey, FMessage)
-      else
-        ErrorMessage := FMessage;
 
-      Result.AddError(AFieldName, ErrorMessage);
+  if not AValue.IsEmpty then
+  begin
+    // FIX: TValue'dan direkt string al, VarToStr kullanma
+    case AValue.TypeInfo.Kind of
+      tkString, tkLString, tkWString, tkUString:
+        StrValue := AValue.AsString;
+    else
+      Exit; // String olmayan değerler için regex kontrolü yapma
+    end;
+
+    // Skip empty strings if pattern allows it
+    if Trim(StrValue) = '' then
+      Exit;
+
+    try
+      if not TRegEx.IsMatch(StrValue, FPattern) then
+      begin
+        if FUseTranslation and (FMessageKey <> '') then
+          ErrorMessage := TLocalizationManager.Translate(FMessageKey, FMessage)
+        else
+          ErrorMessage := FMessage;
+
+        Result.AddError(AFieldName, ErrorMessage);
+      end;
+    except
+      on E: Exception do
+      begin
+        // Invalid regex pattern
+        ErrorMessage := Format('Invalid regex pattern "%s": %s', [FPattern, E.Message]);
+        Result.AddError(AFieldName, ErrorMessage);
+      end;
     end;
   end;
 end;

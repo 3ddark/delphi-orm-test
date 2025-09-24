@@ -22,7 +22,7 @@ type
     FDeletedBy: Int64;
   protected
     function Validate: TValidationResult; virtual;
-    function ValidateProperty(const APropertyName: string; const AValue: Variant): TValidationResult;
+    function ValidateProperty(const APropertyName: string; const AValue: TValue): TValidationResult;
   public
     [Column('id', [cpPrimaryKey, cpAutoIncrement], [cucFind])]
     property Id: Int64 read FId write FId;
@@ -114,7 +114,7 @@ begin
           PropertyValue := RttiProperty.GetValue(Self);
 
           // Validate property
-          PropertyResult := ValidateProperty(RttiProperty.Name, PropertyValue.AsVariant);
+          PropertyResult := ValidateProperty(RttiProperty.Name, PropertyValue);
           try
             // Add errors to main result
             if not PropertyResult.IsValid then
@@ -143,7 +143,7 @@ begin
   end;
 end;
 
-function TEntity.ValidateProperty(const APropertyName: string; const AValue: Variant): TValidationResult;
+function TEntity.ValidateProperty(const APropertyName: string; const AValue: TValue): TValidationResult;
 var
   RttiContext: TRttiContext;
   RttiType: TRttiType;
