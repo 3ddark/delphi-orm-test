@@ -3,8 +3,7 @@
 interface
 
 uses
-  Generics.Collections, SysUtils, System.Types,
-  EntityAttributes, Entity;
+  Generics.Collections, System.SysUtils, System.Types, EntityAttributes, Entity;
 
 type
   TPerson = class;
@@ -39,16 +38,19 @@ type
     destructor Destroy; override;
   end;
 
+
   [Table('aa_persons', 'public')]
   [Index('idx_person_name', 'person_name', True)]
   [SoftDelete('deleted_at', 'deleted_by')]
   TPerson = class(TEntity, IEntity)
   private
     FPersonName: string;
-    FPersonAge: SmallInt;
+    FPersonAge: Integer;
     FSalary: Double;
     FAddresses: TObjectList<TPersonAddress>;
-  public
+   protected
+   public
+    function Validate: TValidationResult; override;
     [Column('person_name', [cpNotNull], [cucFind, cucAdd, cucUpdate])]
     [Required('person.name.required', True)]
     [MaxLength(16, 'validation.maxlength', True)]
@@ -56,12 +58,12 @@ type
 
     [Column('person_age', [cpNotNull], [cucFind, cucAdd, cucUpdate])]
     [Required('person.age.required', True)]
-    [Range(0, 150, 'validation.range', True)]
-    property PersonAge: SmallInt read FPersonAge write FPersonAge;
+    [Range(0, 100, 'validation.range', True)]
+    property PersonAge: Integer read FPersonAge write FPersonAge;
 
     [Column('salary', [cpNotNull], [cucFind, cucUpdate])]
     [Required('person.salary.required', True)]
-    [Range(0, 999999999, 'validation.range', True)]
+    [Range(0.0, 99999999.0, 'validation.range', True)]
     property Salary: Double read FSalary write FSalary;
 
     [HasMany('PersonId', 'Id', 'TPersonAddress')]
@@ -90,6 +92,11 @@ begin
   inherited;
 end;
 
+function TPerson.Validate: TValidationResult;
+begin
+  Result := inherited;
+end;
+
 constructor TPersonAddress.Create;
 begin
   inherited;
@@ -101,6 +108,7 @@ end;
 
 destructor TPersonAddress.Destroy;
 begin
+
   inherited;
 end;
 

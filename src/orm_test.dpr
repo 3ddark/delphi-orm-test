@@ -37,26 +37,9 @@ var
 begin
   ReportMemoryLeaksOnShutdown := True;
   try
-//    LConn := TFDConnection.Create(nil);
-//    LConn.Protocol := 'postgresql-9';
-//    LConn.Database := 'mydb-test';
-//    LConn.HostName := 'localhost';
-//    LConn.User := 'postgres';
-//    LConn.Password := 'qwe';
-//    LConn.Connect;
-
     LConn := TFDConnection.Create(nil);
     LConn.LoginPrompt := False;
 
-//    LConn.BeforeConnect       := ConnBeforeConnect;
-//    LConn.BeforeDisconnect    := ConnBeforeDisconnect;
-//    LConn.AfterConnect        := ConnAfterConnect;
-//    LConn.AfterDisconnect     := ConnAfterDisconnect;
-//    LConn.BeforeStartTransaction := ConnOnStartTransaction;
-//    LConn.AfterCommit         := ConnOnCommit;
-//    LConn.AfterRollback       := ConnOnRollback;
-
-    FPhys := nil;
     LConn.DriverName := 'PG';
     with LConn.Params as TFDPhysPGConnectionDefParams do
     begin
@@ -74,17 +57,17 @@ begin
     TRepositoryManager.Instance.Initialize(LConn);
 
     LRepoPerson := TRepositoryManager.Instance.GetRepository<TPerson, TPersonRepository>;
-    LPerson := LRepoPerson.FindById(2, False, [ioIncludeAll]);
+    LPerson := LRepoPerson.FindById(3, False, [ioIncludeAll]);
 
-    LRepoPerson.Delete(LPerson);
+//    LRepoPerson.Delete(LPerson);
 
-    LPerson := LRepoPerson.FindById(2, False, [ioIncludeChildren]);
+//    LPerson := LRepoPerson.FindById(2, False, [ioIncludeChildren]);
 
 
     LPerson := TPerson.Create;
     LPerson.PersonName := 'John Doe';
-    LPerson.PersonAge := 30;
-    LPerson.Salary := 1000;
+    LPerson.PersonAge := 130;
+    LPerson.Salary := 100000000;
 
     LPersonAddress := TPersonAddress.Create;
     LPersonAddress.Country := 'Turkey';
@@ -97,6 +80,8 @@ begin
     LPersonAddress.City := 'Bochum';
     LPersonAddress.PersonId := LPerson.Id;
     LPerson.Addresses.Add(LPersonAddress);
+
+    LPerson.Validate();
 
     LRepoPerson.Add(LPerson, TCascadeHelper.Insert);
 

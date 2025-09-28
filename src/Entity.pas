@@ -26,7 +26,7 @@ type
   public
     [Column('id', [cpPrimaryKey, cpAutoIncrement], [cucFind])]
     property Id: Int64 read FId write FId;
-
+{
     [Column('created_at', [cpNotNull], [cucAdd, cucFind])]
     [CreatedAt]
     property CreatedAt: TDateTime read FCreatedAt write FCreatedAt;
@@ -48,7 +48,7 @@ type
 
     [Column('deleted_by', [], [cucFind])]
     property DeletedBy: Int64 read FDeletedBy write FDeletedBy;
-
+}
     constructor Create; virtual;
     function IsDeleted: Boolean;
   end;

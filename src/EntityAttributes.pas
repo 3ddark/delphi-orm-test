@@ -1,10 +1,10 @@
-unit EntityAttributes;
+﻿unit EntityAttributes;
 
 interface
 
 uses
   System.Classes, System.SysUtils, System.Variants, System.Generics.Collections,
-  System.Rtti, LocalizationManager;
+  System.Rtti, System.TypInfo, LocalizationManager;
 
 type
   TColumnProperty = (cpNotNull, cpUnique, cpPrimaryKey, cpAutoIncrement);
@@ -170,14 +170,18 @@ type
 
   Range = class(TCustomAttribute)
   private
-    FMinValue: Variant;
-    FMaxValue: Variant;
+    FMinValue: TValue;
+    FMaxValue: TValue;
     FMessage: string;
     FMessageKey: string;
     FUseTranslation: Boolean;
   public
-    constructor Create(const AMinValue, AMaxValue: Variant; const AMessage: string = ''); overload;
-    constructor Create(const AMinValue, AMaxValue: Variant; const AMessageKey: string; const AUseTranslation: Boolean); overload;
+    constructor Create(const AMinValue, AMaxValue: Integer; const AMessage: string = ''); overload;
+    constructor Create(const AMinValue, AMaxValue: Integer; const AMessageKey: string; const AUseTranslation: Boolean); overload;
+    constructor Create(const AMinValue, AMaxValue: Int64; const AMessage: string = ''); overload;
+    constructor Create(const AMinValue, AMaxValue: Int64; const AMessageKey: string; const AUseTranslation: Boolean); overload;
+    constructor Create(const AMinValue, AMaxValue: Double; const AMessage: string = ''); overload;
+    constructor Create(const AMinValue, AMaxValue: Double; const AMessageKey: string; const AUseTranslation: Boolean); overload;
     function Validate(const AValue: TValue; const AFieldName: string): TValidationResult;
     property UseTranslation: Boolean read FUseTranslation;
   end;
@@ -689,7 +693,7 @@ begin
   end;
 end;
 
-constructor Range.Create(const AMinValue, AMaxValue: Variant; const AMessage: string = '');
+constructor Range.Create(const AMinValue, AMaxValue: Integer; const AMessage: string = '');
 begin
   inherited Create;
   FMinValue := AMinValue;
@@ -698,10 +702,60 @@ begin
   FMessageKey := '';
   FUseTranslation := False;
   if AMessage = '' then
-    FMessage := Format('Field must be between %s and %s', [VarToStr(AMinValue), VarToStr(AMaxValue)]);
+    FMessage := Format('Field must be between %s and %s', [AMinValue.ToString, AMaxValue.ToString]);
 end;
 
-constructor Range.Create(const AMinValue, AMaxValue: Variant; const AMessageKey: string; const AUseTranslation: Boolean);
+constructor Range.Create(const AMinValue, AMaxValue: Integer; const AMessageKey: string; const AUseTranslation: Boolean);
+begin
+  inherited Create;
+  FMinValue := AMinValue;
+  FMaxValue := AMaxValue;
+  FMessageKey := AMessageKey;
+  FUseTranslation := AUseTranslation;
+  if AUseTranslation then
+    FMessage := ''
+  else
+    FMessage := AMessageKey;
+end;
+
+constructor Range.Create(const AMinValue, AMaxValue: Int64; const AMessage: string = '');
+begin
+  inherited Create;
+  FMinValue := AMinValue;
+  FMaxValue := AMaxValue;
+  FMessage := AMessage;
+  FMessageKey := '';
+  FUseTranslation := False;
+  if AMessage = '' then
+    FMessage := Format('Field must be between %s and %s', [AMinValue.ToString, AMaxValue.ToString]);
+end;
+
+constructor Range.Create(const AMinValue, AMaxValue: Int64; const AMessageKey: string; const AUseTranslation: Boolean);
+begin
+  inherited Create;
+  FMinValue := AMinValue;
+  FMaxValue := AMaxValue;
+  FMessageKey := AMessageKey;
+  FUseTranslation := AUseTranslation;
+  if AUseTranslation then
+    FMessage := ''
+  else
+    FMessage := AMessageKey;
+end;
+
+constructor Range.Create(const AMinValue, AMaxValue: Double; const AMessage: string = '');
+begin
+  inherited Create;
+  FMinValue := AMinValue;
+  FMaxValue := AMaxValue;
+  FMessage := AMessage;
+  FMessageKey := '';
+  FUseTranslation := False;
+  if AMessage = '' then
+    FMessage := Format('Field must be between %s and %s', [AMinValue.ToString, AMaxValue.ToString]);
+end;
+
+constructor Range.Create(const AMinValue, AMaxValue: Double; const AMessageKey: string; const AUseTranslation: Boolean);
 begin
   inherited Create;
   FMinValue := AMinValue;
@@ -724,9 +778,6 @@ begin
 
   if not AValue.IsEmpty then
   begin
-    IsInRange := True;
-
-    // FIX: Type-safe numeric comparison, Variant kullanma
     case AValue.TypeInfo.Kind of
       tkInteger:
         begin
@@ -744,7 +795,7 @@ begin
           IsInRange := (NumericValue >= FMinValue.AsExtended) and (NumericValue <= FMaxValue.AsExtended);
         end;
     else
-      Exit; // Numeric olmayan değerler için range kontrolü yapma
+      Exit;
     end;
 
     if not IsInRange then
@@ -875,6 +926,12 @@ begin
       end;
     end;
   end;
+end;
+
+constructor Inherits.Create(const AParentTable: string);
+begin
+  inherited Create;
+  FParentTable := AParentTable;
 end;
 
 constructor CreatedAt.Create(const AColumnName: string = 'created_at'; AAutoUpdate: Boolean = True);
@@ -1008,12 +1065,6 @@ begin
   inherited Create;
   FValues := AValues;
   FDefaultValue := ADefaultValue;
-end;
-
-constructor Inherits.Create(const AParentTable: string);
-begin
-  inherited Create;
-  FParentTable := AParentTable;
 end;
 
 end.

@@ -3,8 +3,9 @@
 interface
 
 uses
-  SysUtils, StrUtils, System.Classes, Generics.Collections, System.TypInfo,
-  Rtti, Data.DB, FireDAC.Comp.Client, FireDAC.Stan.Param, System.Variants,
+  System.SysUtils, System.StrUtils, System.Classes, System.Variants, Data.DB,
+  System.TypInfo, System.Rtti, System.Generics.Collections, System.Types,
+  FireDAC.Comp.Client, FireDAC.Stan.Param,
   Entity, EntityAttributes, FilterCriterion;
 
 type
@@ -52,7 +53,8 @@ type
     function StringListToArray(AStringList: TStringList): TArray<string>;
     function GenerateSelectSql(AClass: TClass; const AWhereClause: string = ''): string;
     function GetSelectColumns(AClass: TClass): string;
-    function GetColumnNameForProperty(const APropertyName: string): string;
+    function GetColumnNameForProperty(const APropertyName: string): string; overload;
+    function GetColumnNameForProperty(AClass: TClass; const APropertyName: string): string; overload;
     function GetPrimaryKeyColumn(AClass: TClass): string;
     function GetColumnName(AProp: TRttiProperty): string;
     function ShouldUseInSelect(AProp: TRttiProperty): Boolean;
@@ -68,9 +70,7 @@ type
     procedure LoadSpecificRelationsOnly(AEntity: TObject; ARelations: TRelationNames);
     function ShouldLoadThisRelation(const ARelationName: string; ARelations: TRelationNames; AInclude: TIncludeOptions): Boolean;
     function IsChildRelationProperty(AProp: TRttiProperty): Boolean;
-    function CreateListInstance(AListType: TRttiType): TObject;
-    function CreateSafeParameterName(const APropertyName: string; AIndex: Integer): string;
-    procedure AddToList(AList: TObject; AItem: TObject);
+    procedure AddToList(AList: TObject; AListType: TClass; AItem: TObject);
     function GetListCount(AList: TObject): Integer;
     function GetListItem(AList: TObject; AIndex: Integer): TObject;
     procedure ProcessHasManyInserts(AModel: T; AParentId: Int64);
@@ -313,13 +313,10 @@ var
   hasManyAttr: HasManyAttribute;
   nestedList: TObject;
   nestedEntityClass: TClass;
-  listType: TRttiType;
   count, i: Integer;
   nestedEntity: TObject;
   foreignKeyProp: TRttiProperty; // Ismi 'filterProp' yerine 'foreignKeyProp' olarak değiştirildi
   propValue: TValue;
-  method: TRttiMethod;
-  getItemMethod: TRttiMethod;
 begin
   ctx := TRttiContext.Create;
   try
@@ -430,19 +427,19 @@ begin
         Continue;
 
       try
-        for attr in prop.GetAttributes do
         begin
-          if attr is Column then
+          if not prop.HasAttribute(Column) then Continue;
+          attr := prop.GetAttribute(Column);
+          if attr = nil then Continue;
+
+          colAttr := Column(attr);
+          if colAttr.IsPrimaryKey then
           begin
-            colAttr := Column(attr);
-            if colAttr.IsPrimaryKey then
-            begin
-              if colAttr.Name <> '' then
-                Result := colAttr.Name
-              else
-                Result := LowerCase(prop.Name);
-              Exit;
-            end;
+            if colAttr.Name <> '' then
+              Result := colAttr.Name
+            else
+              Result := LowerCase(prop.Name);
+            Exit;
           end;
         end;
       except
@@ -768,9 +765,10 @@ var
   LList: TObject;
   LForeignKey: string;
   LParentId: TValue;
-  LParentIdProp: TRttiProperty;
+  LParentIdProp, LChildIdProp: TRttiProperty;
   LContext: TRttiContext;
   LParentType: TRttiType;
+  LMethod: TRttiMethod;
   LSql: string;
   LWhereClause: string;
 begin
@@ -786,7 +784,9 @@ begin
 
     // Get parent ID
     LParentType := LContext.GetType(AEntity.ClassInfo);
-    LParentIdProp := LParentType.GetProperty('Id'); // Assuming 'Id' is primary key
+    if AHasManyAttr.LocalKeyProperty <> ''
+    then  LParentIdProp := LParentType.GetProperty(AHasManyAttr.LocalKeyProperty)
+    else  LParentIdProp := LParentType.GetProperty('Id');
     if LParentIdProp = nil then
       Exit;
 
@@ -796,7 +796,14 @@ begin
 
     // Get foreign key column name from attribute or convention
     if AHasManyAttr.ForeignKeyProperty <> '' then
-      LForeignKey := AHasManyAttr.ForeignKeyProperty
+    begin
+      LForeignKey := AHasManyAttr.ForeignKeyProperty;
+      //burada child objenin PersonId(LForeignKey) property bul
+
+      LParentType := LContext.GetType(LChildClass);
+      LChildIdProp := LParentType.GetProperty(LForeignKey);
+      LForeignKey := GetColumnNameForProperty(LChildClass, LChildIdProp.Name);
+    end
     else
       LForeignKey := Format('%s_id', [GetTableName(AEntity.ClassInfo).ToLower]); // Convention: parent_table_id
 
@@ -809,9 +816,16 @@ begin
     LQuery.Open;
 
     // Create list instance
-    LList := CreateListInstance(AProp.PropertyType);
+//    LList := CreateListInstance(AProp.PropertyType);
+    LListValue := AProp.GetValue(AEntity);
+    LList := LListValue.AsObject;
     if LList = nil then
       Exit;
+
+    LMethod := LContext.GetType(LList.ClassType).GetMethod('Clear');
+    LMethod.Invoke(LList, []);
+//    (LList as TObjectList<TObject>).Clear; // Generic tipin ne olduğunu bilmediğimiz için TObject kullanabiliriz.
+
 
     // Fill child entities
     LQuery.First;
@@ -821,7 +835,7 @@ begin
       FillEntityFromDataSet(LChildEntity, LQuery);
 
       // Add to list
-      AddToList(LList, LChildEntity);
+      AddToList(LList, LChildClass, LChildEntity);
 
       LQuery.Next;
     end;
@@ -1001,43 +1015,29 @@ begin
   end;
 end;
 
-function TRepository<T>.CreateListInstance(AListType: TRttiType): TObject;
+procedure TRepository<T>.AddToList(AList: TObject; AListType: TClass; AItem: TObject);
 var
-  LContext: TRttiContext;
-  LListClass: TClass;
+  ctx: TRttiContext;
+  rType: TRttiType;
+  addMethod: TRttiMethod;
+  result: TValue;
 begin
-  Result := nil;
-  LContext := TRttiContext.Create;
+  ctx := TRttiContext.Create;
   try
-    if AListType.AsInstance <> nil then
+    rType := ctx.GetType(AList.ClassType);
+    addMethod := rType.GetMethod('Add');
+
+    if Assigned(addMethod) then
     begin
-      LListClass := AListType.AsInstance.MetaclassType;
-      Result := LListClass.Create;
-    end;
-  finally
-    LContext.Free;
-  end;
-end;
+      result := addMethod.Invoke(AList, [TValue.From<TObject>(AItem)]);
 
-function TRepository<T>.CreateSafeParameterName(const APropertyName: string; AIndex: Integer): string;
-begin
-  Result := Format('p_%s_%d', [APropertyName.Replace('.', '_').Replace('-', '_'), AIndex]);
-end;
-
-procedure TRepository<T>.AddToList(AList: TObject; AItem: TObject);
-var
-  LContext: TRttiContext;
-  LType: TRttiType;
-  LMethod: TRttiMethod;
-begin
-  LContext := TRttiContext.Create;
-  try
-    LType := LContext.GetType(AList.ClassInfo);
-    LMethod := LType.GetMethod('Add');
-    if LMethod <> nil then
-      LMethod.Invoke(AList, [AItem]);
+      if result.IsType<Integer> then
+        WriteLn('Item added at index: ', result.AsInteger);
+    end
+    else
+      raise Exception.Create('Add method not found');
   finally
-    LContext.Free;
+    ctx.Free;
   end;
 end;
 
@@ -1523,14 +1523,7 @@ var
   prop: TRttiProperty;
   attr: TCustomAttribute;
   hasManyAttr: HasManyAttribute;
-  nestedList: TObject;
   nestedEntityClass: TClass;
-  listType: TRttiType;
-  countProp: TRttiProperty;
-  getItemMethod: TRttiMethod;
-  count, i: Integer;
-  nestedEntity: TObject;
-  method: TRttiMethod;
   deleteQuery: TFDQuery;
   deleteSql: string;
   filterProp: TRttiProperty;
@@ -1622,6 +1615,26 @@ begin
   end;
 end;
 
+function TRepository<T>.GetColumnNameForProperty(AClass: TClass; const APropertyName: string): string;
+var
+  ctx: TRttiContext;
+  rType: TRttiType;
+  prop: TRttiProperty;
+begin
+  Result := LowerCase(APropertyName); // Default olarak lowercase
+
+  ctx := TRttiContext.Create;
+  try
+    rType := ctx.GetType(AClass);
+    prop := rType.GetProperty(APropertyName);
+
+    if Assigned(prop) then
+      Result := GetColumnName(prop);
+  finally
+    ctx.Free;
+  end;
+end;
+
 function TRepository<T>.FindById(AId: TValue; ALock: Boolean = False; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil): T;
 var
   LQuery: TFDQuery;
@@ -1635,16 +1648,13 @@ begin
   try
     LQuery.Connection := Connection;
 
-    // WHERE koşulunu parametreli olarak oluştur
     LPrimaryKeyColumn := GetPrimaryKeyColumn(T);
     LWhereClause := Format('%s = :pk_id', [LPrimaryKeyColumn]);
 
-    // Gerekirse FOR UPDATE kilidini ekle (PostgreSQL syntax)
     LLockClause := '';
     if ALock then
       LLockClause := ' FOR UPDATE';
 
-    // SQL'i oluştur ve parametreyi ata
     LSql := GenerateSelectSql(T, LWhereClause) + LLockClause;
     LQuery.SQL.Text := LSql;
     LQuery.ParamByName('pk_id').Value := AId.AsVariant;
@@ -1652,11 +1662,9 @@ begin
 
     if not LQuery.IsEmpty then
     begin
-      // FIX: Proper instantiation using RTTI
       Result := T(CreateEntityInstanceByClass(T));
       FillEntityFromDataSet(Result, LQuery);
 
-      // İlişkili verileri yükle
       if (AInclude <> [ioIncludeNone]) or (ARelations <> nil) then
         FillNestedEntitiesWithInclude(Result, AInclude, ARelations);
     end;
@@ -1809,8 +1817,6 @@ var
   colAttr: Column;
   createdAtAttr: CreatedAt;
   updatedAtAttr: UpdatedAt;
-  createdByAttr: CreatedBy;
-  updatedByAttr: UpdatedBy;
   columns, values: TStringList;
   columnName: string;
   propValue: TValue;
@@ -1841,7 +1847,6 @@ begin
         if not prop.IsWritable then
           Continue;
 
-        isAttributeProcessed := False;
         for attr in prop.GetAttributes do
         begin
           if attr is CreatedAt then
@@ -1854,7 +1859,6 @@ begin
               if propValue.IsEmpty or (propValue.AsType<TDateTime> <= 0) then
                 prop.SetValue(TObject(AModel), TValue.From<TDateTime>(Now));
             end;
-            isAttributeProcessed := True;
             Break;
           end
           else if attr is UpdatedAt then
@@ -1865,12 +1869,10 @@ begin
             begin
               prop.SetValue(TObject(AModel), TValue.From<TDateTime>(Now));
             end;
-            isAttributeProcessed := True;
             Break;
           end
           else if attr is CreatedBy then
           begin
-            createdByAttr := attr as CreatedBy;
             propValue := prop.GetValue(TObject(AModel));
             // Sadece boşsa ata - UserIdProvider implementasyonu gerekli
             if propValue.IsEmpty then
@@ -1878,20 +1880,17 @@ begin
               // TODO: Implement user ID provider mechanism
               // Example: prop.SetValue(TObject(AModel), TValue.From<Int64>(GetCurrentUserId));
             end;
-            isAttributeProcessed := True;
             Break;
           end
           else if attr is UpdatedBy then
           begin
             // FIX: UpdatedBy'ı Add işleminde de set et
-            updatedByAttr := attr as UpdatedBy;
             propValue := prop.GetValue(TObject(AModel));
             if propValue.IsEmpty then
             begin
               // TODO: Implement user ID provider mechanism
               // Example: prop.SetValue(TObject(AModel), TValue.From<Int64>(GetCurrentUserId));
             end;
-            isAttributeProcessed := True;
             Break;
           end;
         end;
@@ -2027,7 +2026,6 @@ begin
           if not prop.IsWritable then
             Continue;
 
-          colAttr := nil;
           for attr in prop.GetAttributes do
           begin
             if attr is Column then
@@ -2152,8 +2150,6 @@ var
   attr: TCustomAttribute;
   colAttr: Column;
   updatedAtAttr: UpdatedAt;
-  updatedByAttr: UpdatedBy;
-  versionAttr: Version;
   versionProp: TRttiProperty;
   setParts: TStringList;
   whereClause: string;
@@ -2217,7 +2213,6 @@ begin
         if not prop.IsWritable then
           Continue;
 
-        isAttributeProcessed := False;
         for attr in prop.GetAttributes do
         begin
           if attr is UpdatedAt then
@@ -2225,23 +2220,19 @@ begin
             updatedAtAttr := attr as UpdatedAt;
             if updatedAtAttr.AutoUpdate then
               prop.SetValue(TObject(AModel), TValue.From<TDateTime>(Now));
-            isAttributeProcessed := True;
             Break;
           end
           else if attr is UpdatedBy then
           begin
-            updatedByAttr := attr as UpdatedBy;
             propValue := prop.GetValue(TObject(AModel));
             // TODO: Implement user provider mechanism
             // if propValue.IsEmpty then
             //   prop.SetValue(TObject(AModel), TValue.From<Int64>(GetCurrentUserId));
-            isAttributeProcessed := True;
             Break;
           end
           else if attr is Version then
           begin
             versionProp := prop; // Versiyon property'sini sakla
-            isAttributeProcessed := True;
             Break;
           end;
         end;
@@ -2760,14 +2751,12 @@ begin
   if not Assigned(FConnection) then
     raise Exception.Create('Database connection is not available');
 
-  // FIX: Invalid ID kontrolü
   for i := 0 to High(AIDs) do
   begin
     if AIDs[i] <= 0 then
       raise Exception.CreateFmt('Invalid ID at index %d: ID must be greater than 0', [i]);
   end;
 
-  // Cascade delete gerekiyorsa tek tek işlem yap
   if coDelete in ACascade then
   begin
     wasInTransaction := FConnection.InTransaction;
