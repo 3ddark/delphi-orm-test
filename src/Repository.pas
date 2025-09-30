@@ -132,9 +132,9 @@ begin
   try
     AType := ACtx.GetType(AClass);
     for AAttr in AType.GetAttributes do
-      if AAttr is Table then
+      if AAttr is TableAttribute then
       begin
-        Result := (AAttr as Table).Name;
+        Result := (AAttr as TableAttribute).Name;
         Break;
       end;
   finally
@@ -171,7 +171,6 @@ begin
     try
       rType := ctx.GetType(AEntityClass);
 
-      // INSERT için kolonları hazırla
       for prop in rType.GetProperties do
       begin
         if not prop.IsReadable then
@@ -214,20 +213,17 @@ begin
       if columns.Count = 0 then
         Exit;
 
-      // INSERT SQL'i oluştur
       insertSql := Format('INSERT INTO %s (%s) VALUES (%s)', [
         GetFullTableName(AEntityClass),
         columns.CommaText.Replace('"', ''),
         values.CommaText.Replace('"', '')
       ]);
 
-      // PostgreSQL için RETURNING ekle
       pkColumn := GetPrimaryKeyColumn(AEntityClass);
       insertSql := insertSql + ' RETURNING ' + pkColumn;
 
       query.SQL.Text := insertSql;
 
-      // Parametreleri set et
       for prop in rType.GetProperties do
       begin
         if not prop.IsReadable then
@@ -260,14 +256,12 @@ begin
         end;
       end;
 
-      // INSERT işlemini gerçekleştir
       query.Open;
 
       if not query.IsEmpty then
       begin
         insertedId := query.Fields[0].AsLargeInt;
 
-        // Nested nesnenin ID'sini güncelle
         pkProp := nil;
         for prop in rType.GetProperties do
         begin
@@ -315,7 +309,7 @@ var
   nestedEntityClass: TClass;
   count, i: Integer;
   nestedEntity: TObject;
-  foreignKeyProp: TRttiProperty; // Ismi 'filterProp' yerine 'foreignKeyProp' olarak değiştirildi
+  foreignKeyProp: TRttiProperty;
   propValue: TValue;
 begin
   ctx := TRttiContext.Create;
@@ -350,14 +344,12 @@ begin
       if count = 0 then
         Continue;
 
-      // Her nested entity için INSERT işlemi yap
       for i := 0 to count - 1 do
       begin
         nestedEntity := GetListItem(nestedList, i);
         if not Assigned(nestedEntity) then
           Continue;
 
-        // DÜZELTME: Child entity'de parent'ın ID'sini tutan foreign key property'sini bul ve set et.
         foreignKeyProp := ctx.GetType(nestedEntityClass).GetProperty(hasManyAttr.ForeignKeyProperty);
         if Assigned(foreignKeyProp) and foreignKeyProp.IsWritable then
         begin
@@ -365,11 +357,9 @@ begin
         end
         else
         begin
-            // Hata veya uyarı loglanabilir: ForeignKeyProperty bulunamadı.
-            Continue;
+          Continue;
         end;
 
-        // Nested entity için insert et (cascade olmadan)
         InsertNestedEntity(nestedEntity, nestedEntityClass);
       end;
     end;
@@ -383,7 +373,7 @@ var
   ACtx: TRttiContext;
   AType: TRttiType;
   AAttr : TCustomAttribute;
-  TableAttr: Table;
+  TableAttr: TableAttribute;
 begin
   Result := AClass.ClassName;
 
@@ -391,9 +381,9 @@ begin
   try
     AType := ACtx.GetType(AClass);
     for AAttr in AType.GetAttributes do
-      if AAttr is Table then
+      if AAttr is TableAttribute then
       begin
-        TableAttr := AAttr as Table;
+        TableAttr := AAttr as TableAttribute;
         Result := TableAttr.FullName;
         Break;
       end;
@@ -443,7 +433,6 @@ begin
           end;
         end;
       except
-        // Skip problematic attributes but continue processing
         Continue;
       end;
     end;
@@ -589,7 +578,6 @@ begin
 
       if Assigned(field) and not field.IsNull then
       begin
-        // FIX: Type-safe field value assignment, AsVariant kullanma
         case prop.PropertyType.TypeKind of
           tkInteger:
             begin
@@ -624,7 +612,6 @@ begin
           prop.SetValue(AEntity, propValue);
         except
           on E: Exception do
-            // Log error but continue with other properties
             Continue;
         end;
       end;
@@ -636,11 +623,9 @@ end;
 
 procedure TRepository<T>.FillNestedEntitiesWithInclude(AEntity: TObject; AInclude: TIncludeOptions; ARelations: TRelationNames = nil);
 begin
-  // Exit if no includes requested
   if (AInclude = [ioIncludeNone]) or (AEntity = nil) then
     Exit;
 
-  // Load all relations
   if ioIncludeAll in AInclude then
   begin
     LoadChildEntitiesWithInclude(AEntity, [ioIncludeAll], nil);
@@ -650,7 +635,6 @@ begin
     Exit;
   end;
 
-  // Load specific relation types
   if ioIncludeChildren in AInclude then
     LoadChildEntitiesWithInclude(AEntity, AInclude, ARelations);
 
@@ -683,7 +667,6 @@ begin
       LFound := False;
       LHasManyAttr := nil;
 
-      // Check if this property has HasMany attribute
       for LAttr in LProp.GetAttributes do
       begin
         if LAttr is HasManyAttribute then
@@ -698,7 +681,6 @@ begin
       begin
         LRelationName := LProp.Name;
 
-        // Check if we should load this relation
         if ShouldLoadThisRelation(LRelationName, ARelations, AInclude) then
         begin
           LoadChildProperty(AEntity, LProp, LHasManyAttr);
@@ -729,7 +711,6 @@ begin
       LFound := False;
       LBelongsToAttr := nil;
 
-      // Check if this property has BelongsTo attribute
       for LAttr in LProp.GetAttributes do
       begin
         if LAttr is BelongsToAttribute then
@@ -744,7 +725,6 @@ begin
       begin
         LRelationName := LProp.Name;
 
-        // Check if we should load this relation
         if ShouldLoadThisRelation(LRelationName, ARelations, AInclude) then
         begin
           LoadParentProperty(AEntity, LProp, LBelongsToAttr);
@@ -777,12 +757,10 @@ begin
   try
     LQuery.Connection := Connection;
 
-    // Get child class from generic list type
     LChildClass := ExtractGenericTypeFromList(AProp.PropertyType);
     if LChildClass = nil then
       Exit;
 
-    // Get parent ID
     LParentType := LContext.GetType(AEntity.ClassInfo);
     if AHasManyAttr.LocalKeyProperty <> ''
     then  LParentIdProp := LParentType.GetProperty(AHasManyAttr.LocalKeyProperty)
@@ -794,29 +772,23 @@ begin
     if LParentId.IsEmpty then
       Exit;
 
-    // Get foreign key column name from attribute or convention
     if AHasManyAttr.ForeignKeyProperty <> '' then
     begin
       LForeignKey := AHasManyAttr.ForeignKeyProperty;
-      //burada child objenin PersonId(LForeignKey) property bul
 
       LParentType := LContext.GetType(LChildClass);
       LChildIdProp := LParentType.GetProperty(LForeignKey);
       LForeignKey := GetColumnNameForProperty(LChildClass, LChildIdProp.Name);
     end
     else
-      LForeignKey := Format('%s_id', [GetTableName(AEntity.ClassInfo).ToLower]); // Convention: parent_table_id
+      LForeignKey := Format('%s_id', [GetTableName(AEntity.ClassInfo).ToLower]);
 
-    // Build WHERE clause
     LWhereClause := Format('%s = %s', [LForeignKey, QuotedStr(LParentId.ToString)]);
 
-    // Generate and execute SQL for child entities
     LSql := GenerateSelectSql(LChildClass, LWhereClause);
     LQuery.SQL.Text := LSql;
     LQuery.Open;
 
-    // Create list instance
-//    LList := CreateListInstance(AProp.PropertyType);
     LListValue := AProp.GetValue(AEntity);
     LList := LListValue.AsObject;
     if LList = nil then
@@ -824,26 +796,20 @@ begin
 
     LMethod := LContext.GetType(LList.ClassType).GetMethod('Clear');
     LMethod.Invoke(LList, []);
-//    (LList as TObjectList<TObject>).Clear; // Generic tipin ne olduğunu bilmediğimiz için TObject kullanabiliriz.
 
-
-    // Fill child entities
     LQuery.First;
     while not LQuery.Eof do
     begin
       LChildEntity := CreateEntityInstanceByClass(LChildClass);
       FillEntityFromDataSet(LChildEntity, LQuery);
 
-      // Add to list
       AddToList(LList, LChildClass, LChildEntity);
 
       LQuery.Next;
     end;
 
-    // Set the list property
     LListValue := TValue.From<TObject>(LList);
     AProp.SetValue(AEntity, LListValue);
-
   finally
     LContext.Free;
     LQuery.Free;
@@ -869,20 +835,17 @@ begin
   try
     LQuery.Connection := Connection;
 
-    // Get parent class
     LParentClass := AProp.PropertyType.AsInstance.MetaclassType;
     if LParentClass = nil then
       Exit;
 
-    // Get foreign key column name from attribute or convention
     if ABelongsToAttr.RemoteKeyProperty <> '' then
       LForeignKey := ABelongsToAttr.RemoteKeyProperty
     else
-      LForeignKey := Format('%s_id', [AProp.Name.ToLower]); // Convention: property_name_id
+      LForeignKey := Format('%s_id', [AProp.Name.ToLower]);
 
-    // Get foreign key value from entity
     LEntityType := LContext.GetType(AEntity.ClassInfo);
-    LForeignIdProp := LEntityType.GetProperty(LForeignKey.Replace('_id', 'Id')); // Convert snake_case to PascalCase
+    LForeignIdProp := LEntityType.GetProperty(LForeignKey.Replace('_id', 'Id'));
     if LForeignIdProp = nil then
       Exit;
 
@@ -890,10 +853,8 @@ begin
     if LForeignIdValue.IsEmpty then
       Exit;
 
-    // Build WHERE clause for parent entity
     LWhereClause := Format('%s = %s', [GetPrimaryKeyColumn(LParentClass), QuotedStr(LForeignIdValue.ToString)]);
 
-    // Generate and execute SQL for parent entity
     LSql := GenerateSelectSql(LParentClass, LWhereClause);
     LQuery.SQL.Text := LSql;
     LQuery.Open;
@@ -903,7 +864,6 @@ begin
       LParentEntity := CreateEntityInstanceByClass(LParentClass);
       FillEntityFromDataSet(LParentEntity, LQuery);
 
-      // Set the parent property
       LParentValue := TValue.From<TObject>(LParentEntity);
       AProp.SetValue(AEntity, LParentValue);
     end;
@@ -938,13 +898,11 @@ begin
           LList := LListValue.AsObject;
           if LList <> nil then
           begin
-            // Iterate through child entities and load their children
             for LIndex := 0 to GetListCount(LList) - 1 do
             begin
               LChildEntity := GetListItem(LList, LIndex);
               if LChildEntity <> nil then
               begin
-                // Recursively load children of children
                 FillNestedEntitiesWithInclude(LChildEntity, [ioIncludeChildren], nil);
               end;
             end;
@@ -962,7 +920,6 @@ begin
   if ARelations = nil then
     Exit;
 
-  // Load both child and parent relations that match the specified names
   LoadChildEntitiesWithInclude(AEntity, [ioIncludeSpecific], ARelations);
   LoadParentEntitiesWithInclude(AEntity, [ioIncludeSpecific], ARelations);
 end;
@@ -971,14 +928,12 @@ function TRepository<T>.ShouldLoadThisRelation(const ARelationName: string; ARel
 var
   LRelation: string;
 begin
-  // If ioIncludeAll is set, load everything
   if ioIncludeAll in AInclude then
   begin
     Result := True;
     Exit;
   end;
 
-  // If ioIncludeSpecific is set, only load specified relations
   if ioIncludeSpecific in AInclude then
   begin
     Result := False;
@@ -996,7 +951,6 @@ begin
     Exit;
   end;
 
-  // For other include options, load all relations of that type
   Result := True;
 end;
 
@@ -1071,7 +1025,6 @@ begin
   try
     LType := LContext.GetType(AList.ClassInfo);
 
-    // First try to find GetItem method
     LMethod := LType.GetMethod('GetItem');
     if LMethod <> nil then
     begin
@@ -1079,7 +1032,6 @@ begin
     end
     else
     begin
-      // Alternative: Try indexed property
       for LIndexedProp in LType.GetIndexedProperties do
       begin
         if LIndexedProp.Name = 'Items' then
@@ -1197,7 +1149,6 @@ begin
     begin
       hasManyAttr := nil;
 
-      // HasMany attribute'ını bul
       for attr in prop.GetAttributes do
       begin
         if attr is HasManyAttribute then
@@ -1210,18 +1161,15 @@ begin
       if not Assigned(hasManyAttr) then
         Continue;
 
-      // Nested list'i al
       propValue := prop.GetValue(TObject(AModel));
       nestedList := propValue.AsObject;
       if not Assigned(nestedList) then
         Continue;
 
-      // Generic type'ı çıkar
       nestedEntityClass := ExtractGenericTypeFromList(prop.PropertyType);
       if not Assigned(nestedEntityClass) then
         Continue;
 
-      // List'teki item sayısını al
       listType := ctx.GetType(nestedList.ClassType);
       countProp := listType.GetProperty('Count');
       if not Assigned(countProp) then
@@ -1231,7 +1179,6 @@ begin
       if count = 0 then
         Continue;
 
-      // GetItem metodunu bul
       getItemMethod := nil;
       for method in listType.GetMethods do
       begin
@@ -1245,19 +1192,16 @@ begin
       if not Assigned(getItemMethod) then
         Continue;
 
-      // Her nested entity için UPDATE/INSERT işlemi yap
       for i := 0 to count - 1 do
       begin
         nestedEntity := getItemMethod.Invoke(nestedList, [i]).AsObject;
         if not Assigned(nestedEntity) then
           Continue;
 
-        // Parent ID'yi set et
         filterProp := ctx.GetType(nestedEntityClass).GetProperty(hasManyAttr.LocalKeyProperty);
         if Assigned(filterProp) and filterProp.IsWritable then
           filterProp.SetValue(nestedEntity, TValue.From<Int64>(AParentId));
 
-        // Nested entity'nin ID'sini kontrol et
         nestedEntityIdProp := nil;
         for prop2 in ctx.GetType(nestedEntityClass).GetProperties do
         begin
@@ -1280,15 +1224,12 @@ begin
         begin
           nestedEntityId := nestedEntityIdProp.GetValue(nestedEntity);
 
-          // ID varsa UPDATE, yoksa INSERT yap
           if nestedEntityId.IsEmpty or (nestedEntityId.AsInt64 <= 0) then
           begin
-            // INSERT işlemi
             InsertNestedEntity(nestedEntity, nestedEntityClass);
           end
           else
           begin
-            // UPDATE işlemi
             UpdateNestedEntity(nestedEntity, nestedEntityClass);
           end;
         end;
@@ -1327,7 +1268,6 @@ begin
     try
       rType := ctx.GetType(AEntityClass);
 
-      // Primary Key değerini bul
       pkColumn := GetPrimaryKeyColumn(AEntityClass);
       pkValue := TValue.Empty;
 
@@ -1350,9 +1290,8 @@ begin
       end;
 
       if pkValue.IsEmpty or (pkValue.AsInt64 <= 0) then
-        Exit; // ID yoksa update yapma
+        Exit;
 
-      // UPDATE için SET clause'unu oluştur
       for prop in rType.GetProperties do
       begin
         if not prop.IsReadable then
@@ -1392,7 +1331,6 @@ begin
       if setParts.Count = 0 then
         Exit;
 
-      // UPDATE SQL'i oluştur
       whereClause := pkColumn + ' = :' + pkColumn;
       updateSql := Format('UPDATE %s SET %s WHERE %s', [
         GetFullTableName(AEntityClass),
@@ -1403,7 +1341,6 @@ begin
       query.SQL.Text := updateSql;
       query.ParamByName(pkColumn).Value := pkValue.AsVariant;
 
-      // SET parametrelerini set et
       for prop in rType.GetProperties do
       begin
         if not prop.IsReadable then
@@ -1436,7 +1373,6 @@ begin
         end;
       end;
 
-      // UPDATE işlemini gerçekleştir
       query.ExecSQL;
 
     finally
@@ -1469,7 +1405,6 @@ begin
       if not prop.IsReadable or not prop.IsWritable then
         Continue;
 
-      // Sadece Column property'lerini kopyala (nested relationship'leri atla - circular reference önlemi)
       colAttr := nil;
       for attr in prop.GetAttributes do
       begin
@@ -1480,12 +1415,12 @@ begin
         end
         else if attr is NotMapped then
         begin
-          Break; // NotMapped property'leri atla
+          Break;
         end
         else if (attr is HasOneAttribute) or (attr is HasManyAttribute) or (attr is BelongsToAttribute) then
         begin
           if not ADeepClone then
-            Break; // Deep clone değilse relationship'leri atla
+            Break;
         end;
       end;
 
@@ -1494,7 +1429,6 @@ begin
 
       propValue := prop.GetValue(ASource);
 
-      // Primary key auto increment ise ve 0'dan büyükse, klonda 0 yap
       if colAttr.IsPrimaryKey and colAttr.IsAutoIncrement and not propValue.IsEmpty then
       begin
         case prop.PropertyType.TypeKind of
@@ -1504,7 +1438,6 @@ begin
       end
       else
       begin
-        // Diğer property'leri direkt kopyala
         if not propValue.IsEmpty then
           prop.SetValue(ATarget, propValue);
       end;
@@ -1542,7 +1475,6 @@ begin
     begin
       hasManyAttr := nil;
 
-      // HasMany attribute'ını bul
       for attr in prop.GetAttributes do
       begin
         if attr is HasManyAttribute then
@@ -1555,7 +1487,6 @@ begin
       if not Assigned(hasManyAttr) then
         Continue;
 
-      // Parent ID'yi al
       filterProp := rType.GetProperty(hasManyAttr.LocalKeyProperty);
       if not Assigned(filterProp) then
         Continue;
@@ -1564,18 +1495,15 @@ begin
       if filterValue.IsEmpty then
         Continue;
 
-      // Generic type'ı çıkar
       nestedEntityClass := ExtractGenericTypeFromList(prop.PropertyType);
       if not Assigned(nestedEntityClass) then
         Continue;
 
-      // Child tablosundaki foreign key column adını al
       valueColumnName := hasManyAttr.ForeignKeyProperty;
       valueProp := ctx.GetType(nestedEntityClass).GetProperty(hasManyAttr.ForeignKeyProperty);
       if Assigned(valueProp) then
         valueColumnName := GetColumnName(valueProp);
 
-      // Child kayıtları sil
       deleteQuery := TFDQuery.Create(nil);
       try
         deleteQuery.Connection := FConnection;
@@ -1601,7 +1529,7 @@ var
   rType: TRttiType;
   prop: TRttiProperty;
 begin
-  Result := LowerCase(APropertyName); // Default olarak lowercase
+  Result := LowerCase(APropertyName);
 
   ctx := TRttiContext.Create;
   try
@@ -1621,7 +1549,7 @@ var
   rType: TRttiType;
   prop: TRttiProperty;
 begin
-  Result := LowerCase(APropertyName); // Default olarak lowercase
+  Result := LowerCase(APropertyName);
 
   ctx := TRttiContext.Create;
   try
@@ -1694,7 +1622,6 @@ begin
   try
     LQuery.Connection := Connection;
 
-    // WHERE koşulunu dinamik ve parametreli olarak oluştur
     for i := 0 to AFilter.Count - 1 do
     begin
       LFilter := AFilter[i];
@@ -1702,21 +1629,18 @@ begin
         LWhereClause.Append(' AND ');
 
       LColumnName := GetColumnNameForProperty(LFilter.PropertyNamePath);
-      // FIX: Improved parameter naming to avoid conflicts
+
       LParamName := Format('p_%s_%d', [LFilter.PropertyNamePath.Replace('.', '_'), i]);
 
       LWhereClause.Append(LColumnName).Append(' ').Append(LFilter.Operator).Append(' :').Append(LParamName);
 
-      // FIX: Use Params.Add instead of CreateParam for better compatibility
       LQuery.Params.Add(LParamName, LFilter.Value.AsVariant);
     end;
 
-    // Gerekirse FOR UPDATE kilidini ekle
     LLockClause := '';
     if ALock then
       LLockClause := ' FOR UPDATE';
 
-    // FIX: Use database-specific LIMIT syntax - PostgreSQL uses LIMIT, SQL Server uses TOP
     LSql := GenerateSelectSql(T, LWhereClause.ToString) + LLockClause + ' LIMIT 1';
     LQuery.SQL.Text := LSql;
 
@@ -1724,11 +1648,9 @@ begin
 
     if not LQuery.IsEmpty then
     begin
-      // FIX: Proper instantiation using RTTI
       Result := T(CreateEntityInstanceByClass(T));
       FillEntityFromDataSet(Result, LQuery);
 
-      // İlişkili verileri yükle
       if (AInclude <> [ioIncludeNone]) or (ARelations <> nil) then
         FillNestedEntitiesWithInclude(Result, AInclude, ARelations);
     end;
@@ -1756,7 +1678,6 @@ begin
   try
     LQuery.Connection := Connection;
 
-    // WHERE koşulunu dinamik ve parametreli olarak oluştur
     if Assigned(AFilter) and (AFilter.Count > 0) then
     begin
       for i := 0 to AFilter.Count - 1 do
@@ -1766,34 +1687,28 @@ begin
           LWhereClause.Append(' AND ');
 
         LColumnName := GetColumnNameForProperty(LFilter.PropertyNamePath);
-        // FIX: Improved parameter naming
+
         LParamName := Format('p_%s_%d', [LFilter.PropertyNamePath.Replace('.', '_'), i]);
 
         LWhereClause.Append(LColumnName).Append(' ').Append(LFilter.Operator).Append(' :').Append(LParamName);
 
-        // FIX: Use Params.Add instead of CreateParam
         LQuery.Params.Add(LParamName, LFilter.Value.AsVariant);
       end;
     end;
 
-    // Gerekirse FOR UPDATE kilidini ekle
     LLockClause := '';
     if ALock then
       LLockClause := ' FOR UPDATE';
 
-    // FIX: No unnecessary ORDER BY or LIMIT for Find method
     LSql := GenerateSelectSql(T, LWhereClause.ToString) + LLockClause;
     LQuery.SQL.Text := LSql;
     LQuery.Open;
 
-    // Sonuçları TObjectList'e doldur
     while not LQuery.Eof do
     begin
-      // FIX: Proper instantiation using RTTI
       LEntity := T(CreateEntityInstanceByClass(T));
       FillEntityFromDataSet(LEntity, LQuery);
 
-      // Her bir entity için ilişkili verileri yükle
       if (AInclude <> [ioIncludeNone]) or (ARelations <> nil) then
         FillNestedEntitiesWithInclude(LEntity, AInclude, ARelations);
 
@@ -1841,7 +1756,6 @@ begin
     try
       rType := ctx.GetType(T);
 
-      // FIX: Otomatik alanları (CreatedAt, CreatedBy vs.) Add işlemi öncesi doldur
       for prop in rType.GetProperties do
       begin
         if not prop.IsWritable then
@@ -1855,7 +1769,6 @@ begin
             if createdAtAttr.AutoUpdate then
             begin
               propValue := prop.GetValue(TObject(AModel));
-              // Sadece boşsa veya default DateTime değeriyse ata
               if propValue.IsEmpty or (propValue.AsType<TDateTime> <= 0) then
                 prop.SetValue(TObject(AModel), TValue.From<TDateTime>(Now));
             end;
@@ -1863,7 +1776,6 @@ begin
           end
           else if attr is UpdatedAt then
           begin
-            // FIX: UpdatedAt'ı Add işleminde de set et
             updatedAtAttr := attr as UpdatedAt;
             if updatedAtAttr.AutoUpdate then
             begin
@@ -1874,7 +1786,6 @@ begin
           else if attr is CreatedBy then
           begin
             propValue := prop.GetValue(TObject(AModel));
-            // Sadece boşsa ata - UserIdProvider implementasyonu gerekli
             if propValue.IsEmpty then
             begin
               // TODO: Implement user ID provider mechanism
@@ -1884,7 +1795,6 @@ begin
           end
           else if attr is UpdatedBy then
           begin
-            // FIX: UpdatedBy'ı Add işleminde de set et
             propValue := prop.GetValue(TObject(AModel));
             if propValue.IsEmpty then
             begin
@@ -1896,7 +1806,6 @@ begin
         end;
       end;
 
-      // Ana tablo için INSERT SQL'i oluştur
       for prop in rType.GetProperties do
       begin
         if not prop.IsReadable then
@@ -1908,9 +1817,10 @@ begin
         for attr in prop.GetAttributes do
         begin
           if (attr is NotMapped) or (attr is HasOneAttribute) or
-             (attr is HasManyAttribute) or (attr is BelongsToAttribute) then
+             (attr is HasManyAttribute) or (attr is BelongsToAttribute)
+          then
           begin
-            isAttributeProcessed := True; // İlişkisel property'leri atla
+            isAttributeProcessed := True;
             Break;
           end;
           if attr is Column then
@@ -1919,7 +1829,6 @@ begin
           end;
         end;
 
-        // FIX: Eğer relationship attribute'u varsa atla
         if isAttributeProcessed then
           Continue;
 
@@ -1932,13 +1841,12 @@ begin
         columnName := GetColumnName(prop);
         propValue := prop.GetValue(TObject(AModel));
 
-        // FIX: NotNull kontrolünü daha iyi yap
         if propValue.IsEmpty then
         begin
           if colAttr.IsNotNull then
             raise Exception.CreateFmt('Required field %s cannot be null', [prop.Name])
           else
-            Continue; // NULL değerler için parametre ekleme
+            Continue;
         end;
 
         columns.Add(columnName);
@@ -1948,24 +1856,20 @@ begin
       if columns.Count = 0 then
         raise Exception.Create('No columns to insert for entity ' + T.ClassName);
 
-      // FIX: CommaText property'si tırnak işareti ekleyebilir, manuel join kullan
       insertSql := Format('INSERT INTO %s (%s) VALUES (%s)', [
         GetFullTableName(T),
         string.Join(',', columns.ToStringArray),
         string.Join(',', values.ToStringArray)
       ]);
 
-      // FIX: Database-specific RETURNING clause
       pkColumn := GetPrimaryKeyColumn(T);
       if pkColumn <> '' then
       begin
-        // PostgreSQL syntax - diğer veritabanları için uyarlanabilir
         insertSql := insertSql + ' RETURNING ' + pkColumn;
       end;
 
       query.SQL.Text := insertSql;
 
-      // FIX: Parametreleri daha güvenli şekilde set et
       for prop in rType.GetProperties do
       begin
         if not prop.IsReadable then
@@ -1993,7 +1897,6 @@ begin
           propValue := prop.GetValue(TObject(AModel));
           if not propValue.IsEmpty then
           begin
-            // FIX: Type-specific parameter assignment
             try
               query.ParamByName(columnName).Value := propValue.AsVariant;
             except
@@ -2006,7 +1909,6 @@ begin
         end;
       end;
 
-      // FIX: Execute query with proper error handling
       try
         query.Open;
       except
@@ -2014,12 +1916,10 @@ begin
           raise Exception.CreateFmt('Failed to insert entity %s: %s', [T.ClassName, E.Message]);
       end;
 
-      // FIX: Primary key handling
       if (pkColumn <> '') and (not query.IsEmpty) then
       begin
         insertedId := query.Fields[0].AsLargeInt;
 
-        // Ana nesnenin ID'sini güncelle
         pkProp := nil;
         for prop in rType.GetProperties do
         begin
@@ -2052,7 +1952,6 @@ begin
           end;
         end;
 
-        // Nested objeleri işle (HasMany relationships)
         if coInsert in ACascade then
         begin
           try
@@ -2086,19 +1985,16 @@ begin
   if not Assigned(FConnection) then
     raise Exception.Create('Database connection is not available');
 
-  // FIX: Null model kontrolü
   for i := 0 to High(AModels) do
   begin
     if not Assigned(AModels[i]) then
       raise Exception.CreateFmt('Model at index %d cannot be nil', [i]);
   end;
 
-  // FIX: Transaction durumunu kontrol et
   wasInTransaction := FConnection.InTransaction;
 
   if wasInTransaction then
   begin
-    // Zaten bir transaction içindeyse, tekrar başlatma
     try
       for i := 0 to High(AModels) do
         Add(AModels[i], ACascade);
@@ -2109,14 +2005,11 @@ begin
   end
   else
   begin
-    // Yeni bir transaction başlat
     transaction := TFDTransaction.Create(nil);
     try
       transaction.Connection := FConnection;
-
       try
         transaction.StartTransaction;
-
         try
           for i := 0 to High(AModels) do
             Add(AModels[i], ACascade);
@@ -2177,7 +2070,6 @@ begin
     try
       rType := ctx.GetType(T);
 
-      // FIX: Primary Key property'sini önce bul
       pkColumn := GetPrimaryKeyColumn(T);
       for prop in rType.GetProperties do
       begin
@@ -2207,7 +2099,6 @@ begin
       if pkValue.IsEmpty or (pkValue.AsInt64 <= 0) then
         raise Exception.Create('Primary key value is required for update operation');
 
-      // Otomatik alanları (UpdatedAt, UpdatedBy vs.) Update işlemi öncesi doldur
       for prop in rType.GetProperties do
       begin
         if not prop.IsWritable then
@@ -2232,13 +2123,12 @@ begin
           end
           else if attr is Version then
           begin
-            versionProp := prop; // Versiyon property'sini sakla
+            versionProp := prop;
             Break;
           end;
         end;
       end;
 
-      // UPDATE için SET clause'unu oluştur
       for prop in rType.GetProperties do
       begin
         if not prop.IsReadable then
@@ -2259,7 +2149,6 @@ begin
             colAttr := attr as Column;
         end;
 
-        // FIX: Relationship attribute'ları atla
         if isAttributeProcessed then
           Continue;
 
@@ -2271,7 +2160,6 @@ begin
 
         columnName := GetColumnName(prop);
 
-        // FIX: Versiyon kolonuysa, SET ifadesi özel olacak ve current value'yu sakla
         if prop = versionProp then
         begin
           versionValue := prop.GetValue(TObject(AModel));
@@ -2284,12 +2172,10 @@ begin
       end;
 
       if setParts.Count = 0 then
-        Exit; // Güncellenecek alan yoksa çık
+        Exit;
 
-      // FIX: WHERE koşulunu daha güvenli oluştur
       whereClause := pkColumn + ' = :pk_value';
 
-      // FIX: Version-based optimistic locking için current version değerini kontrol et
       if Assigned(versionProp) then
       begin
         if versionValue.IsEmpty then
@@ -2298,7 +2184,6 @@ begin
         whereClause := whereClause + ' AND ' + columnName + ' = :version_value';
       end;
 
-      // FIX: String.Join kullan, CommaText problemini çöz
       updateSql := Format('UPDATE %s SET %s WHERE %s', [
         GetFullTableName(T),
         string.Join(',', StringListToArray(setParts)),
@@ -2306,15 +2191,12 @@ begin
       ]);
 
       query.SQL.Text := updateSql;
-
-      // FIX: WHERE parametrelerini güvenli şekilde ata
       try
         query.ParamByName('pk_value').Value := pkValue.AsVariant;
 
         if Assigned(versionProp) then
           query.ParamByName('version_value').Value := versionValue.AsVariant;
 
-        // SET parametrelerini ata (version hariç)
         for prop in rType.GetProperties do
         begin
           if not prop.IsReadable then
@@ -2361,11 +2243,9 @@ begin
           raise Exception.CreateFmt('Error setting update parameters: %s', [E.Message]);
       end;
 
-      // FIX: UPDATE işlemini gerçekleştir ve hata kontrolü yap
       try
         query.ExecSQL;
 
-        // FIX: Optimistic locking kontrolü
         if query.RowsAffected < 1 then
         begin
           if Assigned(versionProp) then
@@ -2374,13 +2254,12 @@ begin
             raise Exception.Create('Update failed: Record not found or no changes detected');
         end;
 
-        // FIX: Version değerini model'de güncelle
         if Assigned(versionProp) and versionProp.IsWritable then
         begin
           try
             versionProp.SetValue(TObject(AModel), TValue.From<Integer>(versionValue.AsInteger + 1));
           except
-            // Version update hatası kritik değil, log'lanabilir
+
           end;
         end;
 
@@ -2389,7 +2268,6 @@ begin
           raise Exception.CreateFmt('Failed to update entity %s: %s', [T.ClassName, E.Message]);
       end;
 
-      // Nested objeleri işle
       if coUpdate in ACascade then
       begin
         try
@@ -2421,7 +2299,6 @@ begin
   if not Assigned(FConnection) then
     raise Exception.Create('Database connection is not available');
 
-  // FIX: Null model kontrolü
   for i := 0 to High(AModels) do
   begin
     if not Assigned(AModels[i]) then
@@ -2432,7 +2309,6 @@ begin
 
   if wasInTransaction then
   begin
-    // Zaten bir transaction içindeyse
     try
       for i := 0 to High(AModels) do
         Update(AModels[i], ACascade);
@@ -2443,7 +2319,6 @@ begin
   end
   else
   begin
-    // Yeni transaction başlat
     transaction := TFDTransaction.Create(nil);
     try
       transaction.Connection := FConnection;
@@ -2490,7 +2365,6 @@ begin
   if not Assigned(FConnection) then
     raise Exception.Create('Database connection is not available');
 
-  // FIX: SoftDelete attribute'unu kontrol et
   ctx := TRttiContext.Create;
   softDeleteAttr := nil;
   try
@@ -2507,7 +2381,6 @@ begin
     ctx.Free;
   end;
 
-  // FIX: Cascade delete işlemi gerekiyorsa önce modeli yükle
   model := nil;
   if coDelete in ACascade then
   begin
@@ -2541,29 +2414,24 @@ begin
 
     if Assigned(softDeleteAttr) then
     begin
-      // SOFT DELETE LOGIC
       sql := Format('UPDATE %s SET %s = :deleted_at', [
         GetFullTableName(T),
         softDeleteAttr.DeletedAtColumn
       ]);
 
-      // FIX: DeletedBy column kontrolü ve user ID set etme
       if softDeleteAttr.DeletedByColumn <> '' then
         sql := sql + Format(', %s = :deleted_by', [softDeleteAttr.DeletedByColumn]);
 
       sql := sql + Format(' WHERE %s = :pk_id', [pkColumn]);
 
-      // FIX: Soft delete için already deleted kontrolü ekle
       sql := sql + Format(' AND %s IS NULL', [softDeleteAttr.DeletedAtColumn]);
 
       query.SQL.Text := sql;
-
       try
         query.ParamByName('deleted_at').AsDateTime := Now;
         if softDeleteAttr.DeletedByColumn <> '' then
         begin
-          // TODO: Implement user provider mechanism
-          query.ParamByName('deleted_by').AsLargeInt := 0; // GetCurrentUserId()
+          query.ParamByName('deleted_by').AsLargeInt := 0;
         end;
         query.ParamByName('pk_id').AsLargeInt := AID;
       except
@@ -2573,7 +2441,6 @@ begin
     end
     else
     begin
-      // HARD DELETE LOGIC
       sql := Format('DELETE FROM %s WHERE %s = :pk_id', [
         GetFullTableName(T),
         pkColumn
@@ -2588,7 +2455,6 @@ begin
       end;
     end;
 
-    // FIX: Execute with error handling and row count check
     try
       query.ExecSQL;
 
@@ -2643,7 +2509,6 @@ begin
             idValue := prop.GetValue(TObject(AModel));
             if not idValue.IsEmpty and (idValue.AsType<Int64> > 0) then
             begin
-              // FIX: ID ile silme metodunu çağır
               Delete(idValue.AsType<Int64>, ACascade);
               pkFound := True;
             end
@@ -2679,7 +2544,6 @@ begin
   if not Assigned(FConnection) then
     raise Exception.Create('Database connection is not available');
 
-  // FIX: Null model kontrolü
   for i := 0 to High(AModels) do
   begin
     if not Assigned(AModels[i]) then
@@ -2690,7 +2554,6 @@ begin
 
   if wasInTransaction then
   begin
-    // Zaten transaction içindeyse
     try
       for i := 0 to High(AModels) do
         Delete(AModels[i], ACascade);
@@ -2701,7 +2564,6 @@ begin
   end
   else
   begin
-    // Yeni transaction başlat
     transaction := TFDTransaction.Create(nil);
     try
       transaction.Connection := FConnection;
@@ -2804,7 +2666,6 @@ begin
     Exit;
   end;
 
-  // BULK DELETE (Non-cascade)
   ctx := TRttiContext.Create;
   softDeleteAttr := nil;
   try
@@ -2821,7 +2682,6 @@ begin
     ctx.Free;
   end;
 
-  // FIX: ID listesini manuel oluştur (FireDAC array macro yerine)
   idList := '';
   for i := 0 to High(AIDs) do
   begin
@@ -2837,7 +2697,6 @@ begin
 
     if Assigned(softDeleteAttr) then
     begin
-      // BULK SOFT DELETE
       sql := Format('UPDATE %s SET %s = :deleted_at', [
         GetFullTableName(T),
         softDeleteAttr.DeletedAtColumn
@@ -2848,7 +2707,6 @@ begin
 
       sql := sql + Format(' WHERE %s IN (%s)', [pkColumn, idList]);
 
-      // FIX: Already deleted kontrolü ekle
       sql := sql + Format(' AND %s IS NULL', [softDeleteAttr.DeletedAtColumn]);
 
       query.SQL.Text := sql;
@@ -2856,7 +2714,7 @@ begin
       try
         query.ParamByName('deleted_at').AsDateTime := Now;
         if softDeleteAttr.DeletedByColumn <> '' then
-          query.ParamByName('deleted_by').AsLargeInt := 0; // TODO: GetCurrentUserId()
+          query.ParamByName('deleted_by').AsLargeInt := 0;
       except
         on E: Exception do
           raise Exception.CreateFmt('Error setting bulk soft delete parameters: %s', [E.Message]);
@@ -2864,7 +2722,6 @@ begin
     end
     else
     begin
-      // BULK HARD DELETE
       sql := Format('DELETE FROM %s WHERE %s IN (%s)', [
         GetFullTableName(T),
         pkColumn,
@@ -2876,7 +2733,6 @@ begin
     try
       query.ExecSQL;
 
-      // FIX: Row count kontrolü
       if query.RowsAffected < 1 then
       begin
         if Assigned(softDeleteAttr) then
@@ -2915,7 +2771,6 @@ begin
   if not Assigned(FConnection) then
     raise Exception.Create('Database connection is not available');
 
-  // Cascade delete gerekiyorsa önce kayıtları yükle
   if coDelete in ACascade then
   begin
     models := nil;
@@ -2973,7 +2828,6 @@ begin
     Exit;
   end;
 
-  // FIX: SoftDelete kontrolü
   ctx := TRttiContext.Create;
   softDeleteAttr := nil;
   try
@@ -2990,7 +2844,6 @@ begin
     ctx.Free;
   end;
 
-  // FIX: WHERE clause'unu güvenli şekilde oluştur
   whereClause := '';
   for i := 0 to AFilter.Count - 1 do
   begin
@@ -2999,8 +2852,7 @@ begin
       whereClause := whereClause + ' AND ';
 
     paramName := Format('filter_param_%d', [i]);
-    whereClause := whereClause + GetColumnNameForProperty(fc.PropertyNamePath) +
-                  ' ' + fc.Operator + ' :' + paramName;
+    whereClause := whereClause + GetColumnNameForProperty(fc.PropertyNamePath) + ' ' + fc.Operator + ' :' + paramName;
   end;
 
   query := TFDQuery.Create(nil);
@@ -3009,7 +2861,6 @@ begin
 
     if Assigned(softDeleteAttr) then
     begin
-      // FILTER-BASED SOFT DELETE
       sql := Format('UPDATE %s SET %s = :deleted_at', [
         GetFullTableName(T),
         softDeleteAttr.DeletedAtColumn
@@ -3020,7 +2871,6 @@ begin
 
       sql := sql + ' WHERE ' + whereClause;
 
-      // FIX: Already deleted kontrolü
       sql := sql + Format(' AND %s IS NULL', [softDeleteAttr.DeletedAtColumn]);
 
       query.SQL.Text := sql;
@@ -3028,7 +2878,7 @@ begin
       try
         query.ParamByName('deleted_at').AsDateTime := Now;
         if softDeleteAttr.DeletedByColumn <> '' then
-          query.ParamByName('deleted_by').AsLargeInt := 0; // TODO: GetCurrentUserId()
+          query.ParamByName('deleted_by').AsLargeInt := 0;
       except
         on E: Exception do
           raise Exception.CreateFmt('Error setting soft delete parameters: %s', [E.Message]);
@@ -3036,12 +2886,10 @@ begin
     end
     else
     begin
-      // FILTER-BASED HARD DELETE
       sql := 'DELETE FROM ' + GetFullTableName(T) + ' WHERE ' + whereClause;
       query.SQL.Text := sql;
     end;
 
-    // FIX: Filter parametrelerini güvenli şekilde set et
     try
       for i := 0 to AFilter.Count - 1 do
       begin
@@ -3056,11 +2904,9 @@ begin
     try
       query.ExecSQL;
 
-      // FIX: Row count kontrolü (opsiyonel - warning verebilir)
       if query.RowsAffected < 1 then
       begin
-        // Bu durumda exception atmak yerine warning log'lanabilir
-        // çünkü filter ile eşleşen kayıt olmayabilir
+
       end;
     except
       on E: Exception do
@@ -3107,16 +2953,13 @@ begin
   try
     rType := ctx.GetType(T);
 
-    // Yeni instance oluştur
     Result := CreateEntityInstanceByClass(T) as T;
 
-    // Tüm property'leri kopyala
     for prop in rType.GetProperties do
     begin
       if not prop.IsReadable or not prop.IsWritable then
         Continue;
 
-      // Attribute'ları kontrol et
       colAttr := nil;
       hasOneAttr := nil;
       hasManyAttr := nil;
@@ -3126,7 +2969,6 @@ begin
       begin
         if attr is NotMapped then
         begin
-          // NotMapped property'leri atla
           Break;
         end
         else if attr is Column then
@@ -3147,16 +2989,13 @@ begin
         end;
       end;
 
-      // NotMapped property ise atla
       if (colAttr = nil) and (hasOneAttr = nil) and (hasManyAttr = nil) and (belongsToAttr = nil) then
         Continue;
 
       propValue := prop.GetValue(TObject(ASource));
 
-      // Column property'si ise direkt kopyala
       if Assigned(colAttr) then
       begin
-        // Primary key auto increment ise ve 0'dan büyükse, klonda 0 yap (yeni kayıt olarak eklenmesi için)
         if colAttr.IsPrimaryKey and colAttr.IsAutoIncrement and not propValue.IsEmpty then
         begin
           case prop.PropertyType.TypeKind of
@@ -3166,12 +3005,10 @@ begin
         end
         else
         begin
-          // Diğer column property'leri direkt kopyala
           if not propValue.IsEmpty then
             prop.SetValue(TObject(Result), propValue);
         end;
       end
-      // BelongsTo relationship ise nested entity'yi klonla
       else if Assigned(belongsToAttr) then
       begin
         sourceNestedEntity := propValue.AsObject;
@@ -3180,12 +3017,10 @@ begin
           nestedEntityClass := prop.PropertyType.AsInstance.MetaclassType;
           clonedNestedEntity := CreateEntityInstanceByClass(nestedEntityClass);
 
-          // Recursive clone (ama sadece 1 seviye - circular reference'ı önlemek için)
           CloneEntityProperties(sourceNestedEntity, clonedNestedEntity, nestedEntityClass, False);
           prop.SetValue(TObject(Result), clonedNestedEntity);
         end;
       end
-      // HasOne relationship ise nested entity'yi klonla
       else if Assigned(hasOneAttr) then
       begin
         sourceNestedEntity := propValue.AsObject;
@@ -3194,12 +3029,10 @@ begin
           nestedEntityClass := prop.PropertyType.AsInstance.MetaclassType;
           clonedNestedEntity := CreateEntityInstanceByClass(nestedEntityClass);
 
-          // Recursive clone (ama sadece 1 seviye - circular reference'ı önlemek için)
           CloneEntityProperties(sourceNestedEntity, clonedNestedEntity, nestedEntityClass, False);
           prop.SetValue(TObject(Result), clonedNestedEntity);
         end;
       end
-      // HasMany relationship ise list'i klonla
       else if Assigned(hasManyAttr) then
       begin
         sourceList := propValue.AsObject;
@@ -3213,7 +3046,6 @@ begin
 
           listType := ctx.GetType(sourceList.ClassType);
 
-          // Count property'sini al
           countProp := listType.GetProperty('Count');
           if not Assigned(countProp) then
             Continue;
@@ -3222,7 +3054,6 @@ begin
           if count = 0 then
             Continue;
 
-          // GetItem ve Add metodlarını bul
           getItemMethod := nil;
           addMethod := nil;
           clearMethod := nil;
@@ -3240,11 +3071,9 @@ begin
           if not Assigned(getItemMethod) or not Assigned(addMethod) then
             Continue;
 
-          // Target list'i temizle
           if Assigned(clearMethod) then
             clearMethod.Invoke(targetList, []);
 
-          // Her item'ı klonla ve target list'e ekle
           for i := 0 to count - 1 do
           begin
             sourceItem := getItemMethod.Invoke(sourceList, [i]).AsObject;
@@ -3252,7 +3081,6 @@ begin
             begin
               clonedItem := CreateEntityInstanceByClass(nestedEntityClass);
 
-              // Nested entity'yi klonla (ama daha derin klonlama yapma - circular reference önlemi)
               CloneEntityProperties(sourceItem, clonedItem, nestedEntityClass, False);
 
               addMethod.Invoke(targetList, [clonedItem]);

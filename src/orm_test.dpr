@@ -25,7 +25,10 @@ uses
   RepositoryManager in 'RepositoryManager.pas',
   CascadeHelper in 'CascadeHelper.pas',
   LocalizationManager in 'LocalizationManager.pas',
-  PersonRepository in 'PersonRepository.pas';
+  PersonRepository in 'PersonRepository.pas',
+  MigrationHistory in 'MigrationHistory.pas',
+  MigrationManager in 'MigrationManager.pas',
+  MigrationGenerator in 'MigrationGenerator.pas';
 
 var
   LConn: TFDConnection;

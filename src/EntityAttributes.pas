@@ -44,7 +44,7 @@ type
     property Errors: TArray<TValidationError> read GetErrors;
   end;
 
-  Table = class(TCustomAttribute)
+  TableAttribute = class(TCustomAttribute)
   private
     FName: string;
     FSchema: string;
@@ -70,12 +70,14 @@ type
     FPrecision: Integer;
     FScale: Integer;
     FComment: string;
+    FCollation: string;
   public
     constructor Create(const AName: string; AProperties: TColumnProperties = [];
                       ASqlUseWhichCols: TColumnUseCriterias = [];
                       ADataType: TDataType = dtString; ALength: Integer = 0;
                       APrecision: Integer = 0; AScale: Integer = 0;
-                      const AComment: string = '');
+                      const AComment: string = '';
+                      const ACollation: string = '');
     property Name: string read FName;
     property Properties: TColumnProperties read FProperties;
     property SqlUseWhichCols: TColumnUseCriterias read FSqlUseWhichCols;
@@ -84,6 +86,7 @@ type
     property Precision: Integer read FPrecision;
     property Scale: Integer read FScale;
     property Comment: string read FComment;
+    property Collation: string read FCollation;
     function IsPrimaryKey: Boolean;
     function IsNotNull: Boolean;
     function IsUnique: Boolean;
@@ -98,32 +101,29 @@ type
     property ParentTable: string read FParentTable;
   end;
 
-  Index = class(TCustomAttribute)
+  IndexAttribute = class(TCustomAttribute)
   private
     FName: string;
-    FColumns: TArray<string>;
-    FUnique: Boolean;
-    FType: string;
+    FColumn: string;
+    FIsUnique: Boolean;
   public
-    constructor Create(const AName: string; const AColumns: array of string; AUnique: Boolean = False; const AType: string = 'BTREE'); overload;
-    constructor Create(const AName: string; const AColumn: string; AUnique: Boolean = False; const AType: string = 'BTREE'); overload;
+    constructor Create(const AName: string; const AColumn: string; AIsUnique: Boolean = False);
     property Name: string read FName;
-    property Columns: TArray<string> read FColumns;
-    property Unique: Boolean read FUnique;
-    property IndexType: string read FType;
+    property Column: string read FColumn;
+    property IsUnique: Boolean read FIsUnique;
   end;
 
-  UniqueIndex = class(Index)
+  UniqueIndex = class(IndexAttribute)
   public
-    constructor Create(const AName: string; const AColumns: TArray<string>; const AType: string = 'BTREE');
+    constructor Create(const AName: string; const AColumn: string; const AType: string = 'BTREE');
   end;
 
   CompositeKey = class(TCustomAttribute)
   private
-    FColumns: TArray<string>;
+    FColumn: string;
   public
-    constructor Create(const AColumns: TArray<string>);
-    property Columns: TArray<string> read FColumns;
+    constructor Create(const AColumn: string);
+    property Columns: string read FColumn;
   end;
 
   Required = class(TCustomAttribute)
@@ -261,6 +261,42 @@ type
     property DeletedByColumn: string read FDeletedByColumn;
   end;
 
+  ForeignKeyAttribute = class(TCustomAttribute)
+  private
+    FName: string;
+    FReferencedTable: string;
+    FReferencedColumn: string;
+    FOnDelete: string; // CASCADE, SET NULL, RESTRICT, etc.
+    FOnUpdate: string;
+  public
+    constructor Create(const AName, AReferencedTable, AReferencedColumn: string;
+                      const AOnDelete: string = 'RESTRICT';
+                      const AOnUpdate: string = 'RESTRICT');
+    property Name: string read FName;
+    property ReferencedTable: string read FReferencedTable;
+    property ReferencedColumn: string read FReferencedColumn;
+    property OnDelete: string read FOnDelete;
+    property OnUpdate: string read FOnUpdate;
+  end;
+
+  CheckConstraintAttribute = class(TCustomAttribute)
+  private
+    FName: string;
+    FExpression: string;
+  public
+    constructor Create(const AName, AExpression: string);
+    property Name: string read FName;
+    property Expression: string read FExpression;
+  end;
+
+  DefaultValueAttribute = class(TCustomAttribute)
+  private
+    FValue: string;
+  public
+    constructor Create(const AValue: string);
+    property Value: string read FValue;
+  end;
+
   HasManyAttribute = class(TCustomAttribute)
   private
     FForeignKeyProperty: string;
@@ -335,7 +371,6 @@ type
     FPivotTable: string;
     FLocalKey: string;
     FRemoteKey: string;
-    FClassName: string;
     FTableName: string;
     FPivotLocalKey: string;
     FPivotRemoteKey: string;
@@ -345,7 +380,6 @@ type
     constructor Create(const APivotTable: string;
                       const ALocalKey: string = '';
                       const ARemoteKey: string = '';
-                      const AClassName: string = '';
                       const ATableName: string = '';
                       const APivotLocalKey: string = '';
                       const APivotRemoteKey: string = '';
@@ -355,7 +389,6 @@ type
     property PivotTable: string read FPivotTable;
     property LocalKey: string read FLocalKey;
     property RemoteKey: string read FRemoteKey;
-    property ClassName: string read FClassName;
     property TableName: string read FTableName;
     property PivotLocalKey: string read FPivotLocalKey;
     property PivotRemoteKey: string read FPivotRemoteKey;
@@ -394,7 +427,7 @@ type
     FValues: TArray<string>;
     FDefaultValue: string;
   public
-    constructor Create(const AValues: TArray<string>; const ADefaultValue: string = '');
+    constructor Create(const AValues: array of string; const ADefaultValue: string = '');
     property Values: TArray<string> read FValues;
     property DefaultValue: string read FDefaultValue;
   end;
@@ -443,7 +476,7 @@ begin
   Result := FErrors.ToArray;
 end;
 
-constructor Table.Create(const AName: string; const ASchema: string = ''; const AEngine: string = ''; const ACharset: string = 'utf8mb4');
+constructor TableAttribute.Create(const AName: string; const ASchema: string = ''; const AEngine: string = ''; const ACharset: string = 'utf8mb4');
 begin
   inherited Create;
   FName := AName;
@@ -452,7 +485,7 @@ begin
   FCharset := ACharset;
 end;
 
-function Table.FullName: string;
+function TableAttribute.FullName: string;
 begin
   if FSchema <> '' then
     Result := FSchema + '.' + FName
@@ -464,7 +497,8 @@ constructor Column.Create(const AName: string; AProperties: TColumnProperties = 
                          ASqlUseWhichCols: TColumnUseCriterias = [];
                          ADataType: TDataType = dtString; ALength: Integer = 0;
                          APrecision: Integer = 0; AScale: Integer = 0;
-                         const AComment: string = '');
+                         const AComment: string = '';
+                         const ACollation: string = '');
 begin
   inherited Create;
   FName := AName;
@@ -475,6 +509,7 @@ begin
   FPrecision := APrecision;
   FScale := AScale;
   FComment := AComment;
+  FCollation := ACollation;
 end;
 
 function Column.IsPrimaryKey: Boolean;
@@ -497,39 +532,25 @@ begin
   Result := cpAutoIncrement in FProperties;
 end;
 
-constructor Index.Create(const AName: string; const AColumns: array of string; AUnique: Boolean = False; const AType: string = 'BTREE');
+constructor IndexAttribute.Create(const AName: string; const AColumn: string; AIsUnique: Boolean = False);
+begin
+  inherited Create;
+  FName := AName;
+  FIsUnique := AIsUnique;
+  FColumn := AColumn;
+end;
+
+constructor UniqueIndex.Create(const AName: string; const AColumn: string; const AType: string = 'BTREE');
+begin
+  inherited Create(AName, AColumn, True);
+end;
+
+constructor CompositeKey.Create(const AColumn: string);
 var
-  I: Integer;
+  n1: Integer;
 begin
   inherited Create;
-
-  FName := AName;
-  FUnique := AUnique;
-  FType := AType;
-
-  SetLength(FColumns, Length(AColumns));
-  for I := Low(AColumns) to High(AColumns) do
-    FColumns[I] := AColumns[I];
-end;
-
-constructor Index.Create(const AName: string; const AColumn: string; AUnique: Boolean = False; const AType: string = 'BTREE');
-begin
-  inherited Create;
-  FName := AName;
-  FColumns := TArray<string>.Create(AColumn);
-  FUnique := AUnique;
-  FType := AType;
-end;
-
-constructor UniqueIndex.Create(const AName: string; const AColumns: TArray<string>; const AType: string = 'BTREE');
-begin
-  inherited Create(AName, AColumns, True, AType);
-end;
-
-constructor CompositeKey.Create(const AColumns: TArray<string>);
-begin
-  inherited Create;
-  FColumns := AColumns;
+  FColumn := AColumn;
 end;
 
 constructor Required.Create(const AMessage: string = '');
@@ -560,12 +581,10 @@ var
 begin
   Result := TValidationResult.Create;
 
-  // FIX: TValue'yu direkt kontrol et, Variant'a çevirme
   IsEmpty := AValue.IsEmpty;
 
   if not IsEmpty then
   begin
-    // String değerler için özel kontrol
     case AValue.TypeInfo.Kind of
       tkString, tkLString, tkWString, tkUString:
         IsEmpty := Trim(AValue.AsString) = '';
@@ -1019,7 +1038,6 @@ end;
 constructor ManyToManyAttribute.Create(const APivotTable: string;
                                       const ALocalKey: string = '';
                                       const ARemoteKey: string = '';
-                                      const AClassName: string = '';
                                       const ATableName: string = '';
                                       const APivotLocalKey: string = '';
                                       const APivotRemoteKey: string = '';
@@ -1030,7 +1048,6 @@ begin
   FPivotTable := APivotTable;
   FLocalKey := ALocalKey;
   FRemoteKey := ARemoteKey;
-  FClassName := AClassName;
   FTableName := ATableName;
   FPivotLocalKey := APivotLocalKey;
   FPivotRemoteKey := APivotRemoteKey;
@@ -1060,11 +1077,31 @@ begin
   FColumnName := AColumnName;
 end;
 
-constructor Enum.Create(const AValues: TArray<string>; const ADefaultValue: string = '');
+constructor Enum.Create(const AValues: array of string; const ADefaultValue: string = '');
+var
+ n1: Integer;
 begin
   inherited Create;
-  FValues := AValues;
   FDefaultValue := ADefaultValue;
+
+  SetLength(FValues, Length(AValues));
+  for n1 := 0 to Length(AValues)-1 do
+    FValues[n1] := AValues[n1];
+end;
+
+constructor ForeignKeyAttribute.Create(const AName, AReferencedTable, AReferencedColumn, AOnDelete, AOnUpdate: string);
+begin
+//
+end;
+
+constructor CheckConstraintAttribute.Create(const AName, AExpression: string);
+begin
+//
+end;
+
+constructor DefaultValueAttribute.Create(const AValue: string);
+begin
+//
 end;
 
 end.
