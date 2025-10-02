@@ -597,10 +597,10 @@ begin
   end;
 
   // Son batch'teki migration'ları al (ters sırada)
-  AppliedMigrations := FHistoryRepository.Find(
-    TFilterCriteria.Create
-      .Add('Batch', '=', LastBatch)
-      .Add('Status', '=', Ord(msApplied))
+  AppliedMigrations := FHistoryRepository.Find(nil
+//    TFilterCriteria.Create
+//      .Add('Batch', '=', LastBatch)
+//      .Add('Status', '=', Ord(msApplied))
   );
 
   Results := TList<TMigrationResult>.Create;
@@ -640,7 +640,7 @@ var
   Found: Boolean;
 begin
   AppliedMigrations := FHistoryRepository.Find(
-    TFilterCriteria.Create.Add('Status', '=', Ord(msApplied))
+    nil//TFilterCriteria.Create.Add('Status', '=', Ord(msApplied))
   );
 
   Results := TList<TMigrationResult>.Create;
@@ -691,7 +691,7 @@ var
   i: Integer;
 begin
   AppliedMigrations := FHistoryRepository.Find(
-    TFilterCriteria.Create.Add('Status', '=', Ord(msApplied))
+    nil//TFilterCriteria.Create.Add('Status', '=', Ord(msApplied))
   );
 
   Results := TList<TMigrationResult>.Create;
@@ -724,7 +724,7 @@ end;
 function TMigrationManager.GetAppliedMigrations: TObjectList<TMigrationHistoryEntity>;
 begin
   Result := FHistoryRepository.Find(
-    TFilterCriteria.Create.Add('Status', '=', Ord(msApplied))
+    nil//TFilterCriteria.Create.Add('Status', '=', Ord(msApplied))
   );
 end;
 

@@ -14,43 +14,14 @@ type
   TEntity = class(TInterfacedObject, IEntity)
   private
     FId: Int64;
-    FCreatedAt: TDateTime;
-    FCreatedBy: Int64;
-    FUpdatedAt: TDateTime;
-    FUpdatedBy: Int64;
-    FDeletedAt: TDateTime;
-    FDeletedBy: Int64;
   protected
     function Validate: TValidationResult; virtual;
     function ValidateProperty(const APropertyName: string; const AValue: TValue): TValidationResult;
   public
     [Column('id', [cpPrimaryKey, cpAutoIncrement], [cucFind])]
     property Id: Int64 read FId write FId;
-{
-    [Column('created_at', [cpNotNull], [cucAdd, cucFind])]
-    [CreatedAt]
-    property CreatedAt: TDateTime read FCreatedAt write FCreatedAt;
 
-    [Column('created_by', [], [cucAdd, cucFind])]
-    [CreatedBy]
-    property CreatedBy: Int64 read FCreatedBy write FCreatedBy;
-
-    [Column('updated_at', [], [cucUpdate, cucFind])]
-    [UpdatedAt]
-    property UpdatedAt: TDateTime read FUpdatedAt write FUpdatedAt;
-
-    [Column('updated_by', [], [cucUpdate, cucFind])]
-    [UpdatedBy]
-    property UpdatedBy: Int64 read FUpdatedBy write FUpdatedBy;
-
-    [Column('deleted_at', [], [cucFind])]
-    property DeletedAt: TDateTime read FDeletedAt write FDeletedAt;
-
-    [Column('deleted_by', [], [cucFind])]
-    property DeletedBy: Int64 read FDeletedBy write FDeletedBy;
-}
     constructor Create; virtual;
-    function IsDeleted: Boolean;
   end;
 
 implementation
@@ -59,17 +30,6 @@ constructor TEntity.Create;
 begin
   inherited;
   FId := 0;
-  FCreatedAt := 0;
-  FUpdatedAt := 0;
-  FCreatedBy := 0;
-  FUpdatedBy := 0;
-  FDeletedAt := 0;
-  FDeletedBy := 0;
-end;
-
-function TEntity.IsDeleted: Boolean;
-begin
-  Result := FDeletedAt > 0;
 end;
 
 function TEntity.Validate: TValidationResult;

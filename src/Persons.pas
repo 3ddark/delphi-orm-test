@@ -16,16 +16,16 @@ type
     FCity: string;
     FPerson: TPerson;
   public
-    [Column('person_id', [cpNotNull], [cucFind, cucAdd, cucUpdate])]
+    [Column('person_id', [cpNotNull])]
     [Required('person.personid.required', True)]
     property PersonId: Int64 read FPersonId write FPersonId;
 
-    [Column('country', [cpNotNull], [cucFind, cucAdd, cucUpdate])]
+    [Column('country', [cpNotNull])]
     [Required('person.country.required', True)]
     [MaxLength(32, 'validation.maxlength', True)]
     property Country: string read FCountry write FCountry;
 
-    [Column('city', [cpNotNull], [cucFind, cucAdd, cucUpdate])]
+    [Column('city', [cpNotNull])]
     [Required('person.city.required', True)]
     [MaxLength(32, 'validation.maxlength', True)]
     property City: string read FCity write FCity;
@@ -48,15 +48,14 @@ type
     FPersonAge: Integer;
     FSalary: Double;
     FAddresses: TObjectList<TPersonAddress>;
-   protected
-   public
+  public
     function Validate: TValidationResult; override;
-    [Column('person_name', [cpNotNull], [cucFind, cucAdd, cucUpdate])]
+    [Column('person_name', [cpNotNull])]
     [Required('person.name.required', True)]
     [MaxLength(16, 'validation.maxlength', True)]
     property PersonName: string read FPersonName write FPersonName;
 
-    [Column('person_age', [cpNotNull], [cucFind, cucAdd, cucUpdate])]
+    [Column('person_age', [cpNotNull])]
     [Required('person.age.required', True)]
     [Range(0, 100, 'validation.range', True)]
     property PersonAge: Integer read FPersonAge write FPersonAge;

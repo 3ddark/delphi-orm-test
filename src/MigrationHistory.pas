@@ -39,14 +39,14 @@ type
     constructor Create;
     destructor Destroy; override;
   published
-    [Column('id', [cpPrimaryKey], [cucFind, cucAdd, cucUpdate], dtBigInt)]
+    [Column('id', [cpPrimaryKey], [cucFind, cucAdd, cucUpdate])]
     property Id: Int64 read FId write FId;
 
-    [Column('migration_id', False, False, True)]
-    [Index('idx_migration_id', ['migration_id'], True)]
+    [Column('migration_id')]
+    [Index('idx_migration_id', 'migration_id')]
     property MigrationId: string read FMigrationId write FMigrationId;
 
-    [Column('migration_name', False, False, True)]
+    [Column('migration_name')]
     property MigrationName: string read FMigrationName write FMigrationName;
 
     [Column('applied_at')]
@@ -55,8 +55,8 @@ type
     [Column('rolled_back_at')]
     property RolledBackAt: TDateTime read FRolledBackAt write FRolledBackAt;
 
-    [Column('status', False, False, True)]
-    [Index('idx_status', ['status'])]
+    [Column('status')]
+    [Index('idx_status', 'status')]
     property Status: TMigrationStatus read FStatus write FStatus;
 
     [Column('up_sql')]
@@ -74,8 +74,8 @@ type
     [Column('error_message')]
     property ErrorMessage: string read FErrorMessage write FErrorMessage;
 
-    [Column('batch', False, False, True)]
-    [Index('idx_batch', ['batch'])]
+    [Column('batch')]
+    [Index('idx_batch', 'batch')]
     property Batch: Integer read FBatch write FBatch;
   end;
 
@@ -93,20 +93,20 @@ type
   public
     constructor Create;
   published
-    [Column('id', True, True)]
+    [Column('id', [cpPrimaryKey])]
     property Id: Int64 read FId write FId;
 
-    [Column('migration_id', False, False, True)]
+    [Column('migration_id')]
     [ForeignKey('fk_snapshot_migration', '__migration_history', 'migration_id', 'CASCADE', 'CASCADE')]
     property MigrationId: string read FMigrationId write FMigrationId;
 
-    [Column('table_name', False, False, True)]
+    [Column('table_name')]
     property TableName: string read FTableName write FTableName;
 
-    [Column('schema_json', False, False, True)]
+    [Column('schema_json')]
     property SchemaJson: string read FSchemaJson write FSchemaJson;
 
-    [Column('created_at', False, False, True)]
+    [Column('created_at')]
     property CreatedAt: TDateTime read FCreatedAt write FCreatedAt;
   end;
 

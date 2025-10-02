@@ -10,14 +10,14 @@ type
   TColumnProperty = (cpNotNull, cpUnique, cpPrimaryKey, cpAutoIncrement);
   TColumnProperties = set of TColumnProperty;
 
-  TColumnUseCriteria = (cucFind, cucAdd, cucUpdate, cucDelete);
+  TColumnUseCriteria = (cucFind, cucAdd, cucUpdate, cucAll);
   TColumnUseCriterias = set of TColumnUseCriteria;
 
-  TDataType = (dtString, dtInteger, dtBigInt, dtFloat, dtDouble, dtDecimal, dtDateTime,
-               dtDate, dtTime, dtBoolean, dtText, dtBlob, dtGUID, dtJSON, dtEnum,
-               //postgres special types
-               dtUUID, dtArray, dtJSONB, dtHStore, dtPoint, dtPolygon, dtInet, dtMacAddr,
-               dtTSVector, dtInterval, dtNumeric, dtSerial, dtBigSerial, dtBytea);
+//  TDataType = (dtString, dtInteger, dtBigInt, dtFloat, dtDouble, dtDecimal, dtDateTime,
+//               dtDate, dtTime, dtBoolean, dtText, dtBlob, dtGUID, dtJSON, dtEnum,
+//               //postgres special types
+//               dtUUID, dtArray, dtJSONB, dtHStore, dtPoint, dtPolygon, dtInet, dtMacAddr,
+//               dtTSVector, dtInterval, dtNumeric, dtSerial, dtBigSerial, dtBytea);
 
   TCascadeAction = (caNone, caRestrict, caCascade, caSetNull, caSetDefault);
 
@@ -65,7 +65,6 @@ type
     FName: string;
     FProperties: TColumnProperties;
     FSqlUseWhichCols: TColumnUseCriterias;
-    FDataType: TDataType;
     FLength: Integer;
     FPrecision: Integer;
     FScale: Integer;
@@ -73,15 +72,16 @@ type
     FCollation: string;
   public
     constructor Create(const AName: string; AProperties: TColumnProperties = [];
-                      ASqlUseWhichCols: TColumnUseCriterias = [];
-                      ADataType: TDataType = dtString; ALength: Integer = 0;
+                      ASqlUseWhichCols: TColumnUseCriterias = [cucAll];
+                      //ADataType: TDataType = dtString;
+                      ALength: Integer = 0;
                       APrecision: Integer = 0; AScale: Integer = 0;
                       const AComment: string = '';
                       const ACollation: string = '');
     property Name: string read FName;
     property Properties: TColumnProperties read FProperties;
     property SqlUseWhichCols: TColumnUseCriterias read FSqlUseWhichCols;
-    property DataType: TDataType read FDataType;
+//    property DataType: TDataType read FDataType;
     property Length: Integer read FLength;
     property Precision: Integer read FPrecision;
     property Scale: Integer read FScale;
@@ -494,8 +494,9 @@ begin
 end;
 
 constructor Column.Create(const AName: string; AProperties: TColumnProperties = [];
-                         ASqlUseWhichCols: TColumnUseCriterias = [];
-                         ADataType: TDataType = dtString; ALength: Integer = 0;
+                         ASqlUseWhichCols: TColumnUseCriterias = [cucAll];
+                         //ADataType: TDataType = dtString;
+                         ALength: Integer = 0;
                          APrecision: Integer = 0; AScale: Integer = 0;
                          const AComment: string = '';
                          const ACollation: string = '');
@@ -504,7 +505,7 @@ begin
   FName := AName;
   FProperties := AProperties;
   FSqlUseWhichCols := ASqlUseWhichCols;
-  FDataType := ADataType;
+//  FDataType := ADataType;
   FLength := ALength;
   FPrecision := APrecision;
   FScale := AScale;

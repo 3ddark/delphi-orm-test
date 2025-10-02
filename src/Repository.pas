@@ -57,7 +57,6 @@ type
     function GetColumnNameForProperty(AClass: TClass; const APropertyName: string): string; overload;
     function GetPrimaryKeyColumn(AClass: TClass): string;
     function GetColumnName(AProp: TRttiProperty): string;
-    function ShouldUseInSelect(AProp: TRttiProperty): Boolean;
     function CreateEntityInstanceByClass(AClass: TClass): TObject;
     function ExtractGenericTypeFromList(AListType: TRttiType): TClass;
     procedure FillEntityFromDataSet(AEntity: TObject; ADataSet: TFDQuery);
@@ -462,39 +461,6 @@ begin
   end;
 end;
 
-function TRepository<T>.ShouldUseInSelect(AProp: TRttiProperty): Boolean;
-var
-  attr: TCustomAttribute;
-  colAttr: Column;
-  hasColumnAttr: Boolean;
-begin
-  Result := False;
-  hasColumnAttr := False;
-
-  for attr in AProp.GetAttributes do
-  begin
-    if attr is NotMapped then
-      Exit(False);
-
-    if attr is HasOneAttribute then
-      Exit(False);
-
-    if attr is HasManyAttribute then
-      Exit(False);
-
-    if attr is Column then
-    begin
-      hasColumnAttr := True;
-      colAttr := attr as Column;
-
-      Result := (cucFind in colAttr.SqlUseWhichCols) or (colAttr.SqlUseWhichCols = []);
-      Break;
-    end;
-  end;
-
-  Result := hasColumnAttr and Result;
-end;
-
 function TRepository<T>.StringListToArray(AStringList: TStringList): TArray<string>;
 var
   i: Integer;
@@ -518,10 +484,9 @@ begin
       rType := ctx.GetType(AClass);
       for prop in rType.GetProperties do
       begin
-        if ShouldUseInSelect(prop) then
-        begin
-          columns.Add(GetColumnName(prop));
-        end;
+        if prop.HasAttribute(NotMapped) or not prop.HasAttribute(Column) then
+          Continue;
+        columns.Add(GetColumnName(prop));
       end;
     finally
       ctx.Free;
@@ -568,9 +533,6 @@ begin
     for prop in rType.GetProperties do
     begin
       if not prop.IsWritable then
-        Continue;
-
-      if not ShouldUseInSelect(prop) then
         Continue;
 
       columnName := GetColumnName(prop);
