@@ -18,7 +18,7 @@ type
     function Validate: TValidationResult; virtual;
     function ValidateProperty(const APropertyName: string; const AValue: TValue): TValidationResult;
   public
-    [Column('id', [cpPrimaryKey, cpAutoIncrement], [cucFind])]
+    [Column('id', [cpPrimaryKey, cpAutoIncrement])]
     property Id: Int64 read FId write FId;
 
     constructor Create; virtual;

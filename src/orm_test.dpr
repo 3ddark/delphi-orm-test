@@ -17,23 +17,25 @@ uses
   FireDAC.Stan.Def,
   FireDAC.DApt,
   FireDAC.Stan.Async,
-  Entity in 'Entity.pas',
-  Repository in 'Repository.pas',
-  EntityAttributes in 'EntityAttributes.pas',
-  Persons in 'Persons.pas',
-  FilterCriterion in 'FilterCriterion.pas',
-  RepositoryManager in 'RepositoryManager.pas',
   CascadeHelper in 'CascadeHelper.pas',
+  Entity in 'Entity.pas',
+  EntityAttributes in 'EntityAttributes.pas',
+  FilterCriterion in 'FilterCriterion.pas',
   LocalizationManager in 'LocalizationManager.pas',
-  PersonRepository in 'PersonRepository.pas';
+  Repository in 'Repository.pas',
+  Service in 'Service.pas',
+  SharedFormTypes in 'SharedFormTypes.pas',
+  UnitOfWork in 'UnitOfWork.pas',
+  PersonRepository in 'PersonRepository.pas',
+  Persons in 'Persons.pas',
+  PersonService in 'PersonService.pas';
 
 var
   LConn: TFDConnection;
   FPhys: TFDPhysPgDriverLink;
+  LPersonSvc: TPersonService;
 
-  LRepoPerson: IRepository<TPerson>;
   LPerson: TPerson;
-  LPersonAddress: TPersonAddress;
 begin
   ReportMemoryLeaksOnShutdown := True;
   try
@@ -54,39 +56,21 @@ begin
     FPhys := TFDPhysPgDriverLink.Create(nil);
     FPhys.VendorLib := TPath.Combine(TPath.Combine(ExtractFilePath(ParamStr(0)), 'lib'), 'libpq.dll');
 
-    TRepositoryManager.Instance.Initialize(LConn);
+    TUnitOfWork.Initialize(LConn);
 
-    LRepoPerson := TRepositoryManager.Instance.GetRepository<TPerson, TPersonRepository>;
-    LPerson := LRepoPerson.FindById(3, False, [ioIncludeAll]);
+    LPersonSvc := TPersonService.Create;
 
-//    LRepoPerson.Delete(LPerson);
+    LPerson := LPersonSvc.FindById(3, False);
 
-//    LPerson := LRepoPerson.FindById(2, False, [ioIncludeChildren]);
+    Writeln(LPerson.PersonName);
 
+    LPerson.PersonName := 'Veli Deli';
+    LPerson.Salary := 2500;
 
-    LPerson := TPerson.Create;
-    LPerson.PersonName := 'John Doe';
-    LPerson.PersonAge := 130;
-    LPerson.Salary := 100000000;
+    LPersonSvc.BusinessUpdate(LPerson, True, True, True);
 
-    LPersonAddress := TPersonAddress.Create;
-    LPersonAddress.Country := 'Turkey';
-    LPersonAddress.City := 'Istanbul';
-    LPersonAddress.PersonId := LPerson.Id;
-    LPerson.Addresses.Add(LPersonAddress);
-
-    LPersonAddress := TPersonAddress.Create;
-    LPersonAddress.Country := 'Germany';
-    LPersonAddress.City := 'Bochum';
-    LPersonAddress.PersonId := LPerson.Id;
-    LPerson.Addresses.Add(LPersonAddress);
-
-    LPerson.Validate();
-
-    LRepoPerson.Add(LPerson, TCascadeHelper.Insert);
-
-    LPerson := LRepoPerson.FindById(2, False);
-    FreeAndNil(LPerson);
+    Writeln(LPerson.PersonName);
+    Readln;
   except
     on E: Exception do
       Writeln(E.ClassName, ': ', E.Message);

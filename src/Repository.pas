@@ -29,7 +29,7 @@ type
     ['{808825C5-94CA-4B8F-BCEA-D351F4F6813E}']
     function FindById(AId: TValue; ALock: Boolean = False; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil): T;
     function FindOne(AFilter: TFilterCriteria; ALock: Boolean = False; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil): T;
-    function Find(AFilter: TFilterCriteria; ALock: Boolean = False; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil): TObjectList<T>;
+    function Find(AFilter: TFilterCriteria; ALock: Boolean = False; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil): TList<T>;
 
     procedure Add(AModel: T; ACascade: TCascadeOperations = []); overload;
     procedure AddBatch(AModels: TArray<T>; ACascade: TCascadeOperations = []); overload;
@@ -85,7 +85,7 @@ type
   public
     function FindById(AId: TValue; ALock: Boolean = False; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil): T;
     function FindOne(AFilter: TFilterCriteria; ALock: Boolean = False; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil): T;
-    function Find(AFilter: TFilterCriteria; ALock: Boolean = False; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil): TObjectList<T>;
+    function Find(AFilter: TFilterCriteria; ALock: Boolean = False; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil): TList<T>;
 
     procedure Add(AModel: T; ACascade: TCascadeOperations = []); overload;
     procedure AddBatch(AModels: TArray<T>; ACascade: TCascadeOperations = []); overload;
@@ -196,8 +196,8 @@ begin
         if not Assigned(colAttr) or colAttr.IsAutoIncrement then
           Continue;
 
-        if (colAttr.SqlUseWhichCols <> []) and not (cucAdd in colAttr.SqlUseWhichCols) then
-          Continue;
+//        if (colAttr.SqlUseWhichCols <> []) and not (cucAdd in colAttr.SqlUseWhichCols) then
+//          Continue;
 
         columnName := GetColumnName(prop);
         propValue := prop.GetValue(AEntity);
@@ -241,8 +241,8 @@ begin
         if not Assigned(colAttr) or colAttr.IsAutoIncrement then
           Continue;
 
-        if (colAttr.SqlUseWhichCols <> []) and not (cucAdd in colAttr.SqlUseWhichCols) then
-          Continue;
+//        if (colAttr.SqlUseWhichCols <> []) and not (cucAdd in colAttr.SqlUseWhichCols) then
+//          Continue;
 
         columnName := GetColumnName(prop);
         if query.ParamByName(columnName) <> nil then
@@ -1283,8 +1283,8 @@ begin
         if colAttr.IsPrimaryKey or colAttr.IsAutoIncrement then
           Continue;
 
-        if (colAttr.SqlUseWhichCols <> []) and not (cucUpdate in colAttr.SqlUseWhichCols) then
-          Continue;
+//        if (colAttr.SqlUseWhichCols <> []) and not (cucUpdate in colAttr.SqlUseWhichCols) then
+//          Continue;
 
         columnName := GetColumnName(prop);
         setParts.Add(columnName + ' = :' + columnName);
@@ -1321,8 +1321,8 @@ begin
         if not Assigned(colAttr) or colAttr.IsPrimaryKey or colAttr.IsAutoIncrement then
           Continue;
 
-        if (colAttr.SqlUseWhichCols <> []) and not (cucUpdate in colAttr.SqlUseWhichCols) then
-          Continue;
+//        if (colAttr.SqlUseWhichCols <> []) and not (cucUpdate in colAttr.SqlUseWhichCols) then
+//          Continue;
 
         columnName := GetColumnName(prop);
         if query.ParamByName(columnName) <> nil then
@@ -1622,7 +1622,7 @@ begin
   end;
 end;
 
-function TRepository<T>.Find(AFilter: TFilterCriteria; ALock: Boolean = False; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil): TObjectList<T>;
+function TRepository<T>.Find(AFilter: TFilterCriteria; ALock: Boolean = False; AInclude: TIncludeOptions = [ioIncludeNone]; ARelations: TRelationNames = nil): TList<T>;
 var
   LQuery: TFDQuery;
   LWhereClause: TStringBuilder;
@@ -1797,8 +1797,8 @@ begin
         if not Assigned(colAttr) or colAttr.IsAutoIncrement then
           Continue;
 
-        if (colAttr.SqlUseWhichCols <> []) and not (cucAdd in colAttr.SqlUseWhichCols) then
-          Continue;
+//        if (colAttr.SqlUseWhichCols <> []) and not (cucAdd in colAttr.SqlUseWhichCols) then
+//          Continue;
 
         columnName := GetColumnName(prop);
         propValue := prop.GetValue(TObject(AModel));
@@ -1850,8 +1850,8 @@ begin
         if not Assigned(colAttr) or colAttr.IsAutoIncrement then
           Continue;
 
-        if (colAttr.SqlUseWhichCols <> []) and not (cucAdd in colAttr.SqlUseWhichCols) then
-          Continue;
+//        if (colAttr.SqlUseWhichCols <> []) and not (cucAdd in colAttr.SqlUseWhichCols) then
+//          Continue;
 
         columnName := GetColumnName(prop);
         if query.Params.FindParam(columnName) <> nil then
@@ -1957,12 +1957,14 @@ begin
 
   if wasInTransaction then
   begin
-    try
-      for i := 0 to High(AModels) do
-        Add(AModels[i], ACascade);
-    except
-      on E: Exception do
-        raise Exception.CreateFmt('Batch insert failed at index %d: %s', [i, E.Message]);
+    for i := 0 to High(AModels) do
+    begin
+      try
+          Add(AModels[i], ACascade);
+      except
+        on E: Exception do
+          raise Exception.CreateFmt('Batch insert failed at index %d: %s', [i, E.Message]);
+      end;
     end;
   end
   else
@@ -1982,7 +1984,7 @@ begin
           begin
             if transaction.Active then
               transaction.Rollback;
-            raise Exception.CreateFmt('Batch insert failed at index %d: %s', [i, E.Message]);
+            raise Exception.CreateFmt('Batch insert failed %s', [E.Message]);
           end;
         end;
       except
@@ -2117,8 +2119,8 @@ begin
         if not Assigned(colAttr) or colAttr.IsPrimaryKey or colAttr.IsAutoIncrement then
           Continue;
 
-        if (colAttr.SqlUseWhichCols <> []) and not (cucUpdate in colAttr.SqlUseWhichCols) then
-          Continue;
+//        if (colAttr.SqlUseWhichCols <> []) and not (cucUpdate in colAttr.SqlUseWhichCols) then
+//          Continue;
 
         columnName := GetColumnName(prop);
 
@@ -2186,8 +2188,8 @@ begin
              colAttr.IsAutoIncrement or (prop = versionProp) then
             Continue;
 
-          if (colAttr.SqlUseWhichCols <> []) and not (cucUpdate in colAttr.SqlUseWhichCols) then
-            Continue;
+//          if (colAttr.SqlUseWhichCols <> []) and not (cucUpdate in colAttr.SqlUseWhichCols) then
+//            Continue;
 
           columnName := GetColumnName(prop);
           if query.Params.FindParam(columnName) <> nil then
@@ -2276,7 +2278,7 @@ begin
         Update(AModels[i], ACascade);
     except
       on E: Exception do
-        raise Exception.CreateFmt('Batch update failed at index %d: %s', [i, E.Message]);
+        raise Exception.CreateFmt('Batch update failed %s', [E.Message]);
     end;
   end
   else
@@ -2298,7 +2300,7 @@ begin
           begin
             if transaction.Active then
               transaction.Rollback;
-            raise Exception.CreateFmt('Batch update failed at index %d: %s', [i, E.Message]);
+            raise Exception.CreateFmt('Batch update failed %s', [E.Message]);
           end;
         end;
       except
@@ -2521,7 +2523,7 @@ begin
         Delete(AModels[i], ACascade);
     except
       on E: Exception do
-        raise Exception.CreateFmt('Batch delete failed at index %d: %s', [i, E.Message]);
+        raise Exception.CreateFmt('Batch delete failed %s', [E.Message]);
     end;
   end
   else
@@ -2543,7 +2545,7 @@ begin
           begin
             if transaction.Active then
               transaction.Rollback;
-            raise Exception.CreateFmt('Batch delete failed at index %d: %s', [i, E.Message]);
+            raise Exception.CreateFmt('Batch delete failed %s', [E.Message]);
           end;
         end;
       except
@@ -2592,7 +2594,7 @@ begin
           Delete(AIDs[i], ACascade);
       except
         on E: Exception do
-          raise Exception.CreateFmt('Cascade delete failed at ID %d (index %d): %s', [AIDs[i], i, E.Message]);
+          raise Exception.CreateFmt('Cascade delete failed %s', [E.Message]);
       end;
     end
     else
@@ -2614,7 +2616,7 @@ begin
             begin
               if transaction.Active then
                 transaction.Rollback;
-              raise Exception.CreateFmt('Cascade delete failed at ID %d (index %d): %s', [AIDs[i], i, E.Message]);
+              raise Exception.CreateFmt('Cascade delete failed %s', [E.Message]);
             end;
           end;
         except
@@ -2718,7 +2720,7 @@ var
   sql, whereClause: string;
   fc: TFilterCriterion;
   i: Integer;
-  models: TObjectList<T>;
+  models: TList<T>;
   transaction: TFDTransaction;
   ctx: TRttiContext;
   rType: TRttiType;
@@ -2749,7 +2751,7 @@ begin
               Delete(models[i], ACascade);
           except
             on E: Exception do
-              raise Exception.CreateFmt('Cascade delete failed at index %d: %s', [i, E.Message]);
+              raise Exception.CreateFmt('Cascade delete failed %s', [E.Message]);
           end;
         end
         else
@@ -2771,7 +2773,7 @@ begin
                 begin
                   if transaction.Active then
                     transaction.Rollback;
-                  raise Exception.CreateFmt('Cascade delete failed at index %d: %s', [i, E.Message]);
+                  raise Exception.CreateFmt('Cascade delete failed %s', [E.Message]);
                 end;
               end;
             except

@@ -8,6 +8,7 @@ uses
 type
   TLocalizationManager = class
   private
+    class var FLock: TObject;
     class var FInstance: TLocalizationManager;
     class var FCurrentLanguage: string;
     class var FTranslations: TDictionary<string, TDictionary<string, string>>;
@@ -35,6 +36,7 @@ uses
 
 class constructor TLocalizationManager.Create;
 begin
+  FLock := TObject.Create;
   FCurrentLanguage := 'en';
   FTranslations := TDictionary<string, TDictionary<string, string>>.Create;
   InitializeTranslations;
@@ -50,6 +52,8 @@ begin
       LanguageDict.Free;
     FreeAndNil(FTranslations);
   end;
+  if Assigned(FLock) then
+    FreeAndNil(FLock);
   if Assigned(FInstance) then
     FreeAndNil(FInstance);
 end;
@@ -124,10 +128,15 @@ end;
 
 class procedure TLocalizationManager.SetLanguage(const ALanguageCode: string);
 begin
-  if FTranslations.ContainsKey(ALanguageCode) then
-    FCurrentLanguage := ALanguageCode
-  else
-    FCurrentLanguage := 'en';
+  TMonitor.Enter(FLock);
+  try
+    if FTranslations.ContainsKey(ALanguageCode) then
+      FCurrentLanguage := ALanguageCode
+    else
+      FCurrentLanguage := 'en';
+  finally
+    TMonitor.Exit(FLock);
+  end;
 end;
 
 class function TLocalizationManager.GetCurrentLanguage: string;

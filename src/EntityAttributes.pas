@@ -10,8 +10,8 @@ type
   TColumnProperty = (cpNotNull, cpUnique, cpPrimaryKey, cpAutoIncrement);
   TColumnProperties = set of TColumnProperty;
 
-  TColumnUseCriteria = (cucFind, cucAdd, cucUpdate, cucAll);
-  TColumnUseCriterias = set of TColumnUseCriteria;
+//  TColumnUseCriteria = (cucFind, cucAdd, cucUpdate, cucAll);
+//  TColumnUseCriterias = set of TColumnUseCriteria;
 
 //  TDataType = (dtString, dtInteger, dtBigInt, dtFloat, dtDouble, dtDecimal, dtDateTime,
 //               dtDate, dtTime, dtBoolean, dtText, dtBlob, dtGUID, dtJSON, dtEnum,
@@ -64,7 +64,7 @@ type
   private
     FName: string;
     FProperties: TColumnProperties;
-    FSqlUseWhichCols: TColumnUseCriterias;
+//    FSqlUseWhichCols: TColumnUseCriterias;
     FLength: Integer;
     FPrecision: Integer;
     FScale: Integer;
@@ -72,7 +72,7 @@ type
     FCollation: string;
   public
     constructor Create(const AName: string; AProperties: TColumnProperties = [];
-                      ASqlUseWhichCols: TColumnUseCriterias = [cucAll];
+                      //ASqlUseWhichCols: TColumnUseCriterias = [cucAll];
                       //ADataType: TDataType = dtString;
                       ALength: Integer = 0;
                       APrecision: Integer = 0; AScale: Integer = 0;
@@ -80,7 +80,7 @@ type
                       const ACollation: string = '');
     property Name: string read FName;
     property Properties: TColumnProperties read FProperties;
-    property SqlUseWhichCols: TColumnUseCriterias read FSqlUseWhichCols;
+//    property SqlUseWhichCols: TColumnUseCriterias read FSqlUseWhichCols;
 //    property DataType: TDataType read FDataType;
     property Length: Integer read FLength;
     property Precision: Integer read FPrecision;
@@ -494,7 +494,7 @@ begin
 end;
 
 constructor Column.Create(const AName: string; AProperties: TColumnProperties = [];
-                         ASqlUseWhichCols: TColumnUseCriterias = [cucAll];
+                         //ASqlUseWhichCols: TColumnUseCriterias = [cucAll];
                          //ADataType: TDataType = dtString;
                          ALength: Integer = 0;
                          APrecision: Integer = 0; AScale: Integer = 0;
@@ -504,7 +504,7 @@ begin
   inherited Create;
   FName := AName;
   FProperties := AProperties;
-  FSqlUseWhichCols := ASqlUseWhichCols;
+//  FSqlUseWhichCols := ASqlUseWhichCols;
 //  FDataType := ADataType;
   FLength := ALength;
   FPrecision := APrecision;
@@ -547,8 +547,6 @@ begin
 end;
 
 constructor CompositeKey.Create(const AColumn: string);
-var
-  n1: Integer;
 begin
   inherited Create;
   FColumn := AColumn;

@@ -60,7 +60,7 @@ type
     [Range(0, 100, 'validation.range', True)]
     property PersonAge: Integer read FPersonAge write FPersonAge;
 
-    [Column('salary', [cpNotNull], [cucFind, cucUpdate])]
+    [Column('salary', [cpNotNull])]
     [Required('person.salary.required', True)]
     [Range(0.0, 99999999.0, 'validation.range', True)]
     property Salary: Double read FSalary write FSalary;
